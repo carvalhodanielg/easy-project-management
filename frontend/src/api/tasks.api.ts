@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams } from '../types/task.types';
+import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult } from '../types/task.types';
 
 interface ApiResponse<T> { data: T; }
 
@@ -19,6 +19,16 @@ function buildParams(filters: TaskFilterParams): URLSearchParams {
 
 export async function getTasks(spaceId: string, filters: TaskFilterParams = {}): Promise<Task[]> {
   const res = await apiClient.get<ApiResponse<Task[]>>(
+    `/spaces/${spaceId}/tasks?${buildParams(filters).toString()}`,
+  );
+  return res.data.data;
+}
+
+export async function getGroupedTasks(
+  spaceId: string,
+  filters: TaskFilterParams,
+): Promise<GroupedTaskResult[]> {
+  const res = await apiClient.get<ApiResponse<GroupedTaskResult[]>>(
     `/spaces/${spaceId}/tasks?${buildParams(filters).toString()}`,
   );
   return res.data.data;

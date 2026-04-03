@@ -89,3 +89,10 @@ export interface TaskFilterParams {
   includeSubtasks?: boolean;
   q?: string;
 }
+
+export interface GroupedTaskResult {
+  groupKey: string | null;
+  tasks: Task[];
+  totalStoryPoints: number;
+  count: number;
+}

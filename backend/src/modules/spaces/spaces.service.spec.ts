@@ -159,5 +159,63 @@ describe('SpacesService', () => {
         service.removeMember(spaceId, memberId, userId),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('removes member successfully', async () => {
+      mockSpaceMemberModel.findOneAndDelete.mockReturnValue(execMock(mockMember));
+      await expect(service.removeMember(spaceId, memberId, userId)).resolves.not.toThrow();
+    });
+  });
+
+  describe('findAllForUser', () => {
+    it('returns spaces for user memberships', async () => {
+      mockSpaceMemberModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ spaceId: mockSpace._id }]),
+      });
+      mockSpaceModel.find.mockReturnValue(execMock([mockSpace]));
+      const result = await service.findAllForUser(userId);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('getMembers', () => {
+    it('returns populated member list', async () => {
+      mockSpaceMemberModel.find.mockReturnValue({
+        populate: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([mockMember]),
+      });
+      const result = await service.getMembers(spaceId);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('updateMemberRole', () => {
+    it('updates role and returns updated member', async () => {
+      const updated = { ...mockMember, role: SpaceRole.Viewer };
+      mockSpaceMemberModel.findOneAndUpdate.mockReturnValue(execMock(updated));
+      const result = await service.updateMemberRole(spaceId, userId, { role: SpaceRole.Viewer });
+      expect(result.role).toBe(SpaceRole.Viewer);
+    });
+
+    it('throws NotFoundException when member not found', async () => {
+      mockSpaceMemberModel.findOneAndUpdate.mockReturnValue(execMock(null));
+      await expect(
+        service.updateMemberRole(spaceId, userId, { role: SpaceRole.Viewer }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getUserRole', () => {
+    it('returns null when user has no membership', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(null));
+      const result = await service.getUserRole(spaceId, userId);
+      expect(result).toBeNull();
+    });
+
+    it('returns role when member found', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
+      const result = await service.getUserRole(spaceId, userId);
+      expect(result).toBe(SpaceRole.Editor);
+    });
   });
 });

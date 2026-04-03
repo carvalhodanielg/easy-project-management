@@ -188,4 +188,97 @@ describe('TasksService', () => {
       expect(mockTaskModel.updateOne).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('create — field mapping', () => {
+    it('maps assignees, tags, dates, and parentTask', async () => {
+      mockTaskModel.countDocuments.mockReturnValue(countMock(0));
+      mockTaskModel.create.mockResolvedValue(mockTask);
+
+      await service.create(spaceId, userId, {
+        name: 'Task',
+        listId,
+        assignees: [userId],
+        tags: [targetId],
+        startDate: '2025-01-01',
+        dueDate: '2025-02-01',
+        parentTask: targetId,
+      });
+
+      expect(mockTaskModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          startDate: expect.any(Date),
+          dueDate: expect.any(Date),
+        }),
+      );
+    });
+  });
+
+  describe('findBySpace', () => {
+    it('filters by listId', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      const result = await service.findBySpace(spaceId, { listId });
+      expect(result).toHaveLength(1);
+    });
+
+    it('filters by sprintId', async () => {
+      const sprintId = new Types.ObjectId().toString();
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      const result = await service.findBySpace(spaceId, { sprintId });
+      expect(result).toHaveLength(1);
+    });
+
+    it('filters parentTask = null when specified', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([]));
+      await service.findBySpace(spaceId, { parentTask: null });
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ parentTask: null }),
+      );
+    });
+  });
+
+  describe('findSubtasks', () => {
+    it('returns tasks by parentTask id', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      const result = await service.findSubtasks(taskId);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('update — field mapping', () => {
+    it('maps assignees and tags arrays', async () => {
+      const updated = { ...mockTask, assignees: [userId] };
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
+      await service.update(spaceId, taskId, { assignees: [userId], tags: [targetId] });
+      expect(mockTaskModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ assignees: expect.any(Array), tags: expect.any(Array) }),
+        expect.anything(),
+      );
+    });
+
+    it('maps null dates', async () => {
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
+      await service.update(spaceId, taskId, { startDate: null, dueDate: null });
+      expect(mockTaskModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ startDate: null, dueDate: null }),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('move', () => {
+    it('moves task to new sprint', async () => {
+      const sprintId = new Types.ObjectId().toString();
+      const moved = { ...mockTask, sprintId: new Types.ObjectId(sprintId) };
+      mockTaskModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(moved) });
+      const result = await service.move(spaceId, taskId, { sprintId });
+      expect(result.sprintId?.toString()).toBe(moved.sprintId.toString());
+    });
+
+    it('throws NotFoundException when task not found during move', async () => {
+      mockTaskModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      await expect(service.move(spaceId, taskId, { listId })).rejects.toThrow(NotFoundException);
+    });
+  });
 });

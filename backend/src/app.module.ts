@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import * as path from 'path';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
@@ -32,6 +34,7 @@ import { WikiModule } from './modules/wiki/wiki.module';
       ],
       inject: [ConfigService],
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     DatabaseModule,
     UsersModule,
     AuthModule,
@@ -44,5 +47,6 @@ import { WikiModule } from './modules/wiki/wiki.module';
     AttachmentsModule,
     WikiModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

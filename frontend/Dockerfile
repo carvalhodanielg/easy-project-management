@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 
 FROM base AS development
-RUN npm ci
+RUN npm install
 COPY . .
 CMD ["npm", "run", "dev"]
 

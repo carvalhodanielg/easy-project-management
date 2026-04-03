@@ -1,0 +1,205 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { Task, TaskDocument, FIBONACCI_POINTS } from './schemas/task.schema';
+import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, AddDependencyDto } from './dto/create-task.dto';
+
+@Injectable()
+export class TasksService {
+  constructor(
+    @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
+  ) {}
+
+  async create(spaceId: string, userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
+    if (!dto.listId && !dto.sprintId) {
+      throw new BadRequestException('Task must belong to a list or sprint');
+    }
+
+    if (dto.storyPoints && !FIBONACCI_POINTS.includes(dto.storyPoints as (typeof FIBONACCI_POINTS)[number])) {
+      throw new BadRequestException('Story points must be a Fibonacci number');
+    }
+
+    const count = await this.taskModel
+      .countDocuments({
+        spaceId: new Types.ObjectId(spaceId),
+        listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+        sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+        parentTask: null,
+      })
+      .exec();
+
+    return this.taskModel.create({
+      spaceId: new Types.ObjectId(spaceId),
+      listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+      sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+      name: dto.name,
+      description: dto.description ?? '',
+      status: dto.status,
+      priority: dto.priority,
+      assignees: (dto.assignees ?? []).map((id) => new Types.ObjectId(id)),
+      startDate: dto.startDate ? new Date(dto.startDate) : null,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      tags: (dto.tags ?? []).map((id) => new Types.ObjectId(id)),
+      storyPoints: dto.storyPoints ?? null,
+      parentTask: dto.parentTask ? new Types.ObjectId(dto.parentTask) : null,
+      position: dto.position ?? count,
+      createdBy: new Types.ObjectId(userId),
+    });
+  }
+
+  async findById(taskId: string): Promise<TaskDocument> {
+    const task = await this.taskModel
+      .findById(taskId)
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .populate('blockedBy', 'name status')
+      .populate('blocks', 'name status')
+      .exec();
+
+    if (!task) throw new NotFoundException('Task not found');
+    return task;
+  }
+
+  async findBySpace(spaceId: string, query: {
+    listId?: string;
+    sprintId?: string;
+    parentTask?: null;
+  }): Promise<TaskDocument[]> {
+    const filter: Record<string, unknown> = { spaceId: new Types.ObjectId(spaceId) };
+    if (query.listId) filter.listId = new Types.ObjectId(query.listId);
+    if (query.sprintId) filter.sprintId = new Types.ObjectId(query.sprintId);
+    if ('parentTask' in query) filter.parentTask = null;
+
+    return this.taskModel
+      .find(filter)
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .sort({ position: 1, createdAt: 1 })
+      .exec();
+  }
+
+  async findSubtasks(parentTaskId: string): Promise<TaskDocument[]> {
+    return this.taskModel
+      .find({ parentTask: new Types.ObjectId(parentTaskId) })
+      .populate('assignees', 'email displayName avatarUrl')
+      .sort({ position: 1, createdAt: 1 })
+      .exec();
+  }
+
+  async update(spaceId: string, taskId: string, dto: UpdateTaskDto): Promise<TaskDocument> {
+    const updates: Record<string, unknown> = { ...dto };
+
+    if (dto.assignees !== undefined) {
+      updates.assignees = dto.assignees.map((id) => new Types.ObjectId(id));
+    }
+    if (dto.tags !== undefined) {
+      updates.tags = dto.tags.map((id) => new Types.ObjectId(id));
+    }
+    if (dto.startDate !== undefined) {
+      updates.startDate = dto.startDate ? new Date(dto.startDate) : null;
+    }
+    if (dto.dueDate !== undefined) {
+      updates.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    }
+
+    const task = await this.taskModel
+      .findOneAndUpdate(
+        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
+        updates,
+        { returnDocument: 'after' },
+      )
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .exec();
+
+    if (!task) throw new NotFoundException('Task not found');
+    return task;
+  }
+
+  async move(spaceId: string, taskId: string, dto: MoveTaskDto): Promise<TaskDocument> {
+    const updates: Record<string, unknown> = {
+      listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+      sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+    };
+
+    const task = await this.taskModel
+      .findOneAndUpdate(
+        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
+        updates,
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!task) throw new NotFoundException('Task not found');
+    return task;
+  }
+
+  async remove(spaceId: string, taskId: string): Promise<void> {
+    const task = await this.taskModel
+      .findOneAndDelete({
+        _id: new Types.ObjectId(taskId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
+      .exec();
+
+    if (!task) throw new NotFoundException('Task not found');
+
+    // Remove from other tasks' dependency arrays
+    await Promise.all([
+      this.taskModel.updateMany(
+        { spaceId: new Types.ObjectId(spaceId) },
+        { $pull: { blockedBy: new Types.ObjectId(taskId), blocks: new Types.ObjectId(taskId) } },
+      ),
+    ]);
+  }
+
+  async addDependency(spaceId: string, taskId: string, dto: AddDependencyDto): Promise<void> {
+    const [task, target] = await Promise.all([
+      this.taskModel.findOne({ _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) }).exec(),
+      this.taskModel.findOne({ _id: new Types.ObjectId(dto.targetTaskId), spaceId: new Types.ObjectId(spaceId) }).exec(),
+    ]);
+
+    if (!task || !target) throw new NotFoundException('Task not found');
+
+    if (dto.type === 'blocks') {
+      await Promise.all([
+        this.taskModel.updateOne(
+          { _id: task._id },
+          { $addToSet: { blocks: target._id } },
+        ),
+        this.taskModel.updateOne(
+          { _id: target._id },
+          { $addToSet: { blockedBy: task._id } },
+        ),
+      ]);
+    } else {
+      await Promise.all([
+        this.taskModel.updateOne(
+          { _id: task._id },
+          { $addToSet: { blockedBy: target._id } },
+        ),
+        this.taskModel.updateOne(
+          { _id: target._id },
+          { $addToSet: { blocks: task._id } },
+        ),
+      ]);
+    }
+  }
+
+  async removeDependency(spaceId: string, taskId: string, targetId: string): Promise<void> {
+    await Promise.all([
+      this.taskModel.updateOne(
+        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
+        { $pull: { blocks: new Types.ObjectId(targetId), blockedBy: new Types.ObjectId(targetId) } },
+      ),
+      this.taskModel.updateOne(
+        { _id: new Types.ObjectId(targetId), spaceId: new Types.ObjectId(spaceId) },
+        { $pull: { blocks: new Types.ObjectId(taskId), blockedBy: new Types.ObjectId(taskId) } },
+      ),
+    ]);
+  }
+}

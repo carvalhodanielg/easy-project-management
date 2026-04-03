@@ -1,0 +1,156 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
+import { TasksFilterService } from './tasks-filter.service';
+import { Task, TaskStatus, TaskPriority } from './schemas/task.schema';
+import { Types } from 'mongoose';
+
+const spaceId = new Types.ObjectId().toString();
+const userId = new Types.ObjectId().toString();
+const listId = new Types.ObjectId().toString();
+const sprintId = new Types.ObjectId().toString();
+
+const mockTasks = [
+  {
+    _id: new Types.ObjectId(),
+    name: 'Task 1',
+    status: TaskStatus.Feito,
+    storyPoints: 5,
+    assignees: [new Types.ObjectId(userId)],
+  },
+  {
+    _id: new Types.ObjectId(),
+    name: 'Task 2',
+    status: TaskStatus.Pendente,
+    storyPoints: 3,
+    assignees: [],
+  },
+];
+
+function makeChain(result: unknown) {
+  return {
+    populate: jest.fn().mockReturnThis(),
+    sort: jest.fn().mockReturnThis(),
+    exec: jest.fn().mockResolvedValue(result),
+  };
+}
+
+const mockTaskModel = {
+  find: jest.fn(),
+  aggregate: jest.fn(),
+};
+
+describe('TasksFilterService', () => {
+  let service: TasksFilterService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TasksFilterService,
+        { provide: getModelToken(Task.name), useValue: mockTaskModel },
+      ],
+    }).compile();
+    service = module.get<TasksFilterService>(TasksFilterService);
+  });
+
+  describe('findFiltered — no groupBy', () => {
+    it('returns flat list with no filters', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain(mockTasks));
+      const result = await service.findFiltered(spaceId, {}, userId);
+      expect(result).toEqual(mockTasks);
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ spaceId: expect.anything(), parentTask: null }),
+      );
+    });
+
+    it('filters by listId', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain(mockTasks));
+      await service.findFiltered(spaceId, { listId }, userId);
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ listId: expect.anything() }),
+      );
+    });
+
+    it('filters by sprintId', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { sprintId }, userId);
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ sprintId: expect.anything() }),
+      );
+    });
+
+    it('resolves "me" assignee to currentUserId', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { assignees: ['me'] }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as { assignees: { $in: Types.ObjectId[] } };
+      const assigneeId = callArg.assignees.$in[0].toString();
+      expect(assigneeId).toBe(userId);
+    });
+
+    it('filters by status array', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(
+        spaceId,
+        { status: [TaskStatus.Pendente, TaskStatus.EmProgresso] },
+        userId,
+      );
+      const callArg = mockTaskModel.find.mock.calls[0][0] as { status: { $in: TaskStatus[] } };
+      expect(callArg.status.$in).toContain(TaskStatus.Pendente);
+    });
+
+    it('filters by priority', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { priority: [TaskPriority.Urgente] }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as { priority: { $in: TaskPriority[] } };
+      expect(callArg.priority.$in).toContain(TaskPriority.Urgente);
+    });
+
+    it('includes subtasks when includeSubtasks is true', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { includeSubtasks: true }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as Record<string, unknown>;
+      expect(callArg).not.toHaveProperty('parentTask');
+    });
+
+    it('filters by text search (q)', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { q: 'bug' }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as { name: { $regex: string } };
+      expect(callArg.name.$regex).toBe('bug');
+    });
+  });
+
+  describe('findFiltered — with groupBy', () => {
+    it('uses aggregate for groupBy=status', async () => {
+      mockTaskModel.aggregate.mockResolvedValue([
+        { _id: TaskStatus.Pendente, tasks: [mockTasks[1]], totalStoryPoints: 3, count: 1 },
+      ]);
+      const result = await service.findFiltered(spaceId, { groupBy: 'status' }, userId) as {
+        groupKey: string;
+        totalStoryPoints: number;
+        count: number;
+      }[];
+      expect(mockTaskModel.aggregate).toHaveBeenCalled();
+      expect(result[0].groupKey).toBe(TaskStatus.Pendente);
+      expect(result[0].totalStoryPoints).toBe(3);
+    });
+
+    it('for groupBy=assignee restricts to feito status', async () => {
+      mockTaskModel.aggregate.mockResolvedValue([]);
+      await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId);
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $match?: { status?: TaskStatus } }[];
+      const matchStage = pipeline.find((s) => s.$match);
+      expect(matchStage?.$match?.status).toBe(TaskStatus.Feito);
+    });
+  });
+
+  describe('getSprintPointSums', () => {
+    it('aggregates point sums grouped by sprint', async () => {
+      const sprintObjId = new Types.ObjectId(sprintId);
+      mockTaskModel.aggregate.mockResolvedValue([{ _id: sprintObjId, total: 13 }]);
+      const result = await service.getSprintPointSums(spaceId, [sprintId]);
+      expect(result[0].total).toBe(13);
+      expect(result[0].sprintId).toBe(sprintId);
+    });
+  });
+});

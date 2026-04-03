@@ -16,7 +16,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
-import { UserDocument } from '../users/schemas/user.schema';
+import type { UserDocument } from '../users/schemas/user.schema';
 import { Types } from 'mongoose';
 import { SpacesService } from '../spaces/spaces.service';
 import { SpaceRole } from '../spaces/schemas/space-member.schema';

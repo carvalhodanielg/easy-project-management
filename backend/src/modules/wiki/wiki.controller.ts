@@ -19,7 +19,7 @@ import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
-import { UserDocument } from '../users/schemas/user.schema';
+import type { UserDocument } from '../users/schemas/user.schema';
 
 @UseGuards(JwtAuthGuard, SpaceRoleGuard)
 @Controller('spaces/:spaceId/wiki')

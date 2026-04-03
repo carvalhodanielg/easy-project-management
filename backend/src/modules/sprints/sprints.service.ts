@@ -48,7 +48,7 @@ export class SprintsService {
   }
 
   async update(spaceId: string, sprintId: string, dto: UpdateSprintDto): Promise<SprintDocument> {
-    const updates: Partial<Sprint> = { ...dto };
+    const updates: Record<string, unknown> = { ...dto };
     if (dto.startDate) updates.startDate = new Date(dto.startDate);
     if (dto.endDate) updates.endDate = new Date(dto.endDate);
 

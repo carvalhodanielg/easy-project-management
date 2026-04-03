@@ -4,7 +4,7 @@ import { Model, Types, PipelineStage } from 'mongoose';
 import { Task, TaskDocument, TaskStatus } from './schemas/task.schema';
 import { TaskFilterQueryDto } from './dto/task-filter-query.dto';
 
-interface GroupedResult {
+export interface GroupedResult {
   groupKey: string | null;
   tasks: TaskDocument[];
   totalStoryPoints: number;
@@ -156,7 +156,7 @@ export class TasksFilterService {
   private async groupByAssignee(match: Record<string, unknown>): Promise<GroupedResult[]> {
     const pipeline: PipelineStage[] = [
       { $match: match },
-      { $unwind: { path: '$assignees', preserveNullAndEmpty: true } },
+      { $unwind: { path: '$assignees', preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: '$assignees',

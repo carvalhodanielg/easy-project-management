@@ -15,7 +15,7 @@ import {
   SpaceMemberDocument,
   SpaceRole,
 } from '../../modules/spaces/schemas/space-member.schema';
-import { UserDocument } from '../../modules/users/schemas/user.schema';
+import type { UserDocument } from '../../modules/users/schemas/user.schema';
 
 @Injectable()
 export class SpaceRoleGuard implements CanActivate {

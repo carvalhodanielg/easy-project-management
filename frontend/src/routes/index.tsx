@@ -7,6 +7,8 @@ import { SpaceLayout } from '../pages/space/SpaceLayout';
 import { ListPage } from '../pages/list/ListPage';
 import { SprintPage } from '../pages/sprint/SprintPage';
 import { TaskDetailPage } from '../pages/task/TaskDetailPage';
+import { WikiFolderPage } from '../pages/wiki/WikiFolderPage';
+import { WikiDocumentPage } from '../pages/wiki/WikiDocumentPage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
@@ -23,6 +25,8 @@ export const router = createBrowserRouter([
           { path: 'lists/:listId', element: <ListPage /> },
           { path: 'sprints/:sprintId', element: <SprintPage /> },
           { path: 'tasks/:taskId', element: <TaskDetailPage /> },
+          { path: 'wiki/folders/:folderId', element: <WikiFolderPage /> },
+          { path: 'wiki/documents/:documentId', element: <WikiDocumentPage /> },
         ],
       },
     ],

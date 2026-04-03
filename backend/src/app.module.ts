@@ -13,6 +13,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
+import { WikiModule } from './modules/wiki/wiki.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     TagsModule,
     CommentsModule,
     AttachmentsModule,
+    WikiModule,
   ],
 })
 export class AppModule {}

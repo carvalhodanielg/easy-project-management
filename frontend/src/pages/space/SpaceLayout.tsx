@@ -6,6 +6,7 @@ import { useSpacesStore } from '../../store/spaces.store';
 import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
+import * as wikiApi from '../../api/wiki.api';
 
 export function SpaceLayout() {
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -29,6 +30,12 @@ export function SpaceLayout() {
   const { data: sprints = [] } = useQuery({
     queryKey: ['sprints', spaceId],
     queryFn: () => sprintsApi.getSprints(spaceId!),
+    enabled: !!spaceId,
+  });
+
+  const { data: wikiFolders = [] } = useQuery({
+    queryKey: ['wiki-folders', spaceId],
+    queryFn: () => wikiApi.getFolders(spaceId!),
     enabled: !!spaceId,
   });
 
@@ -111,7 +118,7 @@ export function SpaceLayout() {
           )}
 
           {sprints.length > 0 && (
-            <div>
+            <div style={{ marginBottom: '1rem' }}>
               <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#AAA', margin: '0.5rem 0.75rem 0.25rem', letterSpacing: '0.05em' }}>
                 Sprints
               </p>
@@ -122,6 +129,23 @@ export function SpaceLayout() {
                   style={navLinkStyle}
                 >
                   ⚡ Sprint {sprint.number}
+                </NavLink>
+              ))}
+            </div>
+          )}
+
+          {wikiFolders.length > 0 && (
+            <div>
+              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#AAA', margin: '0.5rem 0.75rem 0.25rem', letterSpacing: '0.05em' }}>
+                Wiki
+              </p>
+              {wikiFolders.map((folder) => (
+                <NavLink
+                  key={folder._id}
+                  to={`/spaces/${spaceId}/wiki/folders/${folder._id}`}
+                  style={navLinkStyle}
+                >
+                  📂 {folder.name}
                 </NavLink>
               ))}
             </div>

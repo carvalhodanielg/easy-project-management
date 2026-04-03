@@ -6,6 +6,7 @@ import { HomePage } from '../pages/home/HomePage';
 import { SpaceLayout } from '../pages/space/SpaceLayout';
 import { ListPage } from '../pages/list/ListPage';
 import { SprintPage } from '../pages/sprint/SprintPage';
+import { TaskDetailPage } from '../pages/task/TaskDetailPage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'lists/:listId', element: <ListPage /> },
           { path: 'sprints/:sprintId', element: <SprintPage /> },
+          { path: 'tasks/:taskId', element: <TaskDetailPage /> },
         ],
       },
     ],

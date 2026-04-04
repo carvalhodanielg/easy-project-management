@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TaskRow } from './TaskRow';
 import { Task } from '../../types/task.types';
 
@@ -61,6 +61,22 @@ describe('TaskRow', () => {
   it('renders task with no story points', () => {
     renderRow({ ...mockTask, storyPoints: null });
     expect(screen.queryByText('8')).not.toBeInTheDocument();
+  });
+
+  it('renders expand toggle when onToggleExpand is provided', () => {
+    render(
+      <MemoryRouter initialEntries={['/spaces/space-1/lists/list-1']}>
+        <Routes>
+          <Route path="/spaces/:spaceId/lists/:listId" element={<TaskRow task={mockTask} onToggleExpand={vi.fn()} isExpanded={false} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('button', { name: /expand subtasks/i })).toBeInTheDocument();
+  });
+
+  it('does not render expand toggle by default', () => {
+    renderRow(mockTask);
+    expect(screen.queryByRole('button', { name: /expand subtasks/i })).not.toBeInTheDocument();
   });
 
   it('shows a date element colored red for overdue tasks', () => {

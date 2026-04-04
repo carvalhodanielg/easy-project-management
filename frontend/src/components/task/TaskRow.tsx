@@ -6,9 +6,11 @@ import { PriorityIcon } from '../ui/PriorityIcon';
 interface Props {
   task: Task;
   depth?: number;
+  onToggleExpand?: () => void;
+  isExpanded?: boolean;
 }
 
-export function TaskRow({ task, depth = 0 }: Props) {
+export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded }: Props) {
   const navigate = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
 
@@ -29,6 +31,24 @@ export function TaskRow({ task, depth = 0 }: Props) {
       onMouseEnter={(e) => (e.currentTarget.style.background = '#fafafa')}
       onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
     >
+      {onToggleExpand && (
+        <button
+          aria-label={isExpanded ? 'Collapse subtasks' : 'Expand subtasks'}
+          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0 2px',
+            fontSize: '0.6rem',
+            color: '#AAA',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          {isExpanded ? '▼' : '▶'}
+        </button>
+      )}
       <PriorityIcon priority={task.priority} />
 
       <span style={{ flex: 1, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

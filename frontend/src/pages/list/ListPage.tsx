@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
 import * as listsApi from '../../api/lists.api';
 import { TaskRow } from '../../components/task/TaskRow';
+import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
@@ -116,12 +117,12 @@ export function ListPage() {
                     totalStoryPoints={group.totalStoryPoints}
                   />
                   {group.tasks.map((task) => (
-                    <TaskRow key={task._id} task={task} />
+                    <TaskRowWithSubtasks key={task._id} task={task} spaceId={spaceId!} />
                   ))}
                 </div>
               ))
               : (tasks as Task[]).map((task) => (
-                <TaskRow key={task._id} task={task} />
+                <TaskRowWithSubtasks key={task._id} task={task} spaceId={spaceId!} />
               ))
             }
 

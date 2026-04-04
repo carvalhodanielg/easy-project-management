@@ -6,8 +6,8 @@ import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityIcon } from '../../components/ui/PriorityIcon';
-import { TaskRow } from '../../components/task/TaskRow';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
+import { SubtaskList } from '../../components/task/SubtaskList';
 import {
   type TaskStatus,
   type TaskPriority,
@@ -29,11 +29,6 @@ export function TaskDetailPage() {
     enabled: !!spaceId && !!taskId,
   });
 
-  const { data: subtasks = [] } = useQuery({
-    queryKey: ['subtasks', taskId],
-    queryFn: () => tasksApi.getSubtasks(spaceId!, taskId!),
-    enabled: !!spaceId && !!taskId,
-  });
 
   useEffect(() => {
     if (task) setDescription(task.description);
@@ -234,16 +229,12 @@ export function TaskDetailPage() {
           </div>
 
           {/* Subtasks */}
-          {(subtasks.length > 0) && (
-            <div>
-              <label style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginBottom: '0.5rem' }}>
-                Subtasks ({subtasks.length})
-              </label>
-              {subtasks.map((sub) => (
-                <TaskRow key={sub._id} task={sub} depth={1} />
-              ))}
-            </div>
-          )}
+          <div>
+            <label style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginBottom: '0.5rem' }}>
+              Subtarefas
+            </label>
+            <SubtaskList spaceId={spaceId!} taskId={taskId!} />
+          </div>
 
           {/* Comments */}
           <div style={{ borderTop: '1px solid #E8E8E8', paddingTop: '1.5rem' }}>

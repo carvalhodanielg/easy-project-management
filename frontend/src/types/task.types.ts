@@ -1,4 +1,4 @@
-import { User } from './user.types';
+import type { User } from './user.types';
 
 export type TaskStatus = 'pendente' | 'em_progresso' | 'em_review' | 'feito' | 'fechado';
 export type TaskPriority = 'urgente' | 'alta' | 'normal' | 'baixa';

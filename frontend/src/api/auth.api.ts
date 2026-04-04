@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { User } from '../types/user.types';
+import type { User } from '../types/user.types';
 
 interface AuthResponse {
   data: { token: string };

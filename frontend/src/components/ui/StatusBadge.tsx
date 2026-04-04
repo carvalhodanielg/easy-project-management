@@ -1,4 +1,4 @@
-import { TaskStatus, STATUS_LABELS } from '../../types/task.types';
+import { type TaskStatus, STATUS_LABELS } from '../../types/task.types';
 
 const STATUS_COLORS: Record<TaskStatus, { bg: string; text: string }> = {
   pendente:    { bg: '#F5F5F5', text: '#595959' },

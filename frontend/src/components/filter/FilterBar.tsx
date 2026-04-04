@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FilterState } from '../../hooks/useTaskFilter';
-import { TaskStatus, TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
+import type { FilterState } from '../../hooks/useTaskFilter';
+import { type TaskStatus, type TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
 
 interface SpaceMember {
   _id: string;

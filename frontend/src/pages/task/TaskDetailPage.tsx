@@ -8,8 +8,8 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityIcon } from '../../components/ui/PriorityIcon';
 import { TaskRow } from '../../components/task/TaskRow';
 import {
-  TaskStatus,
-  TaskPriority,
+  type TaskStatus,
+  type TaskPriority,
   FIBONACCI_POINTS,
   STATUS_LABELS,
   PRIORITY_LABELS,

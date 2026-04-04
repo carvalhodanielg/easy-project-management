@@ -1,6 +1,6 @@
 import { apiClient } from './client';
-import { User } from '../types/user.types';
-import { Tag } from '../types/task.types';
+import type { User } from '../types/user.types';
+import type { Tag } from '../types/task.types';
 
 interface ApiResponse<T> { data: T; }
 

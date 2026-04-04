@@ -84,12 +84,28 @@ export class TasksService {
     if (query.sprintId) filter.sprintId = new Types.ObjectId(query.sprintId);
     if ('parentTask' in query) filter.parentTask = null;
 
-    return this.taskModel
+    const tasks = await this.taskModel
       .find(filter)
       .populate('assignees', 'email displayName avatarUrl')
       .populate('tags')
       .sort({ position: 1, createdAt: 1 })
       .exec();
+
+    await this.attachSubtaskCounts(tasks);
+    return tasks;
+  }
+
+  private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
+    if (tasks.length === 0) return;
+    const ids = tasks.map((t) => t._id);
+    const counts = await this.taskModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { parentTask: { $in: ids } } },
+      { $group: { _id: '$parentTask', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+    for (const task of tasks) {
+      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
+    }
   }
 
   async findSubtasks(parentTaskId: string): Promise<TaskDocument[]> {

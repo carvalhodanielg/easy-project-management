@@ -8,7 +8,7 @@ import type { Task } from '../../types/task.types';
 
 vi.mock('../../api/tasks.api');
 
-const mockTask: Task = {
+const baseTask: Task = {
   _id: 'task-1',
   spaceId: 'space-1',
   listId: 'list-1',
@@ -22,6 +22,7 @@ const mockTask: Task = {
   dueDate: null,
   tags: [],
   storyPoints: 5,
+  subtaskCount: 0,
   parentTask: null,
   blockedBy: [],
   blocks: [],
@@ -32,9 +33,10 @@ const mockTask: Task = {
 };
 
 const mockSubtask: Task = {
-  ...mockTask,
+  ...baseTask,
   _id: 'sub-1',
   name: 'Child Task',
+  subtaskCount: 0,
   parentTask: 'task-1',
   storyPoints: null,
 };
@@ -43,7 +45,7 @@ function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-function renderRow(task = mockTask) {
+function renderRow(task: Task) {
   vi.mocked(tasksApi.getSubtasks).mockResolvedValue([mockSubtask]);
   return render(
     <QueryClientProvider client={makeClient()}>
@@ -59,50 +61,55 @@ function renderRow(task = mockTask) {
   );
 }
 
-describe('TaskRowWithSubtasks', () => {
+describe('TaskRowWithSubtasks — task with subtaskCount = 0', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('renders the task name', () => {
-    renderRow();
+    renderRow({ ...baseTask, subtaskCount: 0 });
     expect(screen.getByText('Parent Task')).toBeInTheDocument();
   });
 
-  it('renders a collapse/expand toggle button', () => {
-    renderRow();
-    expect(screen.getByRole('button', { name: /expand subtasks/i })).toBeInTheDocument();
+  it('does not render expand toggle when task has no subtasks', () => {
+    renderRow({ ...baseTask, subtaskCount: 0 });
+    expect(screen.queryByRole('button', { name: /expand subtasks/i })).not.toBeInTheDocument();
   });
 
-  it('subtasks are hidden by default', () => {
-    renderRow();
+  it('does not show subtasks section when subtaskCount = 0', () => {
+    renderRow({ ...baseTask, subtaskCount: 0 });
+    expect(screen.queryByText('Child Task')).not.toBeInTheDocument();
+  });
+});
+
+describe('TaskRowWithSubtasks — task with subtaskCount > 0', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renders expand toggle when task has subtasks', () => {
+    renderRow({ ...baseTask, subtaskCount: 2 });
+    expect(screen.getByRole('button', { name: /collapse subtasks/i })).toBeInTheDocument();
+  });
+
+  it('shows subtasks expanded by default when subtaskCount > 0', async () => {
+    renderRow({ ...baseTask, subtaskCount: 2 });
+    expect(await screen.findByText('Child Task')).toBeInTheDocument();
+  });
+
+  it('collapses subtasks when toggle is clicked', async () => {
+    renderRow({ ...baseTask, subtaskCount: 2 });
+    await screen.findByText('Child Task');
+    fireEvent.click(screen.getByRole('button', { name: /collapse subtasks/i }));
     expect(screen.queryByText('Child Task')).not.toBeInTheDocument();
   });
 
-  it('shows subtasks after clicking the expand button', async () => {
-    renderRow();
+  it('re-expands subtasks after collapsing', async () => {
+    renderRow({ ...baseTask, subtaskCount: 2 });
+    await screen.findByText('Child Task');
+    fireEvent.click(screen.getByRole('button', { name: /collapse subtasks/i }));
     fireEvent.click(screen.getByRole('button', { name: /expand subtasks/i }));
     expect(await screen.findByText('Child Task')).toBeInTheDocument();
   });
 
   it('shows "+ Add subtask" button when expanded', async () => {
-    renderRow();
-    fireEvent.click(screen.getByRole('button', { name: /expand subtasks/i }));
+    renderRow({ ...baseTask, subtaskCount: 2 });
     expect(await screen.findByRole('button', { name: /add subtask/i })).toBeInTheDocument();
-  });
-
-  it('collapses subtasks on second toggle click', async () => {
-    renderRow();
-    const toggle = screen.getByRole('button', { name: /expand subtasks/i });
-    fireEvent.click(toggle);
-    expect(await screen.findByText('Child Task')).toBeInTheDocument();
-    fireEvent.click(toggle);
-    expect(screen.queryByText('Child Task')).not.toBeInTheDocument();
-  });
-
-  it('shows the collapse label when expanded', async () => {
-    renderRow();
-    const toggle = screen.getByRole('button', { name: /expand subtasks/i });
-    fireEvent.click(toggle);
-    await screen.findByText('Child Task');
-    expect(screen.getByRole('button', { name: /collapse subtasks/i })).toBeInTheDocument();
   });
 });

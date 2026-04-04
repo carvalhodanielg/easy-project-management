@@ -46,6 +46,7 @@ export interface Task {
   blockedBy: { _id: string; name: string; status: TaskStatus }[];
   blocks: { _id: string; name: string; status: TaskStatus }[];
   position: number;
+  subtaskCount: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

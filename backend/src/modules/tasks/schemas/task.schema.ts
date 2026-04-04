@@ -73,6 +73,10 @@ export class Task {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  // Computed on read by TasksService — never persisted from client
+  @Prop({ type: Number, default: 0 })
+  subtaskCount: number;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

@@ -25,15 +25,30 @@ export class TasksFilterService {
     const match = this.buildMatch(spaceId, dto, currentUserId);
 
     if (!dto.groupBy) {
-      return this.taskModel
+      const tasks = await this.taskModel
         .find(match)
         .populate('assignees', 'email displayName avatarUrl')
         .populate('tags')
         .sort({ position: 1, createdAt: 1 })
         .exec();
+      await this.attachSubtaskCounts(tasks);
+      return tasks;
     }
 
     return this.buildGroupedResult(match, dto.groupBy);
+  }
+
+  private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
+    if (tasks.length === 0) return;
+    const ids = tasks.map((t) => t._id);
+    const counts = await this.taskModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { parentTask: { $in: ids } } },
+      { $group: { _id: '$parentTask', count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+    for (const task of tasks) {
+      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
+    }
   }
 
   async getSprintPointSums(

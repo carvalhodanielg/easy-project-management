@@ -9,17 +9,19 @@ interface Props {
 }
 
 export function TaskRowWithSubtasks({ task, spaceId }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(task.subtaskCount > 0);
+
+  const hasSubtasks = task.subtaskCount > 0;
 
   return (
     <div>
       <TaskRow
         task={task}
-        onToggleExpand={() => setExpanded((e) => !e)}
+        onToggleExpand={hasSubtasks ? () => setExpanded((e) => !e) : undefined}
         isExpanded={expanded}
       />
 
-      {expanded && (
+      {hasSubtasks && expanded && (
         <div
           style={{
             marginLeft: '2.5rem',

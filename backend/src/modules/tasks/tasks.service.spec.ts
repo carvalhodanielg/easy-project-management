@@ -216,6 +216,7 @@ describe('TasksService', () => {
   describe('findBySpace', () => {
     it('filters by listId', async () => {
       mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      mockTaskModel.aggregate.mockResolvedValue([]);
       const result = await service.findBySpace(spaceId, { listId });
       expect(result).toHaveLength(1);
     });
@@ -223,16 +224,34 @@ describe('TasksService', () => {
     it('filters by sprintId', async () => {
       const sprintId = new Types.ObjectId().toString();
       mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      mockTaskModel.aggregate.mockResolvedValue([]);
       const result = await service.findBySpace(spaceId, { sprintId });
       expect(result).toHaveLength(1);
     });
 
     it('filters parentTask = null when specified', async () => {
       mockTaskModel.find.mockReturnValue(populateMock([]));
+      mockTaskModel.aggregate.mockResolvedValue([]);
       await service.findBySpace(spaceId, { parentTask: null });
       expect(mockTaskModel.find).toHaveBeenCalledWith(
         expect.objectContaining({ parentTask: null }),
       );
+    });
+
+    it('sets subtaskCount=0 when task has no subtasks', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      mockTaskModel.aggregate.mockResolvedValue([]);
+      const result = await service.findBySpace(spaceId, { listId });
+      expect(result[0].subtaskCount).toBe(0);
+    });
+
+    it('sets subtaskCount from aggregation result', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      mockTaskModel.aggregate.mockResolvedValue([
+        { _id: mockTask._id, count: 3 },
+      ]);
+      const result = await service.findBySpace(spaceId, { listId });
+      expect(result[0].subtaskCount).toBe(3);
     });
   });
 

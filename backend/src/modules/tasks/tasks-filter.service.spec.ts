@@ -54,6 +54,11 @@ describe('TasksFilterService', () => {
   });
 
   describe('findFiltered — no groupBy', () => {
+    beforeEach(() => {
+      // attachSubtaskCounts always runs an aggregate for subtask counts
+      mockTaskModel.aggregate.mockResolvedValue([]);
+    });
+
     it('returns flat list with no filters', async () => {
       mockTaskModel.find.mockReturnValue(makeChain(mockTasks));
       const result = await service.findFiltered(spaceId, {}, userId);

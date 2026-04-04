@@ -244,6 +244,46 @@ describe('TasksService', () => {
     });
   });
 
+  describe('create — subtask parent inheritance', () => {
+    const parentId = new Types.ObjectId().toString();
+    const parentTask = {
+      ...mockTask,
+      _id: new Types.ObjectId(parentId),
+      listId: new Types.ObjectId(listId),
+      sprintId: null,
+    };
+
+    it('inherits parent listId when creating subtask without listId or sprintId', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(parentTask));
+      mockTaskModel.countDocuments.mockReturnValue(countMock(0));
+      mockTaskModel.create.mockResolvedValue({ ...mockTask, parentTask: new Types.ObjectId(parentId) });
+
+      await service.create(spaceId, userId, { name: 'Subtask', parentTask: parentId });
+
+      expect(mockTaskModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          listId: parentTask.listId,
+          sprintId: null,
+          parentTask: new Types.ObjectId(parentId),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when parentTask does not exist', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(null));
+
+      await expect(
+        service.create(spaceId, userId, { name: 'Subtask', parentTask: parentId }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('still throws BadRequestException when no parentTask and no listId/sprintId', async () => {
+      await expect(
+        service.create(spaceId, userId, { name: 'Task without container' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('update — field mapping', () => {
     it('maps assignees and tags arrays', async () => {
       const updated = { ...mockTask, assignees: [userId] };

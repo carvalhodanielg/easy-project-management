@@ -15,7 +15,15 @@ export class TasksService {
   ) {}
 
   async create(spaceId: string, userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
-    if (!dto.listId && !dto.sprintId) {
+    let resolvedListId = dto.listId;
+    let resolvedSprintId = dto.sprintId;
+
+    if (dto.parentTask && !resolvedListId && !resolvedSprintId) {
+      const parent = await this.taskModel.findById(dto.parentTask).exec();
+      if (!parent) throw new NotFoundException('Parent task not found');
+      resolvedListId = parent.listId?.toString();
+      resolvedSprintId = parent.sprintId?.toString();
+    } else if (!dto.parentTask && !resolvedListId && !resolvedSprintId) {
       throw new BadRequestException('Task must belong to a list or sprint');
     }
 
@@ -23,19 +31,21 @@ export class TasksService {
       throw new BadRequestException('Story points must be a Fibonacci number');
     }
 
+    const parentTaskOid = dto.parentTask ? new Types.ObjectId(dto.parentTask) : null;
+
     const count = await this.taskModel
       .countDocuments({
         spaceId: new Types.ObjectId(spaceId),
-        listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
-        sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
-        parentTask: null,
+        listId: resolvedListId ? new Types.ObjectId(resolvedListId) : null,
+        sprintId: resolvedSprintId ? new Types.ObjectId(resolvedSprintId) : null,
+        parentTask: parentTaskOid,
       })
       .exec();
 
     return this.taskModel.create({
       spaceId: new Types.ObjectId(spaceId),
-      listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
-      sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+      listId: resolvedListId ? new Types.ObjectId(resolvedListId) : null,
+      sprintId: resolvedSprintId ? new Types.ObjectId(resolvedSprintId) : null,
       name: dto.name,
       description: dto.description ?? '',
       status: dto.status,
@@ -45,7 +55,7 @@ export class TasksService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: (dto.tags ?? []).map((id) => new Types.ObjectId(id)),
       storyPoints: dto.storyPoints ?? null,
-      parentTask: dto.parentTask ? new Types.ObjectId(dto.parentTask) : null,
+      parentTask: parentTaskOid,
       position: dto.position ?? count,
       createdBy: new Types.ObjectId(userId),
     });

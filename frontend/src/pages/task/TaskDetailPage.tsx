@@ -7,6 +7,7 @@ import { CommentThread } from '../../components/task/CommentThread';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityIcon } from '../../components/ui/PriorityIcon';
 import { TaskRow } from '../../components/task/TaskRow';
+import { AssigneeSelector } from '../../components/task/AssigneeSelector';
 import {
   type TaskStatus,
   type TaskPriority,
@@ -151,21 +152,14 @@ export function TaskDetailPage() {
           </div>
 
           {/* Assignees */}
-          {task.assignees.length > 0 && (
-            <div>
-              <label style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginBottom: '0.5rem' }}>Assignees</label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {task.assignees.map((u) => (
-                  <span key={u._id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem', background: '#F0F0F0', borderRadius: '20px', fontSize: '0.8rem' }}>
-                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#4A90E2', color: '#fff', fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                      {u.displayName.charAt(0).toUpperCase()}
-                    </span>
-                    {u.displayName}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          <div>
+            <label style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginBottom: '0.5rem' }}>Responsáveis</label>
+            <AssigneeSelector
+              spaceId={spaceId!}
+              assignees={task.assignees}
+              onChange={(ids) => updateMutation.mutate({ assignees: ids })}
+            />
+          </div>
 
           {/* Tags */}
           {task.tags.length > 0 && (

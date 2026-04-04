@@ -33,6 +33,17 @@ npm run test         # vitest (single run)
 npm run test:watch   # vitest watch mode
 ```
 
+## Development Approach
+
+This project follows **Test-Driven Development (TDD)**. Before implementing any feature or change:
+
+1. Write the test(s) first — unit, integration, or e2e as appropriate
+2. Confirm the test fails for the right reason
+3. Implement the minimum code to make the test pass
+4. Refactor if needed, keeping tests green
+
+Never deliver a feature without a corresponding test written beforehand. If the scope of testing for a given task is unclear, ask before proceeding.
+
 ## Architecture
 
 ### Backend (NestJS + MongoDB/Mongoose)

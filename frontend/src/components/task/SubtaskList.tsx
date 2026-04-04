@@ -34,11 +34,11 @@ export function SubtaskList({ spaceId, taskId }: Props) {
   return (
     <div>
       {subtasks.map((sub) => (
-        <TaskRow key={sub._id} task={sub} depth={1} />
+        <TaskRow key={sub._id} task={sub} />
       ))}
 
       {showInput ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', marginTop: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.75rem' }}>
           <input
             autoFocus
             placeholder="Subtask name..."
@@ -68,7 +68,7 @@ export function SubtaskList({ spaceId, taskId }: Props) {
       ) : (
         <button
           onClick={() => setShowInput(true)}
-          style={{ marginTop: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#4A90E2', padding: '0.25rem 0' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: '#AAA', padding: '0.3rem 0.75rem', display: 'block' }}
         >
           + Add subtask
         </button>

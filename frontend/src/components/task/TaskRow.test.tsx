@@ -18,6 +18,7 @@ const mockTask: Task = {
   dueDate: null,
   tags: [],
   storyPoints: 8,
+  subtaskCount: 0,
   parentTask: null,
   blockedBy: [],
   blocks: [],
@@ -48,9 +49,9 @@ describe('TaskRow', () => {
     expect(screen.getByText('8')).toBeInTheDocument();
   });
 
-  it('renders status badge', () => {
+  it('renders status circle with title', () => {
     renderRow(mockTask);
-    expect(screen.getByText('Pendente')).toBeInTheDocument();
+    expect(screen.getByTitle('pendente')).toBeInTheDocument();
   });
 
   it('renders assignee avatar initial', () => {
@@ -61,6 +62,26 @@ describe('TaskRow', () => {
   it('renders task with no story points', () => {
     renderRow({ ...mockTask, storyPoints: null });
     expect(screen.queryByText('8')).not.toBeInTheDocument();
+  });
+
+  it('shows subtask count badge when subtaskCount > 0', () => {
+    renderRow({ ...mockTask, subtaskCount: 3 });
+    expect(screen.getByText('↳ 3')).toBeInTheDocument();
+  });
+
+  it('does not show subtask count badge when subtaskCount = 0', () => {
+    renderRow({ ...mockTask, subtaskCount: 0 });
+    expect(screen.queryByText(/↳/)).not.toBeInTheDocument();
+  });
+
+  it('shows a date element colored red for overdue tasks', () => {
+    const overdueTask = { ...mockTask, dueDate: '2020-06-15T12:00:00.000Z' };
+    const { container } = renderRow(overdueTask);
+    const spans = container.querySelectorAll('span');
+    const overdueDateSpan = Array.from(spans).find(
+      (el) => el.style.color === 'rgb(255, 77, 79)',
+    );
+    expect(overdueDateSpan).toBeDefined();
   });
 
   it('renders expand toggle when onToggleExpand is provided', () => {
@@ -77,16 +98,5 @@ describe('TaskRow', () => {
   it('does not render expand toggle by default', () => {
     renderRow(mockTask);
     expect(screen.queryByRole('button', { name: /expand subtasks/i })).not.toBeInTheDocument();
-  });
-
-  it('shows a date element colored red for overdue tasks', () => {
-    const overdueTask = { ...mockTask, dueDate: '2020-06-15T12:00:00.000Z' };
-    const { container } = renderRow(overdueTask);
-    // jsdom converts hex to rgb; check any span has the overdue color
-    const spans = container.querySelectorAll('span');
-    const overdueDateSpan = Array.from(spans).find(
-      (el) => el.style.color === 'rgb(255, 77, 79)',
-    );
-    expect(overdueDateSpan).toBeDefined();
   });
 });

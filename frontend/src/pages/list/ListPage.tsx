@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
 import * as listsApi from '../../api/lists.api';
-import { TaskRow } from '../../components/task/TaskRow';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
+import { TASK_COLS } from '../../components/task/TaskRow';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
@@ -98,11 +98,13 @@ export function ListPage() {
         ) : (
           <>
             {/* Column headers */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 1rem', background: '#FAFAFA', borderBottom: '1px solid #E8E8E8', fontSize: '0.75rem', color: '#AAA', fontWeight: 600 }}>
-              <span style={{ width: '10px' }} />
-              <span style={{ flex: 1 }}>Task</span>
-              <span>Points</span>
-              <span style={{ minWidth: '80px', textAlign: 'right' }}>Status</span>
+            <div style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: '32px', background: '#FAFAFA', borderBottom: '2px solid #E8E8E8', position: 'sticky', top: 0, zIndex: 3 }}>
+              <div />
+              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nome</span>
+              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Responsável</span>
+              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center' }}>Pts</span>
+              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center' }}>Prioridade</span>
+              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', paddingRight: '12px' }}>Data</span>
             </div>
 
             {isLoading && <p style={{ padding: '1rem', color: '#888' }}>Loading...</p>}

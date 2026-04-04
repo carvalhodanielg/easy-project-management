@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Outlet, useParams, useNavigate, NavLink } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
 import { useSpacesStore } from '../../store/spaces.store';
 import * as spacesApi from '../../api/spaces.api';
@@ -14,6 +14,32 @@ export function SpaceLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { setCurrentSpace } = useSpacesStore();
+  const queryClient = useQueryClient();
+
+  const [showCreateSprint, setShowCreateSprint] = useState(false);
+  const [sprintName, setSprintName] = useState('');
+  const [sprintStart, setSprintStart] = useState('');
+  const [sprintEnd, setSprintEnd] = useState('');
+  const [sprintError, setSprintError] = useState('');
+
+  const createSprintMutation = useMutation({
+    mutationFn: () =>
+      sprintsApi.createSprint(spaceId!, { name: sprintName, startDate: sprintStart, endDate: sprintEnd }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
+      setShowCreateSprint(false);
+      setSprintName('');
+      setSprintStart('');
+      setSprintEnd('');
+    },
+    onError: () => setSprintError('Falha ao criar sprint.'),
+  });
+
+  const handleCreateSprint = (e: FormEvent) => {
+    e.preventDefault();
+    setSprintError('');
+    createSprintMutation.mutate();
+  };
 
   const { data: space } = useQuery({
     queryKey: ['space', spaceId],
@@ -117,22 +143,29 @@ export function SpaceLayout() {
             </div>
           )}
 
-          {sprints.length > 0 && (
-            <div style={{ marginBottom: '1rem' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#AAA', margin: '0.5rem 0.75rem 0.25rem', letterSpacing: '0.05em' }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0.5rem 0.75rem 0.25rem' }}>
+              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#AAA', margin: 0, letterSpacing: '0.05em' }}>
                 Sprints
               </p>
-              {sprints.map((sprint) => (
-                <NavLink
-                  key={sprint._id}
-                  to={`/spaces/${spaceId}/sprints/${sprint._id}`}
-                  style={navLinkStyle}
-                >
-                  ⚡ Sprint {sprint.number}
-                </NavLink>
-              ))}
+              <button
+                onClick={() => setShowCreateSprint(true)}
+                title="Novo Sprint"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#AAA', fontSize: '0.9rem', lineHeight: 1, padding: '0 2px' }}
+              >
+                +
+              </button>
             </div>
-          )}
+            {sprints.map((sprint) => (
+              <NavLink
+                key={sprint._id}
+                to={`/spaces/${spaceId}/sprints/${sprint._id}`}
+                style={navLinkStyle}
+              >
+                ⚡ Sprint {sprint.number}
+              </NavLink>
+            ))}
+          </div>
 
           {wikiFolders.length > 0 && (
             <div>
@@ -167,6 +200,63 @@ export function SpaceLayout() {
       <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
         <Outlet />
       </main>
+
+      {showCreateSprint && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+          onClick={() => setShowCreateSprint(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '8px', padding: '2rem', width: '100%', maxWidth: '400px' }}
+          >
+            <h3 style={{ marginTop: 0 }}>Novo Sprint</h3>
+            <form onSubmit={handleCreateSprint}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem' }}>Nome</label>
+                <input
+                  type="text"
+                  value={sprintName}
+                  onChange={(e) => setSprintName(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem' }}>Data de início</label>
+                <input
+                  type="date"
+                  value={sprintStart}
+                  onChange={(e) => setSprintStart(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.25rem' }}>Data de término</label>
+                <input
+                  type="date"
+                  value={sprintEnd}
+                  onChange={(e) => setSprintEnd(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
+                />
+              </div>
+              {sprintError && <p style={{ color: 'red', fontSize: '0.875rem' }}>{sprintError}</p>}
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowCreateSprint(false)}>Cancelar</button>
+                <button
+                  type="submit"
+                  disabled={createSprintMutation.isPending}
+                  style={{ padding: '0.5rem 1rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Criar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

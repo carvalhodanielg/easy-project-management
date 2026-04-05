@@ -47,7 +47,7 @@ export class TasksFilterService {
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
     for (const task of tasks) {
-      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
+      task.subtaskCount = countMap.get((task._id as Types.ObjectId).toString()) ?? 0;
     }
   }
 
@@ -129,9 +129,7 @@ export class TasksFilterService {
     groupBy: 'status' | 'assignee' | 'sprint' | 'priority',
   ): Promise<GroupedResult[]> {
     if (groupBy === 'assignee') {
-      // For groupBy assignee: show only "feito" tasks with point sums
-      const matchWithFeito = { ...match, status: TaskStatus.Feito };
-      return this.groupByAssignee(matchWithFeito);
+      return this.groupByAssignee(match);
     }
 
     const groupField = {
@@ -140,12 +138,13 @@ export class TasksFilterService {
       priority: '$priority',
     }[groupBy];
 
+    // Aggregate to get group structure with task IDs only
     const pipeline: PipelineStage[] = [
       { $match: match },
       {
         $group: {
           _id: groupField,
-          tasks: { $push: '$$ROOT' },
+          taskIds: { $push: '$_id' },
           totalStoryPoints: { $sum: { $ifNull: ['$storyPoints', 0] } },
           count: { $sum: 1 },
         },
@@ -155,44 +154,87 @@ export class TasksFilterService {
 
     const raw = await this.taskModel.aggregate<{
       _id: string | null;
-      tasks: TaskDocument[];
+      taskIds: Types.ObjectId[];
       totalStoryPoints: number;
       count: number;
     }>(pipeline);
 
+    if (raw.length === 0) return [];
+
+    // Re-fetch all tasks with proper populate in a single query
+    const allTaskIds = raw.flatMap((r) => r.taskIds);
+    const populated = (await this.taskModel
+      .find({ _id: { $in: allTaskIds } })
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .sort({ position: 1, createdAt: 1 })
+      .exec()) as unknown as TaskDocument[];
+
+    const taskMap = new Map(populated.map((t) => [(t._id as Types.ObjectId).toString(), t]));
+
     return raw.map((r) => ({
       groupKey: r._id?.toString() ?? null,
-      tasks: r.tasks,
+      tasks: r.taskIds
+        .map((id) => taskMap.get(id.toString()))
+        .filter((t): t is TaskDocument => t !== undefined),
       totalStoryPoints: r.totalStoryPoints,
       count: r.count,
     }));
   }
 
   private async groupByAssignee(match: Record<string, unknown>): Promise<GroupedResult[]> {
+    // Unwind so a task with N assignees appears in N groups.
+    // Use $lookup to resolve the assignee's display name for the group header.
     const pipeline: PipelineStage[] = [
       { $match: match },
       { $unwind: { path: '$assignees', preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: 'users',
+          localField: 'assignees',
+          foreignField: '_id',
+          as: '_assigneeDocs',
+        },
+      },
+      { $addFields: { _assigneeDisplay: { $first: '$_assigneeDocs.displayName' } } },
+      {
         $group: {
           _id: '$assignees',
-          tasks: { $push: '$$ROOT' },
+          _groupName: { $first: '$_assigneeDisplay' },
+          taskIds: { $push: '$_id' },
           totalStoryPoints: { $sum: { $ifNull: ['$storyPoints', 0] } },
           count: { $sum: 1 },
         },
       },
-      { $sort: { '_id': 1 } },
+      { $sort: { _groupName: 1 } },
     ];
 
     const raw = await this.taskModel.aggregate<{
       _id: Types.ObjectId | null;
-      tasks: TaskDocument[];
+      _groupName: string | null;
+      taskIds: Types.ObjectId[];
       totalStoryPoints: number;
       count: number;
     }>(pipeline);
 
+    if (raw.length === 0) return [];
+
+    // De-duplicate task IDs (a task with 2 assignees appears in 2 groups)
+    const uniqueIds = [...new Set(raw.flatMap((r) => r.taskIds.map((id) => id.toString())))];
+    const populated = (await this.taskModel
+      .find({ _id: { $in: uniqueIds } })
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .sort({ position: 1, createdAt: 1 })
+      .exec()) as unknown as TaskDocument[];
+
+    const taskMap = new Map(populated.map((t) => [(t._id as Types.ObjectId).toString(), t]));
+
     return raw.map((r) => ({
-      groupKey: r._id?.toString() ?? null,
-      tasks: r.tasks,
+      groupKey: r._groupName ?? null,
+      tasks: r.taskIds
+        .map((id) => taskMap.get(id.toString()))
+        .filter((t): t is TaskDocument => t !== undefined),
       totalStoryPoints: r.totalStoryPoints,
       count: r.count,
     }));

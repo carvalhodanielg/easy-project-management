@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, X } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import { TaskRow } from './TaskRow';
 
-interface Props {
-  spaceId: string;
-  taskId: string;
-}
+interface Props { spaceId: string; taskId: string; }
 
 export function SubtaskList({ spaceId, taskId }: Props) {
   const queryClient = useQueryClient();
@@ -27,50 +25,47 @@ export function SubtaskList({ spaceId, taskId }: Props) {
     },
   });
 
-  const submit = () => {
-    if (name.trim()) createMutation.mutate();
-  };
+  const submit = () => { if (name.trim()) createMutation.mutate(); };
 
   return (
     <div>
       {subtasks.map((sub) => (
-        <TaskRow key={sub._id} task={sub} />
+        <TaskRow key={sub._id} task={sub} depth={1} />
       ))}
 
       {showInput ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.75rem' }}>
+        <div className="flex items-center gap-2 px-3 py-2.5 border-t border-line-dim bg-lift/30">
           <input
             autoFocus
-            placeholder="Subtask name..."
+            placeholder="Nome da subtarefa…"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit();
               if (e.key === 'Escape') { setShowInput(false); setName(''); }
             }}
-            style={{ flex: 1, padding: '0.35rem 0.5rem', border: '1px solid #4A90E2', borderRadius: '4px', outline: 'none', fontSize: '0.85rem' }}
+            className="flex-1 bg-transparent border-b border-brand text-sm text-ink placeholder:text-ink-muted focus:outline-none py-0.5"
           />
           <button
-            aria-label="Add"
             onClick={submit}
             disabled={!name.trim() || createMutation.isPending}
-            style={{ padding: '0.35rem 0.7rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+            className="px-2.5 py-1 bg-brand text-white text-xs rounded-md disabled:opacity-50 transition-all"
           >
             Add
           </button>
           <button
             onClick={() => { setShowInput(false); setName(''); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '0.85rem' }}
+            className="p-1 text-ink-muted hover:text-ink transition-colors"
           >
-            ✕
+            <X size={13} />
           </button>
         </div>
       ) : (
         <button
           onClick={() => setShowInput(true)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: '#AAA', padding: '0.3rem 0.75rem', display: 'block' }}
+          className="flex items-center gap-2 px-4 py-2.5 w-full text-xs text-ink-muted hover:text-ink hover:bg-lift/50 transition-colors border-t border-line-dim"
         >
-          + Add subtask
+          <Plus size={12} /> Adicionar subtarefa
         </button>
       )}
     </div>

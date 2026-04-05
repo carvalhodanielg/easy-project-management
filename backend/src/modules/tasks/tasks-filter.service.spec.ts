@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { TasksFilterService } from './tasks-filter.service';
+import { TasksFilterService, GroupedResult } from './tasks-filter.service';
 import { Task, TaskStatus, TaskPriority } from './schemas/task.schema';
 import { Types } from 'mongoose';
 
@@ -55,7 +55,6 @@ describe('TasksFilterService', () => {
 
   describe('findFiltered — no groupBy', () => {
     beforeEach(() => {
-      // attachSubtaskCounts always runs an aggregate for subtask counts
       mockTaskModel.aggregate.mockResolvedValue([]);
     });
 
@@ -126,26 +125,75 @@ describe('TasksFilterService', () => {
   });
 
   describe('findFiltered — with groupBy', () => {
-    it('uses aggregate for groupBy=status', async () => {
-      mockTaskModel.aggregate.mockResolvedValue([
-        { _id: TaskStatus.Pendente, tasks: [mockTasks[1]], totalStoryPoints: 3, count: 1 },
+    it('uses aggregate then re-fetches with populate for groupBy=status', async () => {
+      const task = mockTasks[1];
+      mockTaskModel.aggregate.mockResolvedValueOnce([
+        { _id: TaskStatus.Pendente, taskIds: [task._id], totalStoryPoints: 3, count: 1 },
       ]);
-      const result = await service.findFiltered(spaceId, { groupBy: 'status' }, userId) as {
-        groupKey: string;
-        totalStoryPoints: number;
-        count: number;
-      }[];
+      mockTaskModel.find.mockReturnValue(makeChain([task]));
+
+      const result = await service.findFiltered(spaceId, { groupBy: 'status' }, userId) as GroupedResult[];
+
       expect(mockTaskModel.aggregate).toHaveBeenCalled();
+      expect(mockTaskModel.find).toHaveBeenCalled();
       expect(result[0].groupKey).toBe(TaskStatus.Pendente);
       expect(result[0].totalStoryPoints).toBe(3);
+      expect(result[0].count).toBe(1);
+      expect(result[0].tasks).toHaveLength(1);
     });
 
-    it('for groupBy=assignee restricts to feito status', async () => {
-      mockTaskModel.aggregate.mockResolvedValue([]);
-      await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId);
-      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $match?: { status?: TaskStatus } }[];
+    it('groupBy=assignee does NOT filter to feito status', async () => {
+      const task = mockTasks[0];
+      mockTaskModel.aggregate.mockResolvedValueOnce([
+        {
+          _id: new Types.ObjectId(userId),
+          _groupName: 'Dev User',
+          taskIds: [task._id],
+          totalStoryPoints: 5,
+          count: 1,
+        },
+      ]);
+      mockTaskModel.find.mockReturnValue(makeChain([task]));
+
+      const result = await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId) as GroupedResult[];
+
+      // The match stage must NOT restrict status to feito
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $match?: Record<string, unknown> }[];
       const matchStage = pipeline.find((s) => s.$match);
-      expect(matchStage?.$match?.status).toBe(TaskStatus.Feito);
+      expect(matchStage?.$match).not.toHaveProperty('status');
+
+      // groupKey is the assignee's display name
+      expect(result[0].groupKey).toBe('Dev User');
+      expect(result[0].tasks).toHaveLength(1);
+    });
+
+    it('groupBy=assignee groups tasks from all statuses', async () => {
+      // Both tasks (feito + pendente) appear under the same assignee
+      mockTaskModel.aggregate.mockResolvedValueOnce([
+        {
+          _id: new Types.ObjectId(userId),
+          _groupName: 'Dev User',
+          taskIds: mockTasks.map((t) => t._id),
+          totalStoryPoints: 8,
+          count: 2,
+        },
+      ]);
+      mockTaskModel.find.mockReturnValue(makeChain(mockTasks));
+
+      const result = await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId) as GroupedResult[];
+
+      expect(result[0].count).toBe(2);
+      expect(result[0].tasks).toHaveLength(2);
+    });
+
+    it('groupBy=priority aggregates by priority field', async () => {
+      mockTaskModel.aggregate.mockResolvedValueOnce([]);
+
+      await service.findFiltered(spaceId, { groupBy: 'priority' }, userId);
+
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $group?: { _id: string } }[];
+      const groupStage = pipeline.find((s) => s.$group);
+      expect(groupStage?.$group?._id).toBe('$priority');
     });
   });
 

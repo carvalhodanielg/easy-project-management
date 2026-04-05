@@ -16,6 +16,7 @@ import { TagsModule } from './modules/tags/tags.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { WikiModule } from './modules/wiki/wiki.module';
+import { NotesModule } from './modules/notes/notes.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WikiModule } from './modules/wiki/wiki.module';
     CommentsModule,
     AttachmentsModule,
     WikiModule,
+    NotesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

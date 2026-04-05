@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, FileText, Trash2, X, BookOpen, Clock } from 'lucide-react';
 import * as wikiApi from '../../api/wiki.api';
 
 export function WikiFolderPage() {
@@ -34,24 +35,42 @@ export function WikiFolderPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (docId: string) => wikiApi.deleteDocument(spaceId!, docId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wiki-documents', folderId] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['wiki-documents', folderId] }),
   });
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #E8E8E8', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: '1.1rem' }}>📂 {folder?.name ?? '...'}</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          style={{ padding: '0.4rem 0.8rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
-        >
-          + New Document
-        </button>
+    <div className="h-full flex flex-col">
+
+      {/* Header */}
+      <header className="bg-surface border-b border-line shrink-0 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-lift border border-line flex items-center justify-center">
+              <BookOpen size={15} className="text-ink-dim" />
+            </div>
+            <div>
+              <h1 className="text-base font-semibold text-ink">{folder?.name ?? '…'}</h1>
+              <p className="text-xs text-ink-muted mt-0.5">
+                {documents.length === 0 ? 'Nenhum documento' : `${documents.length} documento${documents.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+          >
+            <Plus size={13} /> Novo documento
+          </button>
+        </div>
       </header>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '1rem 1.5rem' }}>
+      {/* Content */}
+      <div className="flex-1 overflow-auto px-6 py-5">
+
+        {/* Inline create input */}
         {showCreate && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <div className="flex items-center gap-2 mb-4 p-3 bg-surface border border-brand/30 rounded-xl">
+            <FileText size={15} className="text-ink-muted shrink-0" />
             <input
               autoFocus
               value={newTitle}
@@ -60,67 +79,84 @@ export function WikiFolderPage() {
                 if (e.key === 'Enter' && newTitle.trim()) createMutation.mutate();
                 if (e.key === 'Escape') { setShowCreate(false); setNewTitle(''); }
               }}
-              placeholder="Document title..."
-              style={{ flex: 1, padding: '0.5rem', border: '1px solid #4A90E2', borderRadius: '4px', outline: 'none', fontSize: '0.875rem' }}
+              placeholder="Título do documento…"
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-muted focus:outline-none"
             />
             <button
               onClick={() => newTitle.trim() && createMutation.mutate()}
               disabled={!newTitle.trim() || createMutation.isPending}
-              style={{ padding: '0.4rem 0.8rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+              className="px-2.5 py-1 bg-brand text-white text-xs rounded-md disabled:opacity-50 transition-all"
             >
-              Create
+              Criar
             </button>
             <button
               onClick={() => { setShowCreate(false); setNewTitle(''); }}
-              style={{ padding: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}
+              className="p-1 text-ink-muted hover:text-ink transition-colors"
             >
-              ✕
+              <X size={13} />
             </button>
           </div>
         )}
 
-        {isLoading && <p style={{ color: '#888' }}>Loading...</p>}
+        {isLoading && (
+          <div className="flex items-center gap-2 text-ink-muted text-sm py-10">
+            <span className="animate-spin">⟳</span> Carregando…
+          </div>
+        )}
 
         {!isLoading && documents.length === 0 && !showCreate && (
-          <p style={{ textAlign: 'center', color: '#AAA', marginTop: '3rem' }}>
-            No documents yet. Click &quot;+ New Document&quot; to create one.
-          </p>
-        )}
-
-        {documents.map((doc) => (
-          <div
-            key={doc._id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0.75rem 1rem',
-              marginBottom: '0.5rem',
-              background: '#fff',
-              border: '1px solid #E8E8E8',
-              borderRadius: '6px',
-              cursor: 'pointer',
-            }}
-            onClick={() => navigate(`/spaces/${spaceId}/wiki/documents/${doc._id}`)}
-          >
-            <span style={{ fontSize: '1rem', marginRight: '0.75rem' }}>📄</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{doc.title}</div>
-              <div style={{ fontSize: '0.75rem', color: '#AAA' }}>
-                {new Date(doc.updatedAt).toLocaleString()}
-              </div>
+          <div className="flex flex-col items-center justify-center py-28 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-lift border border-line flex items-center justify-center mb-5">
+              <FileText size={22} className="text-ink-muted" />
             </div>
+            <p className="text-base font-semibold text-ink-dim">Nenhum documento</p>
+            <p className="text-sm text-ink-muted mt-1.5 mb-6">
+              Crie o primeiro documento nesta pasta.
+            </p>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteMutation.mutate(doc._id);
-              }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CCC', fontSize: '1rem', padding: '0.25rem' }}
-              title="Delete document"
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all"
             >
-              ×
+              <Plus size={13} /> Criar documento
             </button>
           </div>
-        ))}
+        )}
+
+        {/* Document list */}
+        <div className="space-y-1.5">
+          {documents.map((doc) => (
+            <div
+              key={doc._id}
+              className="group flex items-center gap-3 p-3.5 bg-surface border border-line rounded-xl cursor-pointer hover:border-brand/25 hover:bg-lift/40 transition-all"
+              onClick={() => navigate(`/spaces/${spaceId}/wiki/documents/${doc._id}`)}
+            >
+              <div className="w-8 h-8 rounded-lg bg-lift border border-line-dim flex items-center justify-center shrink-0">
+                <FileText size={14} className="text-ink-muted" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink truncate">{doc.title}</p>
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-ink-muted">
+                  <Clock size={10} />
+                  <span>
+                    {new Date(doc.updatedAt).toLocaleDateString('pt-BR', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteMutation.mutate(doc._id);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded text-ink-muted hover:text-danger hover:bg-danger/10 transition-all"
+                title="Excluir documento"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

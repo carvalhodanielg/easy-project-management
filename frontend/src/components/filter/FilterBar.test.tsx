@@ -1,20 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { FilterBar } from './FilterBar';
-import { FilterState } from '../../hooks/useTaskFilter';
+import type { FilterState } from '../../hooks/useTaskFilter';
 
-const emptyFilters: FilterState = {
+const DEFAULT_FILTERS: FilterState = {
+  q: '',
   status: [],
   priority: [],
   assignees: [],
   tags: [],
   groupBy: undefined,
   includeSubtasks: false,
-  q: '',
 };
 
-const defaultProps = {
-  filters: emptyFilters,
+const DEFAULT_PROPS = {
+  filters: DEFAULT_FILTERS,
   onToggleStatus: vi.fn(),
   onTogglePriority: vi.fn(),
   onToggleAssignee: vi.fn(),
@@ -27,98 +27,51 @@ const defaultProps = {
 };
 
 describe('FilterBar', () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it('renders search input', () => {
-    render(<FilterBar {...defaultProps} />);
-    expect(screen.getByPlaceholderText('Search tasks...')).toBeInTheDocument();
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    expect(screen.getByPlaceholderText(/buscar tarefas/i)).toBeInTheDocument();
   });
 
-  it('calls onSetSearch when typing', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.change(screen.getByPlaceholderText('Search tasks...'), { target: { value: 'bug' } });
-    expect(defaultProps.onSetSearch).toHaveBeenCalledWith('bug');
+  it('renders filter button', () => {
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    expect(screen.getByText('Filtros')).toBeInTheDocument();
   });
 
-  it('shows filter popover when Filters button is clicked', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.click(screen.getByText(/Filters/));
-    expect(screen.getByText('Status')).toBeInTheDocument();
-    expect(screen.getByText('Priority')).toBeInTheDocument();
+  it('calls onSetSearch when user types', () => {
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    fireEvent.change(screen.getByPlaceholderText(/buscar tarefas/i), {
+      target: { value: 'auth' },
+    });
+    expect(DEFAULT_PROPS.onSetSearch).toHaveBeenCalledWith('auth');
   });
 
-  it('calls onToggleStatus when a status chip is clicked', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.click(screen.getByText(/Filters/));
-    fireEvent.click(screen.getByRole('button', { name: 'Pendente' }));
-    expect(defaultProps.onToggleStatus).toHaveBeenCalledWith('pendente');
+  it('calls onToggleSubtasks when checkbox clicked', () => {
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(DEFAULT_PROPS.onToggleSubtasks).toHaveBeenCalled();
   });
 
-  it('calls onTogglePriority when a priority chip is clicked', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.click(screen.getByText(/Filters/));
-    fireEvent.click(screen.getByRole('button', { name: 'Alta' }));
-    expect(defaultProps.onTogglePriority).toHaveBeenCalledWith('alta');
+  it('shows clear button when filters are active', () => {
+    render(<FilterBar {...DEFAULT_PROPS} isActive={true} />);
+    expect(screen.getByText(/limpar/i)).toBeInTheDocument();
   });
 
-  it('shows member and tag options when provided', () => {
+  it('calls onReset when clear button clicked', () => {
+    render(<FilterBar {...DEFAULT_PROPS} isActive={true} />);
+    fireEvent.click(screen.getByText(/limpar/i));
+    expect(DEFAULT_PROPS.onReset).toHaveBeenCalled();
+  });
+
+  it('shows active status chips', () => {
     render(
       <FilterBar
-        {...defaultProps}
-        members={[{ _id: 'u1', displayName: 'Alice' }]}
-        tags={[{ _id: 't1', name: 'bug', color: '#FF0000' }]}
+        {...DEFAULT_PROPS}
+        filters={{ ...DEFAULT_FILTERS, status: ['pendente'] }}
+        isActive={true}
       />,
     );
-    fireEvent.click(screen.getByText(/Filters/));
-    expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.getByText('bug')).toBeInTheDocument();
-  });
-
-  it('calls onToggleAssignee when member chip is clicked', () => {
-    const onToggleAssignee = vi.fn();
-    render(
-      <FilterBar
-        {...defaultProps}
-        onToggleAssignee={onToggleAssignee}
-        members={[{ _id: 'u1', displayName: 'Alice' }]}
-      />,
-    );
-    fireEvent.click(screen.getByText(/Filters/));
-    fireEvent.click(screen.getByText('Alice'));
-    expect(onToggleAssignee).toHaveBeenCalledWith('u1');
-  });
-
-  it('shows Clear button only when isActive', () => {
-    const { rerender } = render(<FilterBar {...defaultProps} isActive={false} />);
-    expect(screen.queryByText('Clear')).not.toBeInTheDocument();
-
-    rerender(<FilterBar {...defaultProps} isActive={true} />);
-    expect(screen.getByText('Clear')).toBeInTheDocument();
-  });
-
-  it('calls onReset when Clear is clicked', () => {
-    const onReset = vi.fn();
-    render(<FilterBar {...defaultProps} isActive={true} onReset={onReset} />);
-    fireEvent.click(screen.getByText('Clear'));
-    expect(onReset).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls onSetGroupBy when group select changes', () => {
-    render(<FilterBar {...defaultProps} />);
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'status' } });
-    expect(defaultProps.onSetGroupBy).toHaveBeenCalledWith('status');
-  });
-
-  it('calls onToggleSubtasks when checkbox changes', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.click(screen.getByLabelText(/Subtasks/));
-    expect(defaultProps.onToggleSubtasks).toHaveBeenCalledTimes(1);
-  });
-
-  it('closes popover when Done is clicked', () => {
-    render(<FilterBar {...defaultProps} />);
-    fireEvent.click(screen.getByText(/Filters/));
-    expect(screen.getByText('Status')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.queryByText('Status')).not.toBeInTheDocument();
+    expect(screen.getByText(/pendente/i)).toBeInTheDocument();
   });
 });

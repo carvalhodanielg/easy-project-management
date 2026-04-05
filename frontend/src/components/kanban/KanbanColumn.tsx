@@ -1,65 +1,47 @@
 import { useDroppable } from '@dnd-kit/core';
-import { Task, TaskStatus, STATUS_LABELS } from '../../types/task.types';
+import { type Task, type TaskStatus, STATUS_LABELS } from '../../types/task.types';
 import { KanbanCard } from './KanbanCard';
+import { T } from '../../theme';
 
 interface Props {
   status: TaskStatus;
   tasks: Task[];
 }
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  pendente: '#8C8C8C',
-  em_progresso: '#4A90E2',
-  em_review: '#FA8C16',
-  feito: '#52C41A',
-  fechado: '#595959',
-};
-
 export function KanbanColumn({ status, tasks }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
-
+  const accent = T.status[status];
   const totalPoints = tasks.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '240px',
-        flexShrink: 0,
-      }}
-    >
+    <div className="flex flex-col w-64 shrink-0">
       {/* Column header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div className="flex items-center gap-2 mb-3 px-1">
         <span
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: STATUS_COLORS[status],
-            flexShrink: 0,
-          }}
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ background: accent }}
         />
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333', flex: 1 }}>
+        <span className="text-sm font-semibold text-ink flex-1">
           {STATUS_LABELS[status]}
         </span>
-        <span style={{ fontSize: '0.75rem', color: '#AAA', fontWeight: 400 }}>
+        <span
+          className="text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums"
+          style={{ background: accent + '15', color: accent }}
+        >
           {tasks.length}
-          {totalPoints > 0 && ` · ${totalPoints}pt`}
         </span>
+        {totalPoints > 0 && (
+          <span className="text-[11px] text-ink-muted tabular-nums">{totalPoints}pts</span>
+        )}
       </div>
 
       {/* Drop zone */}
       <div
         ref={setNodeRef}
+        className="flex-1 min-h-24 p-2 rounded-xl border-2 border-dashed transition-all"
         style={{
-          flex: 1,
-          minHeight: '80px',
-          padding: '0.5rem',
-          borderRadius: '8px',
-          background: isOver ? '#EEF4FF' : '#F8F8F8',
-          border: `2px dashed ${isOver ? '#4A90E2' : 'transparent'}`,
-          transition: 'background 0.15s, border-color 0.15s',
+          background: isOver ? accent + '08' : 'transparent',
+          borderColor: isOver ? accent + '40' : 'var(--color-line-dim)',
         }}
       >
         {tasks.map((task) => (

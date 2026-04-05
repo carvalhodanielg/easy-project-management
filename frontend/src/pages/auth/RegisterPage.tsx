@@ -1,123 +1,123 @@
-import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
-import * as authApi from '../../api/auth.api';
+import { useState, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import * as authApi from '../../api/auth.api';
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const setAuth  = useAuthStore((s) => s.setAuth);
+
   const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState('');
+  const [email,       setEmail]       = useState('');
+  const [password,    setPassword]    = useState('');
+  const [error,       setError]       = useState('');
+  const [loading,     setLoading]     = useState(false);
 
-  const registerMutation = useMutation({
-    mutationFn: () => authApi.register({ email, password, displayName }),
-    onSuccess: async (token) => {
-      useAuthStore.setState({ token });
-      const user = await authApi.getMe();
-      setAuth(token, user);
-      navigate('/home');
-    },
-    onError: (err: { response?: { data?: { error?: { message?: string } } } }) => {
-      const msg = err.response?.data?.error?.message;
-      setError(Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Registration failed.'));
-    },
-  });
-
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    registerMutation.mutate();
+    setLoading(true);
+    try {
+      const token = await authApi.register({ email, password, displayName });
+      const user  = await authApi.getMe(token);
+      setAuth(token, user);
+      navigate('/home', { replace: true });
+    } catch {
+      setError('Falha ao criar conta. Tente com outro email.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f5f5f5',
-      }}
-    >
-      <div
-        style={{
-          background: '#fff',
-          padding: '2rem',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          width: '100%',
-          maxWidth: '400px',
-        }}
-      >
-        <h1 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>AtkPlan</h1>
-        <h2 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>Create Account</h2>
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="displayName" style={{ display: 'block', marginBottom: '0.25rem' }}>
-              Name
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              required
-              minLength={2}
-              style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
-            />
+    <div className="min-h-screen bg-base flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-lg mb-3 shadow-lg shadow-brand/30">
+            C
           </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.25rem' }}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
-            />
-          </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.25rem' }}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
-            />
-          </div>
-          {error && (
-            <p style={{ color: 'red', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={registerMutation.isPending}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: '#4A90E2',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-            }}
-          >
-            {registerMutation.isPending ? 'Creating account...' : 'Register'}
-          </button>
-        </form>
-        <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.875rem' }}>
-          Already have an account? <Link to="/login">Sign In</Link>
+          <h1 className="text-xl font-bold text-ink">Claudio</h1>
+          <p className="text-sm text-ink-dim mt-1">Crie sua conta</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-surface border border-line rounded-2xl p-6 shadow-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+
+            <div>
+              <label htmlFor="displayName" className="block text-sm font-medium text-ink-dim mb-1.5">
+                Nome
+              </label>
+              <input
+                id="displayName"
+                type="text"
+                autoComplete="name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                autoFocus
+                placeholder="Seu nome completo"
+                className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-ink-dim mb-1.5">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="seu@email.com"
+                className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-ink-dim mb-1.5">
+                Senha
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Mínimo 6 caracteres"
+                className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand hover:bg-brand-hi disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-all"
+            >
+              {loading && <Loader2 size={15} className="animate-spin" />}
+              {loading ? 'Criando…' : 'Criar conta'}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-sm text-ink-dim mt-5">
+          Já tem conta?{' '}
+          <Link to="/login" className="text-brand hover:text-brand-hi font-medium transition-colors">
+            Entrar
+          </Link>
         </p>
       </div>
     </div>

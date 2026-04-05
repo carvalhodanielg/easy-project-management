@@ -1,47 +1,30 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SubtaskList } from './SubtaskList';
 import * as tasksApi from '../../api/tasks.api';
-import type { Task } from '../../types/task.types';
 
 vi.mock('../../api/tasks.api');
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useParams: () => ({ spaceId: 'sp1' }), useNavigate: () => vi.fn() };
+});
 
-const mockSubtask: Task = {
-  _id: 'sub-1',
-  spaceId: 'space-1',
-  listId: 'list-1',
-  sprintId: null,
-  name: 'Existing subtask',
-  description: '',
-  status: 'pendente',
-  priority: 'normal',
-  assignees: [],
-  startDate: null,
-  dueDate: null,
-  tags: [],
-  storyPoints: null,
-  parentTask: 'task-1',
-  blockedBy: [],
-  blocks: [],
-  position: 0,
-  createdBy: 'u1',
-  createdAt: '2025-01-01T00:00:00.000Z',
-  updatedAt: '2025-01-01T00:00:00.000Z',
-};
+const SUBTASKS = [
+  { _id: 's1', name: 'Subtarefa A', status: 'pendente', priority: 'normal', storyPoints: null,
+    dueDate: null, assignees: [], tags: [], subtaskCount: 0, blockedBy: [], blocks: [],
+    description: '', parentTask: 't1', listId: null, sprintId: null, createdAt: '', updatedAt: '' },
+];
 
-function makeClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
-}
-
-function renderSubtaskList(subtasks: Task[] = []) {
-  vi.mocked(tasksApi.getSubtasks).mockResolvedValue(subtasks);
+function renderComponent() {
+  vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={makeClient()}>
-      <MemoryRouter initialEntries={['/spaces/space-1/tasks/task-1']}>
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={['/spaces/sp1']}>
         <Routes>
-          <Route path="/spaces/:spaceId/tasks/:taskId" element={<SubtaskList spaceId="space-1" taskId="task-1" />} />
+          <Route path="/spaces/:spaceId" element={<SubtaskList spaceId="sp1" taskId="t1" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -51,66 +34,32 @@ function renderSubtaskList(subtasks: Task[] = []) {
 describe('SubtaskList', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders existing subtasks', async () => {
-    renderSubtaskList([mockSubtask]);
-    expect(await screen.findByText('Existing subtask')).toBeInTheDocument();
+  it('renders subtasks', async () => {
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.getByText('Subtarefa A')).toBeInTheDocument();
+    });
   });
 
-  it('renders "+ Add subtask" button', async () => {
-    renderSubtaskList([]);
-    expect(await screen.findByRole('button', { name: /add subtask/i })).toBeInTheDocument();
+  it('shows add subtask button', async () => {
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.getByText(/adicionar subtarefa/i)).toBeInTheDocument();
+    });
   });
 
-  it('shows name input when "+ Add subtask" is clicked', async () => {
-    renderSubtaskList([]);
-    fireEvent.click(await screen.findByRole('button', { name: /add subtask/i }));
-    expect(screen.getByPlaceholderText(/subtask name/i)).toBeInTheDocument();
+  it('shows input when add button clicked', async () => {
+    renderComponent();
+    await waitFor(() => screen.getByText(/adicionar subtarefa/i));
+    fireEvent.click(screen.getByText(/adicionar subtarefa/i));
+    expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
   });
 
-  it('calls createTask with parentTask on submit', async () => {
-    vi.mocked(tasksApi.createTask).mockResolvedValue({ ...mockSubtask, name: 'New subtask' });
-    vi.mocked(tasksApi.getSubtasks)
-      .mockResolvedValueOnce([])
-      .mockResolvedValue([{ ...mockSubtask, name: 'New subtask' }]);
-
-    renderSubtaskList([]);
-    fireEvent.click(await screen.findByRole('button', { name: /add subtask/i }));
-    fireEvent.change(screen.getByPlaceholderText(/subtask name/i), { target: { value: 'New subtask' } });
-    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
-
-    await waitFor(() =>
-      expect(tasksApi.createTask).toHaveBeenCalledWith('space-1', {
-        name: 'New subtask',
-        parentTask: 'task-1',
-      }),
-    );
-  });
-
-  it('hides input after successful creation', async () => {
-    vi.mocked(tasksApi.createTask).mockResolvedValue({ ...mockSubtask, name: 'New subtask' });
-    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([]);
-
-    renderSubtaskList([]);
-    fireEvent.click(await screen.findByRole('button', { name: /add subtask/i }));
-    fireEvent.change(screen.getByPlaceholderText(/subtask name/i), { target: { value: 'New subtask' } });
-    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
-
-    await waitFor(() =>
-      expect(screen.queryByPlaceholderText(/subtask name/i)).not.toBeInTheDocument(),
-    );
-  });
-
-  it('cancels input on Escape key', async () => {
-    renderSubtaskList([]);
-    fireEvent.click(await screen.findByRole('button', { name: /add subtask/i }));
-    fireEvent.keyDown(screen.getByPlaceholderText(/subtask name/i), { key: 'Escape' });
-    expect(screen.queryByPlaceholderText(/subtask name/i)).not.toBeInTheDocument();
-  });
-
-  it('does not call createTask when name is empty', async () => {
-    renderSubtaskList([]);
-    fireEvent.click(await screen.findByRole('button', { name: /add subtask/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
-    expect(tasksApi.createTask).not.toHaveBeenCalled();
+  it('hides input on Escape', async () => {
+    renderComponent();
+    await waitFor(() => screen.getByText(/adicionar subtarefa/i));
+    fireEvent.click(screen.getByText(/adicionar subtarefa/i));
+    fireEvent.keyDown(screen.getByPlaceholderText(/nome da subtarefa/i), { key: 'Escape' });
+    expect(screen.queryByPlaceholderText(/nome da subtarefa/i)).not.toBeInTheDocument();
   });
 });

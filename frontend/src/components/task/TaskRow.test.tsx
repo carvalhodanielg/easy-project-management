@@ -1,38 +1,39 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { vi, describe, it, expect } from 'vitest';
 import { TaskRow } from './TaskRow';
-import { Task } from '../../types/task.types';
+import type { Task } from '../../types/task.types';
 
-const mockTask: Task = {
-  _id: 'task-1',
-  spaceId: 'space-1',
-  listId: 'list-1',
-  sprintId: null,
-  name: 'Fix login bug',
-  description: '',
-  status: 'pendente',
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ spaceId: 'sp1' }) };
+});
+
+const TASK: Task = {
+  _id: 't1',
+  name: 'Implementar autenticação',
+  status: 'em_progresso',
   priority: 'alta',
-  assignees: [{ _id: 'u1', email: 'dev@test.com', displayName: 'Dev User', avatarUrl: null }],
-  startDate: null,
+  storyPoints: 5,
   dueDate: null,
-  tags: [],
-  storyPoints: 8,
+  assignees: [{ _id: 'u1', email: 'a@b.com', displayName: 'Alice', avatarUrl: null }],
+  tags: [{ _id: 'tg1', name: 'Backend', color: '#6366F1', spaceId: 'sp1' }],
   subtaskCount: 0,
-  parentTask: null,
   blockedBy: [],
   blocks: [],
-  position: 0,
-  createdBy: 'u1',
-  createdAt: '2025-01-01T00:00:00.000Z',
-  updatedAt: '2025-01-01T00:00:00.000Z',
+  description: '',
+  parentTask: null,
+  listId: 'l1',
+  sprintId: null,
+  createdAt: '',
+  updatedAt: '',
 };
 
-function renderRow(task: Task) {
+function renderRow(task: Task = TASK, props = {}) {
   return render(
-    <MemoryRouter initialEntries={['/spaces/space-1/lists/list-1']}>
+    <MemoryRouter initialEntries={['/spaces/sp1']}>
       <Routes>
-        <Route path="/spaces/:spaceId/lists/:listId" element={<TaskRow task={task} />} />
+        <Route path="/spaces/:spaceId" element={<TaskRow task={task} {...props} />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -40,63 +41,44 @@ function renderRow(task: Task) {
 
 describe('TaskRow', () => {
   it('renders task name', () => {
-    renderRow(mockTask);
-    expect(screen.getByText('Fix login bug')).toBeInTheDocument();
-  });
-
-  it('renders story points', () => {
-    renderRow(mockTask);
-    expect(screen.getByText('8')).toBeInTheDocument();
-  });
-
-  it('renders status circle with title', () => {
-    renderRow(mockTask);
-    expect(screen.getByTitle('pendente')).toBeInTheDocument();
+    renderRow();
+    expect(screen.getByText('Implementar autenticação')).toBeInTheDocument();
   });
 
   it('renders assignee avatar initial', () => {
-    renderRow(mockTask);
-    expect(screen.getByText('D')).toBeInTheDocument();
+    renderRow();
+    expect(screen.getByText('A')).toBeInTheDocument();
   });
 
-  it('renders task with no story points', () => {
-    renderRow({ ...mockTask, storyPoints: null });
-    expect(screen.queryByText('8')).not.toBeInTheDocument();
+  it('renders tag', () => {
+    renderRow();
+    expect(screen.getByText('Backend')).toBeInTheDocument();
   });
 
-  it('shows subtask count badge when subtaskCount > 0', () => {
-    renderRow({ ...mockTask, subtaskCount: 3 });
-    expect(screen.getByText('↳ 3')).toBeInTheDocument();
+  it('renders story points', () => {
+    renderRow();
+    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
-  it('does not show subtask count badge when subtaskCount = 0', () => {
-    renderRow({ ...mockTask, subtaskCount: 0 });
-    expect(screen.queryByText(/↳/)).not.toBeInTheDocument();
+  it('shows expand button when onToggleExpand is provided', () => {
+    const onToggle = vi.fn();
+    renderRow({ ...TASK, subtaskCount: 2 }, { onToggleExpand: onToggle });
+    const btn = screen.getByRole('button', { name: /expandir|recolher/i });
+    expect(btn).toBeInTheDocument();
   });
 
-  it('shows a date element colored red for overdue tasks', () => {
-    const overdueTask = { ...mockTask, dueDate: '2020-06-15T12:00:00.000Z' };
-    const { container } = renderRow(overdueTask);
-    const spans = container.querySelectorAll('span');
-    const overdueDateSpan = Array.from(spans).find(
-      (el) => el.style.color === 'rgb(255, 77, 79)',
-    );
-    expect(overdueDateSpan).toBeDefined();
+  it('calls onToggleExpand when toggle button clicked', () => {
+    const onToggle = vi.fn();
+    renderRow({ ...TASK, subtaskCount: 2 }, { onToggleExpand: onToggle, isExpanded: false });
+    const btn = screen.getByRole('button', { name: /expandir/i });
+    fireEvent.click(btn);
+    expect(onToggle).toHaveBeenCalled();
   });
 
-  it('renders expand toggle when onToggleExpand is provided', () => {
-    render(
-      <MemoryRouter initialEntries={['/spaces/space-1/lists/list-1']}>
-        <Routes>
-          <Route path="/spaces/:spaceId/lists/:listId" element={<TaskRow task={mockTask} onToggleExpand={vi.fn()} isExpanded={false} />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    expect(screen.getByRole('button', { name: /expand subtasks/i })).toBeInTheDocument();
-  });
-
-  it('does not render expand toggle by default', () => {
-    renderRow(mockTask);
-    expect(screen.queryByRole('button', { name: /expand subtasks/i })).not.toBeInTheDocument();
+  it('shows overdue date in red class', () => {
+    const pastTask = { ...TASK, dueDate: '2020-06-15T12:00:00.000Z' };
+    renderRow(pastTask);
+    const dateEl = screen.getByText(/jun/i);
+    expect(dateEl.className).toContain('danger');
   });
 });

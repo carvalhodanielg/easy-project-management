@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MDEditor from '@uiw/react-md-editor';
+import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
 import * as wikiApi from '../../api/wiki.api';
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -10,10 +11,10 @@ export function WikiDocumentPage() {
   const { spaceId, documentId } = useParams<{ spaceId: string; documentId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [content, setContent] = useState('');
-  const [title, setTitle] = useState('');
+  const [content,      setContent]      = useState('');
+  const [title,        setTitle]        = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [saveStatus,   setSaveStatus]   = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: doc } = useQuery({
@@ -48,7 +49,6 @@ export function WikiDocumentPage() {
     const newValue = value ?? '';
     setContent(newValue);
     setSaveStatus('unsaved');
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => saveContent(newValue), AUTOSAVE_DELAY_MS);
   };
@@ -62,22 +62,35 @@ export function WikiDocumentPage() {
 
   if (!doc) {
     return (
-      <div style={{ padding: '2rem', color: '#888', textAlign: 'center' }}>Loading document...</div>
+      <div className="h-full flex items-center justify-center text-ink-muted text-sm gap-2">
+        <Loader2 size={16} className="animate-spin" /> Carregando documento…
+      </div>
     );
   }
 
+  const SaveIcon = saveStatus === 'saved'   ? Check
+                 : saveStatus === 'saving'  ? Loader2
+                 : AlertCircle;
+  const saveColor = saveStatus === 'saved'   ? 'text-s-done'
+                  : saveStatus === 'saving'  ? 'text-s-review'
+                  : 'text-danger';
+  const saveLabel = saveStatus === 'saved'   ? 'Salvo'
+                  : saveStatus === 'saving'  ? 'Salvando…'
+                  : 'Não salvo';
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="h-full flex flex-col bg-base">
+
       {/* Header */}
-      <header style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #E8E8E8', background: '#fff', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <header className="bg-surface border-b border-line px-6 py-3 flex items-center gap-4 shrink-0">
         <button
           onClick={() => navigate(`/spaces/${spaceId}/wiki/folders/${doc.folderId}`)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '0.8rem' }}
+          className="flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink transition-colors"
         >
-          ← Back
+          <ArrowLeft size={14} /> Voltar
         </button>
 
-        <div style={{ flex: 1 }}>
+        <div className="flex-1 min-w-0">
           {editingTitle ? (
             <input
               autoFocus
@@ -88,26 +101,27 @@ export function WikiDocumentPage() {
                 if (e.key === 'Enter') saveTitle();
                 if (e.key === 'Escape') { setTitle(doc.title); setEditingTitle(false); }
               }}
-              style={{ fontSize: '1.1rem', fontWeight: 700, border: 'none', borderBottom: '2px solid #4A90E2', outline: 'none', width: '100%', padding: '0.1rem 0' }}
+              className="text-base font-semibold bg-transparent border-b-2 border-brand text-ink focus:outline-none w-full py-0.5"
             />
           ) : (
-            <h2
+            <button
               onClick={() => setEditingTitle(true)}
-              style={{ margin: 0, fontSize: '1.1rem', cursor: 'text' }}
-              title="Click to rename"
+              className="text-base font-semibold text-ink hover:text-white transition-colors text-left truncate max-w-full"
+              title="Clique para renomear"
             >
               {title}
-            </h2>
+            </button>
           )}
         </div>
 
-        <span style={{ fontSize: '0.75rem', color: saveStatus === 'saved' ? '#52C41A' : saveStatus === 'saving' ? '#FA8C16' : '#FF4D4F' }}>
-          {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : '● Unsaved'}
-        </span>
+        <div className={`flex items-center gap-1.5 text-xs font-medium ${saveColor}`}>
+          <SaveIcon size={12} className={saveStatus === 'saving' ? 'animate-spin' : ''} />
+          {saveLabel}
+        </div>
       </header>
 
       {/* Editor */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }} data-color-mode="light">
+      <div className="flex-1 overflow-auto p-6" data-color-mode="dark">
         <MDEditor
           value={content}
           onChange={handleContentChange}

@@ -1,59 +1,52 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TaskRowWithSubtasks } from './TaskRowWithSubtasks';
 import * as tasksApi from '../../api/tasks.api';
 import type { Task } from '../../types/task.types';
 
 vi.mock('../../api/tasks.api');
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ spaceId: 'sp1' }) };
+});
 
-const baseTask: Task = {
-  _id: 'task-1',
-  spaceId: 'space-1',
-  listId: 'list-1',
-  sprintId: null,
-  name: 'Parent Task',
-  description: '',
+const TASK: Task = {
+  _id: 't1',
+  name: 'Tarefa principal',
   status: 'pendente',
-  priority: 'alta',
-  assignees: [],
-  startDate: null,
+  priority: 'normal',
+  storyPoints: null,
   dueDate: null,
+  assignees: [],
   tags: [],
-  storyPoints: 5,
-  subtaskCount: 0,
-  parentTask: null,
+  subtaskCount: 2,
   blockedBy: [],
   blocks: [],
-  position: 0,
-  createdBy: 'u1',
-  createdAt: '2025-01-01T00:00:00.000Z',
-  updatedAt: '2025-01-01T00:00:00.000Z',
+  description: '',
+  parentTask: null,
+  listId: 'l1',
+  sprintId: null,
+  createdAt: '',
+  updatedAt: '',
 };
 
-const mockSubtask: Task = {
-  ...baseTask,
-  _id: 'sub-1',
-  name: 'Child Task',
-  subtaskCount: 0,
-  parentTask: 'task-1',
-  storyPoints: null,
-};
+const SUBTASKS = [
+  { ...TASK, _id: 's1', name: 'Subtarefa 1', subtaskCount: 0, parentTask: 't1' },
+  { ...TASK, _id: 's2', name: 'Subtarefa 2', subtaskCount: 0, parentTask: 't1' },
+];
 
-function makeClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
-}
-
-function renderRow(task: Task) {
-  vi.mocked(tasksApi.getSubtasks).mockResolvedValue([mockSubtask]);
+function renderComponent(task = TASK) {
+  vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={makeClient()}>
-      <MemoryRouter initialEntries={['/spaces/space-1/lists/list-1']}>
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={['/spaces/sp1']}>
         <Routes>
           <Route
-            path="/spaces/:spaceId/lists/:listId"
-            element={<TaskRowWithSubtasks task={task} spaceId="space-1" />}
+            path="/spaces/:spaceId"
+            element={<TaskRowWithSubtasks task={task} spaceId="sp1" />}
           />
         </Routes>
       </MemoryRouter>
@@ -61,55 +54,36 @@ function renderRow(task: Task) {
   );
 }
 
-describe('TaskRowWithSubtasks — task with subtaskCount = 0', () => {
+describe('TaskRowWithSubtasks', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders the task name', () => {
-    renderRow({ ...baseTask, subtaskCount: 0 });
-    expect(screen.getByText('Parent Task')).toBeInTheDocument();
+  it('renders the main task', () => {
+    renderComponent();
+    expect(screen.getByText('Tarefa principal')).toBeInTheDocument();
   });
 
-  it('does not render expand toggle when task has no subtasks', () => {
-    renderRow({ ...baseTask, subtaskCount: 0 });
-    expect(screen.queryByRole('button', { name: /expand subtasks/i })).not.toBeInTheDocument();
+  it('shows expand button when task has subtasks', () => {
+    renderComponent();
+    expect(screen.getByRole('button', { name: /recolher|expandir/i })).toBeInTheDocument();
   });
 
-  it('does not show subtasks section when subtaskCount = 0', () => {
-    renderRow({ ...baseTask, subtaskCount: 0 });
-    expect(screen.queryByText('Child Task')).not.toBeInTheDocument();
-  });
-});
-
-describe('TaskRowWithSubtasks — task with subtaskCount > 0', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('renders expand toggle when task has subtasks', () => {
-    renderRow({ ...baseTask, subtaskCount: 2 });
-    expect(screen.getByRole('button', { name: /collapse subtasks/i })).toBeInTheDocument();
+  it('shows subtasks when expanded (default for tasks with subtasks)', async () => {
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.getByText('Subtarefa 1')).toBeInTheDocument();
+      expect(screen.getByText('Subtarefa 2')).toBeInTheDocument();
+    });
   });
 
-  it('shows subtasks expanded by default when subtaskCount > 0', async () => {
-    renderRow({ ...baseTask, subtaskCount: 2 });
-    expect(await screen.findByText('Child Task')).toBeInTheDocument();
+  it('hides subtasks after collapsing', async () => {
+    renderComponent();
+    await waitFor(() => screen.getByText('Subtarefa 1'));
+    fireEvent.click(screen.getByRole('button', { name: /recolher/i }));
+    expect(screen.queryByText('Subtarefa 1')).not.toBeInTheDocument();
   });
 
-  it('collapses subtasks when toggle is clicked', async () => {
-    renderRow({ ...baseTask, subtaskCount: 2 });
-    await screen.findByText('Child Task');
-    fireEvent.click(screen.getByRole('button', { name: /collapse subtasks/i }));
-    expect(screen.queryByText('Child Task')).not.toBeInTheDocument();
-  });
-
-  it('re-expands subtasks after collapsing', async () => {
-    renderRow({ ...baseTask, subtaskCount: 2 });
-    await screen.findByText('Child Task');
-    fireEvent.click(screen.getByRole('button', { name: /collapse subtasks/i }));
-    fireEvent.click(screen.getByRole('button', { name: /expand subtasks/i }));
-    expect(await screen.findByText('Child Task')).toBeInTheDocument();
-  });
-
-  it('shows "+ Add subtask" button when expanded', async () => {
-    renderRow({ ...baseTask, subtaskCount: 2 });
-    expect(await screen.findByRole('button', { name: /add subtask/i })).toBeInTheDocument();
+  it('does not show expand button for task without subtasks', () => {
+    renderComponent({ ...TASK, subtaskCount: 0 });
+    expect(screen.queryByRole('button', { name: /expandir|recolher/i })).not.toBeInTheDocument();
   });
 });

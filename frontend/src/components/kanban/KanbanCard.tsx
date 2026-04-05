@@ -1,12 +1,12 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Task } from '../../types/task.types';
+import { GripVertical, Calendar } from 'lucide-react';
+import type { Task } from '../../types/task.types';
 import { PriorityIcon } from '../ui/PriorityIcon';
+import { Tooltip } from '../ui/tooltip';
 
-interface Props {
-  task: Task;
-}
+interface Props { task: Task; }
 
 export function KanbanCard({ task }: Props) {
   const navigate = useNavigate();
@@ -16,72 +16,75 @@ export function KanbanCard({ task }: Props) {
     data: { task },
   });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.4 : 1,
-    background: '#fff',
-    borderRadius: '6px',
-    padding: '0.6rem 0.75rem',
-    marginBottom: '0.5rem',
-    border: '1px solid #E8E8E8',
-    boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
-    cursor: isDragging ? 'grabbing' : 'grab',
-    userSelect: 'none',
-  };
+  const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      className={`group mb-2 rounded-xl border select-none transition-all ${
+        isDragging
+          ? 'opacity-40 shadow-2xl border-brand/30 bg-lift'
+          : 'border-line bg-surface hover:border-brand/30 hover:shadow-md cursor-pointer'
+      }`}
       onClick={(e) => {
-        // Only open detail if not dragging
-        if (!isDragging) {
-          e.stopPropagation();
-          navigate(`/spaces/${spaceId}/tasks/${task._id}`);
-        }
+        if (!isDragging) { e.stopPropagation(); navigate(`/spaces/${spaceId}/tasks/${task._id}`); }
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', marginBottom: '0.4rem' }}>
-        <PriorityIcon priority={task.priority} />
-        <span style={{ fontSize: '0.85rem', lineHeight: 1.3, flex: 1 }}>{task.name}</span>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-        {task.storyPoints !== null && (
-          <span style={{ background: '#F0F0F0', borderRadius: '4px', padding: '1px 6px', fontSize: '0.7rem', fontWeight: 600, color: '#555' }}>
-            {task.storyPoints}
-          </span>
-        )}
-
-        {task.tags.map((tag) => (
-          <span
-            key={tag._id}
-            style={{ padding: '1px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 600, background: tag.color + '22', color: tag.color, border: `1px solid ${tag.color}44` }}
+      <div className="p-3.5">
+        {/* Drag + title */}
+        <div className="flex items-start gap-2 mb-3">
+          <button
+            className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 text-ink-muted hover:text-ink"
+            {...listeners}
+            {...attributes}
+            onClick={(e) => e.stopPropagation()}
           >
-            {tag.name}
-          </span>
-        ))}
+            <GripVertical size={13} />
+          </button>
+          <span className="text-sm text-ink leading-snug flex-1">{task.name}</span>
+        </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem' }}>
-          {task.assignees.slice(0, 3).map((u) => (
+        {/* Meta row */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <PriorityIcon priority={task.priority} />
+
+          {task.storyPoints !== null && (
+            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium text-ink-dim bg-lift tabular-nums">
+              {task.storyPoints}
+            </span>
+          )}
+
+          {task.tags.slice(0, 2).map((tag) => (
             <span
-              key={u._id}
-              title={u.displayName}
-              style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#4A90E2', color: '#fff', fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+              key={tag._id}
+              style={{ background: tag.color + '1E', color: tag.color }}
+              className="px-2 py-0.5 rounded-full text-[11px] font-medium"
             >
-              {u.displayName.charAt(0).toUpperCase()}
+              {tag.name}
             </span>
           ))}
-        </div>
-      </div>
 
-      {task.dueDate && (
-        <div style={{ marginTop: '0.3rem', fontSize: '0.7rem', color: new Date(task.dueDate) < new Date() ? '#FF4D4F' : '#8C8C8C' }}>
-          {new Date(task.dueDate).toLocaleDateString()}
+          {task.assignees.length > 0 && (
+            <div className="ml-auto flex gap-0.5">
+              {task.assignees.slice(0, 3).map((u) => (
+                <Tooltip key={u._id} content={u.displayName}>
+                  <span className="w-5 h-5 rounded-full bg-brand/30 text-brand text-[9px] font-bold flex items-center justify-center shrink-0">
+                    {u.displayName?.charAt(0).toUpperCase() ?? '?'}
+                  </span>
+                </Tooltip>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {task.dueDate && (
+          <div className={`mt-2.5 flex items-center gap-1 text-[11px] font-medium ${isOverdue ? 'text-danger' : 'text-ink-muted'}`}>
+            <Calendar size={10} />
+            {new Date(task.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,7 @@
+import { ChevronDown } from 'lucide-react';
 import { TaskStatus, TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
 import { TASK_COLS } from './TaskRow';
+import { T } from '../../theme';
 
 interface Props {
   groupKey: string | null;
@@ -9,14 +11,6 @@ interface Props {
   onAddTask?: () => void;
 }
 
-const STATUS_ACCENT: Record<TaskStatus, string> = {
-  pendente:     '#8B8FA8',
-  em_progresso: '#1677FF',
-  em_review:    '#FA8C16',
-  feito:        '#52C41A',
-  fechado:      '#595959',
-};
-
 function groupLabel(groupKey: string | null, groupBy: Props['groupBy']): string {
   if (!groupKey) return 'Sem responsável';
   if (groupBy === 'status')   return STATUS_LABELS[groupKey as TaskStatus]   ?? groupKey;
@@ -25,63 +19,50 @@ function groupLabel(groupKey: string | null, groupBy: Props['groupBy']): string 
 }
 
 function accentColor(groupKey: string | null, groupBy: Props['groupBy']): string {
-  if (groupBy === 'status' && groupKey) return STATUS_ACCENT[groupKey as TaskStatus] ?? '#8B8FA8';
-  return '#8B8FA8';
+  if (groupBy === 'status' && groupKey)   return T.status[groupKey]   ?? T.text3;
+  if (groupBy === 'priority' && groupKey) return T.priority[groupKey] ?? T.text3;
+  return T.accent;
 }
 
-export function TaskGroupHeader({ groupKey, groupBy, count, totalStoryPoints, onAddTask }: Props) {
+export function TaskGroupHeader({ groupKey, groupBy, count, totalStoryPoints }: Props) {
   const accent = accentColor(groupKey, groupBy);
   const label  = groupLabel(groupKey, groupBy);
 
   return (
     <div
+      className="sticky top-8 z-10 flex items-center"
       style={{
         display: 'grid',
         gridTemplateColumns: TASK_COLS,
         alignItems: 'center',
-        minHeight: '34px',
-        borderBottom: '1px solid #E8E8E8',
-        borderLeft: `3px solid ${accent}`,
-        background: '#FAFAFA',
-        position: 'sticky',
-        top: 0,
-        zIndex: 2,
+        minHeight: '32px',
+        background: 'var(--color-surface)',
+        borderBottom: '1px solid var(--color-line-dim)',
+        borderLeft: `2px solid ${accent}`,
       }}
     >
-      {/* Col 1 — colored chevron */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: '0.6rem', color: accent, fontWeight: 700 }}>▼</span>
+      <div className="flex items-center justify-center">
+        <ChevronDown size={11} style={{ color: accent }} />
       </div>
 
-      {/* Col 2 — label + count */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
           {label}
         </span>
-        <span style={{ fontSize: '0.72rem', color: '#AAA', fontWeight: 500 }}>{count}</span>
-        {onAddTask && (
-          <button
-            onClick={onAddTask}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#AAA', padding: '0 4px', lineHeight: 1 }}
-          >
-            +
-          </button>
-        )}
-      </div>
-
-      {/* Col 3 — empty (assignee) */}
-      <div />
-
-      {/* Col 4 — total points */}
-      <div style={{ textAlign: 'center' }}>
+        <span
+          className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums"
+          style={{ background: accent + '18', color: accent }}
+        >
+          {count}
+        </span>
         {totalStoryPoints > 0 && (
-          <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600 }}>{totalStoryPoints}</span>
+          <span className="text-[11px] text-ink-muted tabular-nums">
+            {totalStoryPoints} pts
+          </span>
         )}
       </div>
 
-      {/* Col 5 & 6 — empty */}
-      <div />
-      <div />
+      <div /><div /><div /><div />
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LayoutList, Kanban, Plus, X, Zap, Calendar, FileText, Loader2, Tag, ChevronRight } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import * as sprintsApi from '../../api/sprints.api';
+import * as notesApi from '../../api/notes.api';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { TASK_COLS } from '../../components/task/TaskRow';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
@@ -10,13 +12,42 @@ import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { Task, GroupedTaskResult } from '../../types/task.types';
+import type { Note } from '../../types/note.types';
+import { cn } from '../../lib/utils';
+
+const LABEL_COLORS: Record<string, string> = {
+  ideia:     'bg-p-normal/20 text-p-normal',
+  bug:       'bg-p-urgent/20 text-p-urgent',
+  melhoria:  'bg-s-progress/20 text-s-progress',
+  decisão:   'bg-s-review/20 text-s-review',
+  revisão:   'bg-p-high/20 text-p-high',
+  referência:'bg-s-done/20 text-s-done',
+};
+
+const STATUS_META: Record<sprintsApi.Sprint['status'], { label: string; color: string }> = {
+  planning:  { label: 'Planejamento', color: 'text-s-review' },
+  active:    { label: 'Ativo',        color: 'text-s-done' },
+  completed: { label: 'Concluído',    color: 'text-ink-dim' },
+};
+
+const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
+  { label: 'Tarefa' },
+  { label: 'Responsável' },
+  { label: 'Pts', align: 'center' },
+  { label: 'Prioridade', align: 'center' },
+  { label: 'Prazo', align: 'right' },
+];
 
 export function SprintPage() {
   const { spaceId, sprintId } = useParams<{ spaceId: string; sprintId: string }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<'tarefas' | 'notas'>('tarefas');
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showCreate, setShowCreate] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
+  const [showCreateNote, setShowCreateNote] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState('');
 
   const taskFilter = useTaskFilter({ sprintId });
 
@@ -43,13 +74,17 @@ export function SprintPage() {
     : (tasks as Task[]);
 
   const totalPoints = flatTasks.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
-  const donePoints = flatTasks
-    .filter((t) => t.status === 'feito')
-    .reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
+  const donePoints  = flatTasks.filter((t) => t.status === 'feito').reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
+  const progress    = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
+
+  const { data: notes = [], isLoading: notesLoading } = useQuery({
+    queryKey: ['notes', spaceId, sprintId],
+    queryFn: () => notesApi.getNotes(spaceId!, sprintId!),
+    enabled: !!spaceId && !!sprintId && tab === 'notas',
+  });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      tasksApi.createTask(spaceId!, { name: newTaskName, sprintId }),
+    mutationFn: () => tasksApi.createTask(spaceId!, { name: newTaskName, sprintId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       setNewTaskName('');
@@ -57,72 +92,264 @@ export function SprintPage() {
     },
   });
 
+  const createNoteMutation = useMutation({
+    mutationFn: () => notesApi.createNote(spaceId!, sprintId!, { title: newNoteTitle }),
+    onSuccess: (note) => {
+      void queryClient.invalidateQueries({ queryKey: ['notes', spaceId, sprintId] });
+      setNewNoteTitle('');
+      setShowCreateNote(false);
+      navigate(`/spaces/${spaceId}/notes/${note._id}`);
+    },
+  });
+
+  const sprintLabel = sprint
+    ? `Sprint ${sprint.number}${sprint.name ? ` — ${sprint.name}` : ''}`
+    : '…';
+
+  const statusMeta = sprint ? STATUS_META[sprint.status] : null;
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #E8E8E8', background: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>
-              ⚡ Sprint {sprint?.number} — {sprint?.name ?? '...'}
-            </h2>
-            {sprint && (
-              <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: '#888' }}>
-                {new Date(sprint.startDate).toLocaleDateString()} → {new Date(sprint.endDate).toLocaleDateString()}
-                {' · '}
-                <span style={{ color: '#4A90E2', fontWeight: 600 }}>{donePoints}/{totalPoints} pts</span>
-              </p>
-            )}
+    <div className="h-full flex flex-col">
+
+      {/* Header */}
+      <header className="bg-surface border-b border-line shrink-0">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-brand/12 border border-brand/20 flex items-center justify-center">
+              <Zap size={15} className="text-brand" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-ink">{sprintLabel}</h1>
+                {statusMeta && (
+                  <span className={`text-xs font-medium ${statusMeta.color}`}>
+                    · {statusMeta.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 mt-0.5">
+                {sprint && (
+                  <span className="flex items-center gap-1 text-xs text-ink-muted">
+                    <Calendar size={10} />
+                    {new Date(sprint.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    {' → '}
+                    {new Date(sprint.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </span>
+                )}
+                {totalPoints > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-1.5 bg-line rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-brand rounded-full transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-ink-muted tabular-nums">
+                      {donePoints}/{totalPoints} pts
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={() => setView('list')}
-              style={{ padding: '0.4rem 0.7rem', background: view === 'list' ? '#4A90E2' : '#F0F0F0', color: view === 'list' ? '#fff' : '#555', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-            >
-              ☰ List
-            </button>
-            <button
-              onClick={() => setView('kanban')}
-              style={{ padding: '0.4rem 0.7rem', background: view === 'kanban' ? '#4A90E2' : '#F0F0F0', color: view === 'kanban' ? '#fff' : '#555', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-            >
-              ⬛ Board
-            </button>
+          {tab === 'tarefas' ? (
             <button
               onClick={() => setShowCreate(true)}
-              style={{ padding: '0.4rem 0.8rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem', marginLeft: '0.5rem' }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
             >
-              + Add Task
+              <Plus size={13} /> Nova tarefa
             </button>
-          </div>
+          ) : (
+            <button
+              onClick={() => setShowCreateNote(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Plus size={13} /> Nova nota
+            </button>
+          )}
         </div>
-        <FilterBar
-          filters={taskFilter.filters}
-          onToggleStatus={taskFilter.toggleStatus}
-          onTogglePriority={taskFilter.togglePriority}
-          onToggleAssignee={taskFilter.toggleAssignee}
-          onToggleTag={taskFilter.toggleTag}
-          onSetGroupBy={taskFilter.setGroupBy}
-          onSetSearch={taskFilter.setSearch}
-          onToggleSubtasks={taskFilter.toggleSubtasks}
-          onReset={taskFilter.reset}
-          isActive={taskFilter.isActive}
-        />
+
+        {/* Main tabs */}
+        <div className="flex items-center gap-0 px-6 border-b border-line-dim">
+          {(['tarefas', 'notas'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors capitalize',
+                tab === t
+                  ? 'border-brand text-brand font-medium'
+                  : 'border-transparent text-ink-muted hover:text-ink-dim',
+              )}
+            >
+              {t === 'tarefas' ? <LayoutList size={13} /> : <FileText size={13} />}
+              {t === 'tarefas' ? 'Tarefas' : 'Notas'}
+            </button>
+          ))}
+
+          {tab === 'tarefas' && (
+            <>
+              <div className="w-px h-4 bg-line mx-1" />
+              {(['list', 'kanban'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                    view === v
+                      ? 'border-brand text-brand font-medium'
+                      : 'border-transparent text-ink-muted hover:text-ink-dim',
+                  )}
+                >
+                  {v === 'list' ? <LayoutList size={13} /> : <Kanban size={13} />}
+                  {v === 'list' ? 'Lista' : 'Board'}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+
+        {tab === 'tarefas' && <div className="px-6 py-2.5">
+          <FilterBar
+            filters={taskFilter.filters}
+            onToggleStatus={taskFilter.toggleStatus}
+            onTogglePriority={taskFilter.togglePriority}
+            onToggleAssignee={taskFilter.toggleAssignee}
+            onToggleTag={taskFilter.toggleTag}
+            onSetGroupBy={taskFilter.setGroupBy}
+            onSetSearch={taskFilter.setSearch}
+            onToggleSubtasks={taskFilter.toggleSubtasks}
+            onReset={taskFilter.reset}
+            isActive={taskFilter.isActive}
+          />
+        </div>}
       </header>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        {view === 'kanban' ? (
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+
+        {/* ── Notas tab ── */}
+        {tab === 'notas' && (
+          <div className="max-w-3xl mx-auto px-6 py-6">
+
+            {/* Create note inline form */}
+            {showCreateNote && (
+              <form
+                onSubmit={(e: FormEvent) => { e.preventDefault(); if (newNoteTitle.trim()) createNoteMutation.mutate(); }}
+                className="mb-4 p-4 bg-surface border border-brand/30 rounded-xl flex items-center gap-3"
+              >
+                <FileText size={15} className="text-brand shrink-0" />
+                <input
+                  autoFocus
+                  value={newNoteTitle}
+                  onChange={(e) => setNewNoteTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setShowCreateNote(false)}
+                  placeholder="Título da nota…"
+                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-muted focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={!newNoteTitle.trim() || createNoteMutation.isPending}
+                  className="px-3 py-1.5 bg-brand text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-all"
+                >
+                  {createNoteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Criar'}
+                </button>
+                <button type="button" onClick={() => setShowCreateNote(false)} className="text-ink-muted hover:text-ink">
+                  <X size={14} />
+                </button>
+              </form>
+            )}
+
+            {notesLoading && (
+              <div className="flex items-center gap-2 py-10 text-ink-muted text-sm justify-center">
+                <Loader2 size={15} className="animate-spin" /> Carregando notas…
+              </div>
+            )}
+
+            {!notesLoading && notes.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-12 h-12 rounded-xl bg-lift border border-line flex items-center justify-center mb-4">
+                  <FileText size={18} className="text-ink-muted" />
+                </div>
+                <p className="text-sm font-semibold text-ink-dim">Nenhuma nota ainda</p>
+                <p className="text-xs text-ink-muted mt-1.5 mb-5">Clique em &quot;+ Nova nota&quot; para criar</p>
+                <button
+                  onClick={() => setShowCreateNote(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-xs font-semibold rounded-lg transition-all"
+                >
+                  <Plus size={12} /> Nova nota
+                </button>
+              </div>
+            )}
+
+            {!notesLoading && notes.length > 0 && (
+              <div className="space-y-2">
+                {notes.map((note: Note) => {
+                  const labelCls = note.label ? (LABEL_COLORS[note.label] ?? 'bg-lift text-ink-dim') : '';
+                  return (
+                    <button
+                      key={note._id}
+                      onClick={() => navigate(`/spaces/${spaceId}/notes/${note._id}`)}
+                      className="group w-full text-left bg-surface border border-line rounded-xl px-4 py-3.5 hover:border-brand/30 hover:bg-lift/40 transition-all flex items-center gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-lift border border-line flex items-center justify-center shrink-0 group-hover:border-brand/20 transition-colors">
+                        <FileText size={14} className="text-ink-muted" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-ink truncate">{note.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-ink-muted">
+                            {note.createdBy.displayName} · {new Date(note.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                          </span>
+                          {note.label && (
+                            <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium', labelCls)}>
+                              <Tag size={8} /> {note.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight size={13} className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={() => setShowCreateNote(true)}
+                  className="flex items-center gap-2 w-full px-4 py-3 text-sm text-ink-muted hover:text-ink hover:bg-lift/40 transition-colors rounded-xl"
+                >
+                  <Plus size={13} /> Nova nota
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'tarefas' && view === 'kanban' ? (
           <KanbanView spaceId={spaceId!} tasks={flatTasks} />
-        ) : (
+        ) : tab === 'tarefas' ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: '32px', background: '#FAFAFA', borderBottom: '2px solid #E8E8E8', position: 'sticky', top: 0, zIndex: 3 }}>
+            {/* Column headers */}
+            <div
+              className="sticky top-0 z-20 border-b border-line bg-surface"
+              style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: '32px' }}
+            >
               <div />
-              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nome</span>
-              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Responsável</span>
-              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center' }}>Pts</span>
-              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center' }}>Prioridade</span>
-              <span style={{ fontSize: '0.7rem', color: '#AAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', paddingRight: '12px' }}>Data</span>
+              {COL_LABELS.map(({ label, align }) => (
+                <span
+                  key={label}
+                  className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted px-1"
+                  style={{ textAlign: align }}
+                >
+                  {label}
+                </span>
+              ))}
             </div>
 
-            {isLoading && <p style={{ padding: '1rem', color: '#888' }}>Loading...</p>}
+            {isLoading && (
+              <div className="flex items-center gap-2 px-6 py-10 text-ink-muted text-sm">
+                <span className="animate-spin">⟳</span> Carregando…
+              </div>
+            )}
 
             {isGrouped
               ? (tasks as GroupedTaskResult[]).map((group) => (
@@ -144,13 +371,21 @@ export function SprintPage() {
             }
 
             {!isLoading && flatTasks.length === 0 && (
-              <p style={{ padding: '2rem', textAlign: 'center', color: '#AAA' }}>
-                No tasks in this sprint yet.
-              </p>
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-12 h-12 rounded-xl bg-lift border border-line flex items-center justify-center mb-4">
+                  <Zap size={18} className="text-ink-muted" />
+                </div>
+                <p className="text-sm font-semibold text-ink-dim">Sprint sem tarefas</p>
+                <p className="text-xs text-ink-muted mt-1.5">Clique em &quot;+ Nova tarefa&quot; para adicionar</p>
+              </div>
             )}
 
             {showCreate && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderBottom: '1px solid #f0f0f0' }}>
+              <div
+                className="border-b border-line-dim bg-lift/40"
+                style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: '40px' }}
+              >
+                <div />
                 <input
                   autoFocus
                   value={newTaskName}
@@ -159,26 +394,37 @@ export function SprintPage() {
                     if (e.key === 'Enter' && newTaskName.trim()) createMutation.mutate();
                     if (e.key === 'Escape') { setShowCreate(false); setNewTaskName(''); }
                   }}
-                  placeholder="Task name..."
-                  style={{ flex: 1, padding: '0.4rem', border: '1px solid #4A90E2', borderRadius: '4px', outline: 'none', fontSize: '0.875rem' }}
+                  placeholder="Nome da tarefa…"
+                  className="bg-transparent border-b border-brand text-sm text-ink placeholder:text-ink-muted focus:outline-none py-1 pr-2"
                 />
-                <button
-                  onClick={() => newTaskName.trim() && createMutation.mutate()}
-                  disabled={!newTaskName.trim() || createMutation.isPending}
-                  style={{ padding: '0.4rem 0.8rem', background: '#4A90E2', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => { setShowCreate(false); setNewTaskName(''); }}
-                  style={{ padding: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}
-                >
-                  ✕
-                </button>
+                <div className="col-span-4 flex gap-1.5 pl-2">
+                  <button
+                    onClick={() => newTaskName.trim() && createMutation.mutate()}
+                    disabled={!newTaskName.trim() || createMutation.isPending}
+                    className="px-2.5 py-1 bg-brand text-white text-xs rounded-md disabled:opacity-50 transition-all"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => { setShowCreate(false); setNewTaskName(''); }}
+                    className="p-1 text-ink-muted hover:text-ink transition-colors"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
               </div>
             )}
+
+            {!showCreate && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 px-5 py-3 w-full text-sm text-ink-muted hover:text-ink hover:bg-lift/40 transition-colors"
+              >
+                <Plus size={13} /> Adicionar tarefa
+              </button>
+            )}
           </>
-        )}
+        ) : null}
       </div>
     </div>
   );

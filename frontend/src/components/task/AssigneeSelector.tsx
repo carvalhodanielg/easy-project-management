@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Plus, Check, X } from 'lucide-react';
 import * as spacesApi from '../../api/spaces.api';
 import type { User } from '../../types/user.types';
 import type { SpaceMember } from '../../types/space.types';
+import { Tooltip } from '../ui/tooltip';
 
 interface Props {
   assignees: User[];
@@ -36,57 +38,42 @@ export function AssigneeSelector({ assignees, spaceId, onChange }: Props) {
   const assigneeIds = new Set(assignees.map((u) => u._id));
 
   const toggle = (user: User) => {
-    if (assigneeIds.has(user._id)) {
+    if (assigneeIds.has(user._id))
       onChange(assignees.filter((u) => u._id !== user._id).map((u) => u._id));
-    } else {
+    else
       onChange([...assignees.map((u) => u._id), user._id]);
-    }
-  };
-
-  const remove = (userId: string) => {
-    onChange(assignees.filter((u) => u._id !== userId).map((u) => u._id));
   };
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+    <div ref={ref} className="relative flex items-center gap-2 flex-wrap">
       {assignees.map((user) => (
-        <span
-          key={user._id}
-          title={user.displayName}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: '#EBF3FD',
-            borderRadius: '20px',
-            padding: '2px 8px 2px 4px',
-            fontSize: '0.75rem',
-          }}
-        >
-          <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#4A90E2', color: '#fff', fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-            {user.displayName.charAt(0).toUpperCase()}
+        <Tooltip key={user._id} content={user.displayName}>
+          <span className="inline-flex items-center gap-1.5 bg-lift border border-line rounded-full pl-0.5 pr-2 py-0.5 text-xs text-ink">
+            <span className="w-5 h-5 rounded-full bg-brand/30 text-brand text-[9px] font-bold flex items-center justify-center shrink-0">
+              {user.displayName.charAt(0).toUpperCase()}
+            </span>
+            <span>{user.displayName}</span>
+            <button
+              aria-label="Remover"
+              onClick={() => onChange(assignees.filter((u) => u._id !== user._id).map((u) => u._id))}
+              className="text-ink-muted hover:text-ink ml-0.5 transition-colors"
+            >
+              <X size={10} />
+            </button>
           </span>
-          {user.displayName}
-          <button
-            aria-label="×"
-            onClick={() => remove(user._id)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '0.8rem', padding: 0, lineHeight: 1 }}
-          >
-            ×
-          </button>
-        </span>
+        </Tooltip>
       ))}
 
       <button
-        aria-label="+"
+        aria-label="Adicionar responsável"
         onClick={() => setOpen((o) => !o)}
-        style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px dashed #AAA', background: 'none', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', flexShrink: 0 }}
+        className="w-7 h-7 rounded-full border border-dashed border-line flex items-center justify-center text-ink-muted hover:text-ink hover:border-brand/60 transition-colors"
       >
-        +
+        <Plus size={13} />
       </button>
 
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', background: '#fff', border: '1px solid #E8E8E8', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '180px', padding: '4px 0' }}>
+        <div className="absolute top-full left-0 mt-1.5 z-50 bg-modal border border-line rounded-xl shadow-2xl min-w-48 py-1.5 max-h-56 overflow-y-auto">
           {members.map((m) => {
             const user = memberUser(m);
             if (!user) return null;
@@ -96,20 +83,21 @@ export function AssigneeSelector({ assignees, spaceId, onChange }: Props) {
                 key={m._id}
                 aria-label={user.displayName}
                 onClick={() => toggle(user)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', padding: '0.4rem 0.75rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.85rem', textAlign: 'left', color: '#333' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#F5F5F5')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm text-ink hover:bg-lift transition-colors"
               >
-                <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: assigned ? '#4A90E2' : '#DDD', color: '#fff', fontSize: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>
+                <span
+                  className="w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+                  style={{ background: assigned ? '#6366F1' : '#3A3A4A' }}
+                >
                   {user.displayName.charAt(0).toUpperCase()}
                 </span>
-                {user.displayName}
-                {assigned && <span style={{ marginLeft: 'auto', color: '#4A90E2', fontSize: '0.8rem' }}>✓</span>}
+                <span className="flex-1">{user.displayName}</span>
+                {assigned && <Check size={13} className="text-brand shrink-0" />}
               </button>
             );
           })}
           {members.length === 0 && (
-            <p style={{ margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#AAA' }}>Carregando...</p>
+            <p className="px-3 py-2 text-xs text-ink-muted">Carregando…</p>
           )}
         </div>
       )}

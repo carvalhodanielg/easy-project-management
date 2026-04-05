@@ -36,6 +36,16 @@ export class UsersService {
     return user;
   }
 
+  async search(q: string): Promise<UserDocument[]> {
+    if (!q || q.trim().length === 0) return [];
+    const regex = new RegExp(q.trim(), 'i');
+    return this.userModel
+      .find({ $or: [{ email: regex }, { displayName: regex }] })
+      .select('-passwordHash')
+      .limit(10)
+      .exec();
+  }
+
   toPublic(user: UserDocument) {
     return {
       _id: (user._id as Types.ObjectId).toString(),

@@ -1,34 +1,29 @@
-import { TaskPriority, PRIORITY_LABELS } from '../../types/task.types';
+import { Flame, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import type { TaskPriority } from '../../types/task.types';
+import { PRIORITY_LABELS } from '../../types/task.types';
 
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  urgente: '#FF4D4F',
-  alta: '#FA8C16',
-  normal: '#1890FF',
-  baixa: '#8C8C8C',
+const PRIORITY_CONFIG: Record<TaskPriority, {
+  icon: React.ElementType;
+  color: string;
+}> = {
+  urgente: { icon: Flame,      color: 'text-p-urgent' },
+  alta:    { icon: ArrowUp,    color: 'text-p-high'   },
+  normal:  { icon: ArrowRight, color: 'text-p-normal' },
+  baixa:   { icon: ArrowDown,  color: 'text-p-low'    },
 };
 
 interface Props {
   priority: TaskPriority;
   showLabel?: boolean;
+  size?: number;
 }
 
-export function PriorityIcon({ priority, showLabel }: Props) {
+export function PriorityIcon({ priority, showLabel = false, size = 13 }: Props) {
+  const { icon: Icon, color } = PRIORITY_CONFIG[priority];
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        fontSize: '0.75rem',
-        color: PRIORITY_COLORS[priority],
-        fontWeight: 600,
-      }}
-      title={PRIORITY_LABELS[priority]}
-    >
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-        <polygon points="5,0 10,10 0,10" />
-      </svg>
-      {showLabel && PRIORITY_LABELS[priority]}
+    <span className={`inline-flex items-center gap-1 ${color}`}>
+      <Icon size={size} />
+      {showLabel && <span className="text-xs font-medium">{PRIORITY_LABELS[priority]}</span>}
     </span>
   );
 }

@@ -17,6 +17,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { WikiModule } from './modules/wiki/wiki.module';
 import { NotesModule } from './modules/notes/notes.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { NotesModule } from './modules/notes/notes.module';
     AttachmentsModule,
     WikiModule,
     NotesModule,
+    SearchModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

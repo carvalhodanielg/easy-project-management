@@ -1,9 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import { Outlet, useParams, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Home, List, Zap, BookOpen, Plus, LogOut, ChevronDown, ChevronRight,
-  FolderOpen, X, Loader2, Users,
+  FolderOpen, X, Loader2, Users, Search,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useSpacesStore } from '../../store/spaces.store';
@@ -11,6 +11,7 @@ import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as wikiApi from '../../api/wiki.api';
+import { GlobalSearch } from '../../components/search/GlobalSearch';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../../components/ui/tooltip';
 
@@ -79,6 +80,7 @@ export function SpaceLayout() {
   const { setCurrentSpace } = useSpacesStore();
   const queryClient = useQueryClient();
 
+  const [showSearch, setShowSearch] = useState(false);
   const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [sprintName,  setSprintName]  = useState('');
   const [sprintStart, setSprintStart] = useState('');
@@ -125,6 +127,18 @@ export function SpaceLayout() {
     return () => setCurrentSpace(null);
   }, [space, setCurrentSpace]);
 
+  const handleGlobalKey = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      setShowSearch((v) => !v);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleGlobalKey);
+    return () => document.removeEventListener('keydown', handleGlobalKey);
+  }, [handleGlobalKey]);
+
   const initials = user?.displayName
     ? user.displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
@@ -157,6 +171,18 @@ export function SpaceLayout() {
               <ChevronDown size={12} className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           </Tooltip>
+        </div>
+
+        {/* Search trigger */}
+        <div className="px-3 py-2 border-b border-line shrink-0">
+          <button
+            onClick={() => setShowSearch(true)}
+            className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg bg-lift/50 hover:bg-lift border border-line-dim hover:border-line text-ink-muted hover:text-ink-dim transition-all text-sm"
+          >
+            <Search size={13} className="shrink-0" />
+            <span className="flex-1 text-left text-xs">Buscar…</span>
+            <kbd className="hidden sm:flex items-center gap-px text-[10px] font-mono opacity-60">⌘K</kbd>
+          </button>
         </div>
 
         {/* Nav tree */}
@@ -287,6 +313,11 @@ export function SpaceLayout() {
       <main className="flex-1 overflow-hidden flex flex-col bg-base">
         <Outlet />
       </main>
+
+      {/* ── Global search ── */}
+      {showSearch && spaceId && (
+        <GlobalSearch spaceId={spaceId} onClose={() => setShowSearch(false)} />
+      )}
 
       {/* ── Create sprint modal ── */}
       {showCreateSprint && (

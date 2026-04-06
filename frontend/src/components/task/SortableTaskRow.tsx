@@ -17,30 +17,28 @@ export function SortableTaskRow({ task, ...rest }: Props) {
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
   } = useSortable({ id: task._id });
 
+  const dragEnabled = !rest.onSelect;
+
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...(dragEnabled ? listeners : {})}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className="relative group/drag"
     >
-      {!rest.onSelect && (
-        <button
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          aria-label="Arrastar tarefa"
-          tabIndex={-1}
-          className="absolute left-0 inset-y-0 z-10 w-5 hidden group-hover/drag:flex items-center justify-center cursor-grab active:cursor-grabbing text-ink-muted/50 hover:text-ink-muted transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical size={12} />
-        </button>
+      {/* Visual-only grip indicator — pointer-events-none so it never intercepts clicks */}
+      {dragEnabled && (
+        <GripVertical
+          size={12}
+          aria-hidden
+          className="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/drag:opacity-40 pointer-events-none text-ink-muted"
+        />
       )}
       <div style={{ opacity: isDragging ? 0.4 : 1, transition: 'opacity 150ms' }}>
         <TaskRowWithSubtasks task={task} {...rest} />

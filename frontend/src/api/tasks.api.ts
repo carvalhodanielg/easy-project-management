@@ -87,3 +87,32 @@ export async function removeDependency(
 ): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/tasks/${taskId}/dependencies/${targetId}`);
 }
+
+export interface BulkDestination {
+  listId?: string;
+  sprintId?: string;
+}
+
+export async function bulkDeleteTasks(spaceId: string, taskIds: string[]): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-delete`, { taskIds });
+}
+
+export async function bulkMoveTasks(spaceId: string, taskIds: string[], dest: BulkDestination): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-move`, { taskIds, ...dest });
+}
+
+export async function bulkDuplicateTasks(spaceId: string, taskIds: string[], dest: BulkDestination): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-duplicate`, { taskIds, ...dest });
+}
+
+export async function convertToSubtask(spaceId: string, taskIds: string[], parentTaskId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/convert-to-subtask`, { taskIds, parentTaskId });
+}
+
+export async function promoteToMainTask(spaceId: string, taskIds: string[], dest: BulkDestination): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/promote-to-main`, { taskIds, ...dest });
+}
+
+export async function moveSubtask(spaceId: string, taskIds: string[], newParentTaskId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/move-subtask`, { taskIds, newParentTaskId });
+}

@@ -137,3 +137,69 @@ export class AddDependencyDto {
   @IsEnum(['blocks', 'blocked_by'])
   type: 'blocks' | 'blocked_by';
 }
+
+export class BulkDeleteDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+}
+
+export class BulkMoveDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsOptional()
+  @IsMongoId()
+  listId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  sprintId?: string;
+}
+
+export class BulkDuplicateDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsOptional()
+  @IsMongoId()
+  listId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  sprintId?: string;
+}
+
+export class ConvertToSubtaskDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsMongoId()
+  parentTaskId: string;
+}
+
+export class PromoteToMainTaskDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsOptional()
+  @IsMongoId()
+  listId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  sprintId?: string;
+}
+
+export class MoveSubtaskDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsMongoId()
+  newParentTaskId: string;
+}

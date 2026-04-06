@@ -340,4 +340,117 @@ describe('TasksService', () => {
       await expect(service.move(spaceId, taskId, { listId })).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('bulkDelete', () => {
+    it('deletes all given tasks and their subtasks', async () => {
+      const subtask = { ...mockTask, _id: new Types.ObjectId(), parentTask: new Types.ObjectId(taskId) };
+      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([subtask]) });
+      mockTaskModel.deleteMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany.mockResolvedValue({});
+
+      await service.bulkDelete(spaceId, [taskId]);
+
+      expect(mockTaskModel.deleteMany).toHaveBeenCalled();
+    });
+
+    it('cleans up dependency arrays after bulk delete', async () => {
+      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+      mockTaskModel.deleteMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany.mockResolvedValue({});
+
+      await service.bulkDelete(spaceId, [taskId]);
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        { spaceId: expect.anything() },
+        { $pull: { blockedBy: { $in: expect.any(Array) }, blocks: { $in: expect.any(Array) } } },
+      );
+    });
+  });
+
+  describe('bulkMove', () => {
+    it('moves all tasks and their subtasks to new destination', async () => {
+      const newSprintId = new Types.ObjectId().toString();
+      const subtask = { ...mockTask, _id: new Types.ObjectId(), parentTask: new Types.ObjectId(taskId) };
+      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([subtask]) });
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.bulkMove(spaceId, [taskId], { sprintId: newSprintId });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalled();
+    });
+  });
+
+  describe('bulkDuplicate', () => {
+    it('duplicates tasks and their subtasks to new destination', async () => {
+      const subtask = {
+        ...mockTask,
+        _id: new Types.ObjectId(),
+        parentTask: new Types.ObjectId(taskId),
+        name: 'Subtask',
+      };
+      mockTaskModel.find
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([mockTask]) })
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([subtask]) });
+      mockTaskModel.create.mockResolvedValue({ ...mockTask, _id: new Types.ObjectId() });
+
+      await service.bulkDuplicate(spaceId, [taskId], userId, { listId });
+
+      expect(mockTaskModel.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('convertToSubtask', () => {
+    it('sets parentTask and inherits destination from parent', async () => {
+      const parentId = new Types.ObjectId().toString();
+      const parent = { ...mockTask, _id: new Types.ObjectId(parentId), listId: new Types.ObjectId(listId), sprintId: null };
+      mockTaskModel.findOne.mockReturnValue(execMock(parent));
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.convertToSubtask(spaceId, [taskId], parentId);
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
+        expect.objectContaining({ parentTask: expect.anything() }),
+      );
+    });
+
+    it('throws NotFoundException when parent does not exist', async () => {
+      mockTaskModel.findOne.mockReturnValue(execMock(null));
+      await expect(service.convertToSubtask(spaceId, [taskId], targetId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('promoteToMainTask', () => {
+    it('removes parentTask and sets new destination', async () => {
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.promoteToMainTask(spaceId, [taskId], { listId });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
+        expect.objectContaining({ $unset: { parentTask: 1 } }),
+      );
+    });
+  });
+
+  describe('moveSubtask', () => {
+    it('sets new parentTask and inherits destination', async () => {
+      const newParentId = new Types.ObjectId().toString();
+      const newParent = { ...mockTask, _id: new Types.ObjectId(newParentId), listId: new Types.ObjectId(listId), sprintId: null };
+      mockTaskModel.findOne.mockReturnValue(execMock(newParent));
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.moveSubtask(spaceId, [taskId], newParentId);
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
+        expect.objectContaining({ parentTask: expect.anything() }),
+      );
+    });
+
+    it('throws NotFoundException when new parent does not exist', async () => {
+      mockTaskModel.findOne.mockReturnValue(execMock(null));
+      await expect(service.moveSubtask(spaceId, [taskId], targetId)).rejects.toThrow(NotFoundException);
+    });
+  });
 });

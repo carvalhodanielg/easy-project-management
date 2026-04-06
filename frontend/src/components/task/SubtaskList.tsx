@@ -4,9 +4,14 @@ import { Plus, X } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import { TaskRow } from './TaskRow';
 
-interface Props { spaceId: string; taskId: string; }
+interface Props {
+  spaceId: string;
+  taskId: string;
+  onSelect?: (id: string, kind: 'main' | 'subtask') => void;
+  isSelectedFn?: (id: string) => boolean;
+}
 
-export function SubtaskList({ spaceId, taskId }: Props) {
+export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn }: Props) {
   const queryClient = useQueryClient();
   const [showInput, setShowInput] = useState(false);
   const [name, setName] = useState('');
@@ -30,7 +35,13 @@ export function SubtaskList({ spaceId, taskId }: Props) {
   return (
     <div>
       {subtasks.map((sub) => (
-        <TaskRow key={sub._id} task={sub} depth={1} />
+        <TaskRow
+          key={sub._id}
+          task={sub}
+          depth={1}
+          isSelected={isSelectedFn?.(sub._id)}
+          onSelect={onSelect}
+        />
       ))}
 
       {showInput ? (

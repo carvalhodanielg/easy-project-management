@@ -81,4 +81,24 @@ describe('TaskRow', () => {
     const dateEl = screen.getByText(/jun/i);
     expect(dateEl.className).toContain('danger');
   });
+
+  it('shows checkbox when onSelect is provided', () => {
+    const onSelect = vi.fn();
+    renderRow(TASK, { onSelect, isSelected: false });
+    expect(screen.getByRole('button', { name: /selecionar/i })).toBeInTheDocument();
+  });
+
+  it('calls onSelect when checkbox clicked', () => {
+    const onSelect = vi.fn();
+    renderRow(TASK, { onSelect, isSelected: false });
+    const btn = screen.getByRole('button', { name: /selecionar/i });
+    fireEvent.click(btn);
+    expect(onSelect).toHaveBeenCalledWith('t1', 'main');
+  });
+
+  it('shows selected state when isSelected is true', () => {
+    const onSelect = vi.fn();
+    renderRow(TASK, { onSelect, isSelected: true });
+    expect(screen.getByRole('button', { name: /desmarcar/i })).toBeInTheDocument();
+  });
 });

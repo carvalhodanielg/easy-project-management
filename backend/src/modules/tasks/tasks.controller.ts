@@ -13,7 +13,18 @@ import {
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { TasksFilterService } from './tasks-filter.service';
-import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, AddDependencyDto } from './dto/create-task.dto';
+import {
+  CreateTaskDto,
+  UpdateTaskDto,
+  MoveTaskDto,
+  AddDependencyDto,
+  BulkDeleteDto,
+  BulkMoveDto,
+  BulkDuplicateDto,
+  ConvertToSubtaskDto,
+  PromoteToMainTaskDto,
+  MoveSubtaskDto,
+} from './dto/create-task.dto';
 import { TaskFilterQueryDto } from './dto/task-filter-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
@@ -53,6 +64,72 @@ export class TasksController {
     @CurrentUser() user: UserDocument,
   ) {
     return this.tasksService.create(spaceId, (user._id as Types.ObjectId).toString(), dto);
+  }
+
+  @Post('bulk-delete')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bulkDelete(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: BulkDeleteDto,
+  ) {
+    return this.tasksService.bulkDelete(spaceId, dto.taskIds);
+  }
+
+  @Post('bulk-move')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bulkMove(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: BulkMoveDto,
+  ) {
+    return this.tasksService.bulkMove(spaceId, dto.taskIds, dto);
+  }
+
+  @Post('bulk-duplicate')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bulkDuplicate(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: BulkDuplicateDto,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.tasksService.bulkDuplicate(
+      spaceId,
+      dto.taskIds,
+      (user._id as Types.ObjectId).toString(),
+      dto,
+    );
+  }
+
+  @Post('convert-to-subtask')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  convertToSubtask(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: ConvertToSubtaskDto,
+  ) {
+    return this.tasksService.convertToSubtask(spaceId, dto.taskIds, dto.parentTaskId);
+  }
+
+  @Post('promote-to-main')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  promoteToMainTask(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: PromoteToMainTaskDto,
+  ) {
+    return this.tasksService.promoteToMainTask(spaceId, dto.taskIds, dto);
+  }
+
+  @Post('move-subtask')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  moveSubtask(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: MoveSubtaskDto,
+  ) {
+    return this.tasksService.moveSubtask(spaceId, dto.taskIds, dto.newParentTaskId);
   }
 
   @Get(':taskId')

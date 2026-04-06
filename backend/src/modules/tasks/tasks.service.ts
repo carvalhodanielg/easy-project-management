@@ -6,7 +6,14 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Task, TaskDocument, FIBONACCI_POINTS } from './schemas/task.schema';
-import { CreateTaskDto, UpdateTaskDto, MoveTaskDto, AddDependencyDto } from './dto/create-task.dto';
+import {
+  CreateTaskDto,
+  UpdateTaskDto,
+  MoveTaskDto,
+  AddDependencyDto,
+  BulkMoveDto,
+  PromoteToMainTaskDto,
+} from './dto/create-task.dto';
 
 @Injectable()
 export class TasksService {
@@ -227,5 +234,161 @@ export class TasksService {
         { $pull: { blocks: new Types.ObjectId(taskId), blockedBy: new Types.ObjectId(taskId) } },
       ),
     ]);
+  }
+
+  // ── Bulk operations ───────────────────────────────────────────────────────
+
+  async bulkDelete(spaceId: string, taskIds: string[]): Promise<void> {
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+
+    // Find all subtasks of the tasks being deleted
+    const subtasks = await this.taskModel
+      .find({ parentTask: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+    const subtaskOids = subtasks.map((s) => s._id as Types.ObjectId);
+
+    const allOids = [...oids, ...subtaskOids];
+
+    await this.taskModel
+      .deleteMany({ _id: { $in: allOids }, spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+
+    await this.taskModel.updateMany(
+      { spaceId: new Types.ObjectId(spaceId) },
+      { $pull: { blockedBy: { $in: allOids }, blocks: { $in: allOids } } },
+    );
+  }
+
+  async bulkMove(spaceId: string, taskIds: string[], dto: BulkMoveDto): Promise<void> {
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+
+    // Find subtasks of these tasks so we move them too
+    const subtasks = await this.taskModel
+      .find({ parentTask: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+    const subtaskOids = subtasks.map((s) => s._id as Types.ObjectId);
+
+    const allOids = [...oids, ...subtaskOids];
+
+    await this.taskModel
+      .updateMany(
+        { _id: { $in: allOids }, spaceId: new Types.ObjectId(spaceId) },
+        {
+          listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+          sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+        },
+      )
+      .exec();
+  }
+
+  async bulkDuplicate(
+    spaceId: string,
+    taskIds: string[],
+    userId: string,
+    dto: { listId?: string; sprintId?: string },
+  ): Promise<void> {
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+    const destListId = dto.listId ? new Types.ObjectId(dto.listId) : null;
+    const destSprintId = dto.sprintId ? new Types.ObjectId(dto.sprintId) : null;
+
+    const tasks = await this.taskModel
+      .find({ _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+
+    for (const task of tasks) {
+      const newTask = await this.taskModel.create({
+        spaceId: task.spaceId,
+        listId: destListId,
+        sprintId: destSprintId,
+        name: task.name,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        assignees: task.assignees,
+        startDate: task.startDate,
+        dueDate: task.dueDate,
+        tags: task.tags,
+        storyPoints: task.storyPoints,
+        parentTask: null,
+        position: task.position,
+        createdBy: new Types.ObjectId(userId),
+      });
+
+      // Duplicate subtasks pointing to new parent
+      const subtasks = await this.taskModel
+        .find({ parentTask: task._id, spaceId: new Types.ObjectId(spaceId) })
+        .exec();
+
+      for (const sub of subtasks) {
+        await this.taskModel.create({
+          spaceId: sub.spaceId,
+          listId: destListId,
+          sprintId: destSprintId,
+          name: sub.name,
+          description: sub.description,
+          status: sub.status,
+          priority: sub.priority,
+          assignees: sub.assignees,
+          startDate: sub.startDate,
+          dueDate: sub.dueDate,
+          tags: sub.tags,
+          storyPoints: sub.storyPoints,
+          parentTask: newTask._id,
+          position: sub.position,
+          createdBy: new Types.ObjectId(userId),
+        });
+      }
+    }
+  }
+
+  async convertToSubtask(spaceId: string, taskIds: string[], parentTaskId: string): Promise<void> {
+    const parent = await this.taskModel
+      .findOne({ _id: new Types.ObjectId(parentTaskId), spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+    if (!parent) throw new NotFoundException('Parent task not found');
+
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+
+    await this.taskModel.updateMany(
+      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+      {
+        parentTask: new Types.ObjectId(parentTaskId),
+        listId: parent.listId,
+        sprintId: parent.sprintId,
+      },
+    ).exec();
+  }
+
+  async promoteToMainTask(spaceId: string, taskIds: string[], dto: PromoteToMainTaskDto): Promise<void> {
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+
+    await this.taskModel.updateMany(
+      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+      {
+        $unset: { parentTask: 1 },
+        $set: {
+          listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+          sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+        },
+      },
+    ).exec();
+  }
+
+  async moveSubtask(spaceId: string, taskIds: string[], newParentTaskId: string): Promise<void> {
+    const newParent = await this.taskModel
+      .findOne({ _id: new Types.ObjectId(newParentTaskId), spaceId: new Types.ObjectId(spaceId) })
+      .exec();
+    if (!newParent) throw new NotFoundException('New parent task not found');
+
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+
+    await this.taskModel.updateMany(
+      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+      {
+        parentTask: new Types.ObjectId(newParentTaskId),
+        listId: newParent.listId,
+        sprintId: newParent.sprintId,
+      },
+    ).exec();
   }
 }

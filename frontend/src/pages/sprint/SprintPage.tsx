@@ -1,16 +1,34 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 import { LayoutList, Kanban, Plus, X, Zap, Calendar, FileText, Loader2, Tag, ChevronRight } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as notesApi from '../../api/notes.api';
+import { SortableTaskRow } from '../../components/task/SortableTaskRow';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
+import { SelectionBar } from '../../components/task/SelectionBar';
 import { TASK_COLS } from '../../components/task/TaskRow';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
+import { useTaskSelection } from '../../hooks/useTaskSelection';
 import { Task, GroupedTaskResult } from '../../types/task.types';
 import type { Note } from '../../types/note.types';
 import { cn } from '../../lib/utils';
@@ -50,6 +68,7 @@ export function SprintPage() {
   const [newNoteTitle, setNewNoteTitle] = useState('');
 
   const taskFilter = useTaskFilter({ sprintId });
+  const selection = useTaskSelection();
 
   const { data: sprint } = useQuery({
     queryKey: ['sprint', sprintId],
@@ -84,12 +103,13 @@ export function SprintPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => tasksApi.createTask(spaceId!, { name: newTaskName, sprintId }),
+    mutationFn: (name: string) => tasksApi.createTask(spaceId!, { name, sprintId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       setNewTaskName('');
       setShowCreate(false);
     },
+    onError: () => alert('Falha ao criar tarefa. Tente novamente.'),
   });
 
   const createNoteMutation = useMutation({
@@ -101,6 +121,45 @@ export function SprintPage() {
       navigate(`/spaces/${spaceId}/notes/${note._id}`);
     },
   });
+
+  const [orderedTasks, setOrderedTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    if (!isGrouped) setOrderedTasks(flatTasks);
+  }, [flatTasks, isGrouped]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const reorderMutation = useMutation({
+    mutationFn: ({ taskId, position }: { taskId: string; position: number }) =>
+      tasksApi.updateTask(spaceId!, taskId, { position }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] }),
+  });
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = orderedTasks.findIndex((t) => t._id === active.id);
+    const newIndex = orderedTasks.findIndex((t) => t._id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
+    setOrderedTasks(reordered);
+
+    const prev = reordered[newIndex - 1];
+    const next = reordered[newIndex + 1];
+    const newPosition = !prev
+      ? (next?.position ?? 0) - 1
+      : !next
+        ? prev.position + 1
+        : (prev.position + next.position) / 2;
+
+    reorderMutation.mutate({ taskId: active.id as string, position: newPosition });
+  }
 
   const sprintLabel = sprint
     ? `Sprint ${sprint.number}${sprint.name ? ` — ${sprint.name}` : ''}`
@@ -361,13 +420,37 @@ export function SprintPage() {
                     totalStoryPoints={group.totalStoryPoints}
                   />
                   {group.tasks.map((task) => (
-                    <TaskRowWithSubtasks key={task._id} task={task} spaceId={spaceId!} />
+                    <TaskRowWithSubtasks
+                      key={task._id}
+                      task={task}
+                      spaceId={spaceId!}
+                      isSelected={selection.isSelected(task._id)}
+                      onSelect={selection.toggle}
+                      isSelectedFn={selection.isSelected}
+                    />
                   ))}
                 </div>
               ))
-              : (tasks as Task[]).map((task) => (
-                <TaskRowWithSubtasks key={task._id} task={task} spaceId={spaceId!} />
-              ))
+              : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={orderedTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
+                    {orderedTasks.map((task) => (
+                      <SortableTaskRow
+                        key={task._id}
+                        task={task}
+                        spaceId={spaceId!}
+                        isSelected={selection.isSelected(task._id)}
+                        onSelect={selection.count > 0 ? selection.toggle : undefined}
+                        isSelectedFn={selection.isSelected}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )
             }
 
             {!isLoading && flatTasks.length === 0 && (
@@ -391,7 +474,7 @@ export function SprintPage() {
                   value={newTaskName}
                   onChange={(e) => setNewTaskName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newTaskName.trim()) createMutation.mutate();
+                    if (e.key === 'Enter' && newTaskName.trim()) createMutation.mutate(newTaskName.trim());
                     if (e.key === 'Escape') { setShowCreate(false); setNewTaskName(''); }
                   }}
                   placeholder="Nome da tarefa…"
@@ -399,7 +482,7 @@ export function SprintPage() {
                 />
                 <div className="col-span-4 flex gap-1.5 pl-2">
                   <button
-                    onClick={() => newTaskName.trim() && createMutation.mutate()}
+                    onClick={() => newTaskName.trim() && createMutation.mutate(newTaskName.trim())}
                     disabled={!newTaskName.trim() || createMutation.isPending}
                     className="px-2.5 py-1 bg-brand text-white text-xs rounded-md disabled:opacity-50 transition-all"
                   >
@@ -426,6 +509,18 @@ export function SprintPage() {
           </>
         ) : null}
       </div>
+
+      {selection.count > 0 && (
+        <SelectionBar
+          spaceId={spaceId!}
+          count={selection.count}
+          selectionType={selection.selectionType}
+          mainTaskIds={selection.mainTaskIds}
+          subtaskIds={selection.subtaskIds}
+          allTasks={flatTasks}
+          onClear={selection.clear}
+        />
+      )}
     </div>
   );
 }

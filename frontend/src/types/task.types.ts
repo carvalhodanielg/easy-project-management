@@ -77,6 +77,7 @@ export interface UpdateTaskPayload {
   dueDate?: string | null;
   tags?: string[];
   storyPoints?: number | null;
+  position?: number;
 }
 
 export interface TaskFilterParams {

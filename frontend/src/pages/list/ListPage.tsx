@@ -224,7 +224,7 @@ export function ListPage() {
                       task={task}
                       spaceId={spaceId!}
                       isSelected={selection.isSelected(task._id)}
-                      onSelect={selection.toggle}
+                      onSelect={selection.count > 0 ? selection.toggle : undefined}
                       isSelectedFn={selection.isSelected}
                     />
                   ))}

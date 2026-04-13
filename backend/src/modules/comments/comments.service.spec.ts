@@ -3,7 +3,12 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { CommentsService } from './comments.service';
 import { Comment } from './schemas/comment.schema';
+import { Task } from '../tasks/schemas/task.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Types } from 'mongoose';
+
+const mockNotificationsService = { create: jest.fn() };
+const mockTaskModel = { findById: jest.fn() };
 
 const authorId = new Types.ObjectId().toString();
 const otherId = new Types.ObjectId().toString();
@@ -45,6 +50,8 @@ describe('CommentsService', () => {
       providers: [
         CommentsService,
         { provide: getModelToken(Comment.name), useValue: mockCommentModel },
+        { provide: getModelToken(Task.name), useValue: mockTaskModel },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
     service = module.get<CommentsService>(CommentsService);
@@ -55,6 +62,7 @@ describe('CommentsService', () => {
       const created = { ...mockComment, _id: new Types.ObjectId() };
       mockCommentModel.create.mockResolvedValue(created);
       mockCommentModel.findById.mockReturnValue(populateMock(created));
+      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
 
       const result = await service.create(taskId, authorId, { content: 'Hello!' });
       expect(result.content).toBe('Initial comment');

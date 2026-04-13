@@ -12,6 +12,7 @@ import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as wikiApi from '../../api/wiki.api';
 import { GlobalSearch } from '../../components/search/GlobalSearch';
+import { NotificationBell } from '../../components/notifications/NotificationBell';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../../components/ui/tooltip';
 
@@ -311,6 +312,9 @@ export function SpaceLayout() {
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-hidden flex flex-col bg-base">
+        <div className="shrink-0 flex items-center justify-end px-4 py-2 border-b border-line bg-surface">
+          <NotificationBell />
+        </div>
         <Outlet />
       </main>
 

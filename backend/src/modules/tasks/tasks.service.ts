@@ -14,11 +14,14 @@ import {
   BulkMoveDto,
   PromoteToMainTaskDto,
 } from './dto/create-task.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/schemas/notification.schema';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(spaceId: string, userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
@@ -126,7 +129,10 @@ export class TasksService {
   async update(spaceId: string, taskId: string, dto: UpdateTaskDto): Promise<TaskDocument> {
     const updates: Record<string, unknown> = { ...dto };
 
+    let previousAssignees: string[] = [];
     if (dto.assignees !== undefined) {
+      const existing = await this.taskModel.findById(taskId).exec();
+      previousAssignees = (existing?.assignees ?? []).map((id) => id.toString());
       updates.assignees = dto.assignees.map((id) => new Types.ObjectId(id));
     }
     if (dto.tags !== undefined) {
@@ -150,6 +156,21 @@ export class TasksService {
       .exec();
 
     if (!task) throw new NotFoundException('Task not found');
+
+    if (dto.assignees !== undefined) {
+      const newAssignees = dto.assignees.filter((id) => !previousAssignees.includes(id));
+      await Promise.all(
+        newAssignees.map((userId) =>
+          this.notificationsService.create({
+            userId,
+            type: NotificationType.TaskAssigned,
+            message: `Você foi atribuído à tarefa "${task.name}"`,
+            taskId: task._id.toString(),
+          }),
+        ),
+      );
+    }
+
     return task;
   }
 

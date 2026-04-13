@@ -3,7 +3,10 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { TasksService } from './tasks.service';
 import { Task, TaskStatus, TaskPriority } from './schemas/task.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Types } from 'mongoose';
+
+const mockNotificationsService = { create: jest.fn() };
 
 const spaceId = new Types.ObjectId().toString();
 const taskId = new Types.ObjectId().toString();
@@ -67,6 +70,7 @@ describe('TasksService', () => {
       providers: [
         TasksService,
         { provide: getModelToken(Task.name), useValue: mockTaskModel },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
     service = module.get<TasksService>(TasksService);

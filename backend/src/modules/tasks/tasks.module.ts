@@ -5,11 +5,13 @@ import { TasksService } from './tasks.service';
 import { TasksFilterService } from './tasks-filter.service';
 import { TasksController } from './tasks.controller';
 import { SpacesModule } from '../spaces/spaces.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }]),
     SpacesModule,
+    NotificationsModule,
   ],
   controllers: [TasksController],
   providers: [TasksService, TasksFilterService],

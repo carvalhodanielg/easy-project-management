@@ -26,7 +26,8 @@ export async function login(payload: {
   return res.data.data.token;
 }
 
-export async function getMe(): Promise<User> {
-  const res = await apiClient.get<MeResponse>('/auth/me');
+export async function getMe(token?: string): Promise<User> {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const res = await apiClient.get<MeResponse>('/auth/me', { headers });
   return res.data.data;
 }

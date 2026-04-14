@@ -17,6 +17,9 @@ export class Comment {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Attachment' }], default: [] })
   attachments: Types.ObjectId[];
 
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  mentions: Types.ObjectId[];
+
   @Prop({ default: false })
   edited: boolean;
 }

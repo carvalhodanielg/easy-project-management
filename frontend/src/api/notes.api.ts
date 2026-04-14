@@ -60,10 +60,11 @@ export async function createNoteComment(
   spaceId: string,
   noteId: string,
   content: string,
+  mentionIds?: string[],
 ): Promise<NoteComment> {
   const res = await apiClient.post<ApiResponse<NoteComment>>(
     `/spaces/${spaceId}/notes/${noteId}/comments`,
-    { content },
+    { content, mentionIds },
   );
   return res.data.data;
 }
@@ -73,10 +74,11 @@ export async function updateNoteComment(
   noteId: string,
   commentId: string,
   content: string,
+  mentionIds?: string[],
 ): Promise<NoteComment> {
   const res = await apiClient.patch<ApiResponse<NoteComment>>(
     `/spaces/${spaceId}/notes/${noteId}/comments/${commentId}`,
-    { content },
+    { content, mentionIds },
   );
   return res.data.data;
 }

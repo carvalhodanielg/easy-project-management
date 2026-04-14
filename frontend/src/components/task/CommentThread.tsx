@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Trash2, Send, X, MessageSquare } from 'lucide-react';
+import { Pencil, Trash2, Send, MessageSquare } from 'lucide-react';
 import * as commentsApi from '../../api/comments.api';
 import { useAuthStore } from '../../store/auth.store';
+import { MentionTextarea } from '../ui/MentionTextarea';
+import { renderMentions } from '../ui/renderMentions';
 
 interface Props { spaceId: string; taskId: string; }
 
@@ -18,9 +20,11 @@ function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
 export function CommentThread({ spaceId, taskId }: Props) {
   const queryClient  = useQueryClient();
   const currentUser  = useAuthStore((s) => s.user);
-  const [content, setContent]       = useState('');
-  const [editingId, setEditingId]   = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
+  const [content, setContent]           = useState('');
+  const [mentionIds, setMentionIds]     = useState<string[]>([]);
+  const [editingId, setEditingId]       = useState<string | null>(null);
+  const [editContent, setEditContent]   = useState('');
+  const [editMentionIds, setEditMentionIds] = useState<string[]>([]);
 
   const { data: comments = [] } = useQuery({
     queryKey: ['comments', taskId],
@@ -28,16 +32,17 @@ export function CommentThread({ spaceId, taskId }: Props) {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => commentsApi.createComment(spaceId, taskId, content),
+    mutationFn: () => commentsApi.createComment(spaceId, taskId, content, undefined, mentionIds),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
       setContent('');
+      setMentionIds([]);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, text }: { id: string; text: string }) =>
-      commentsApi.updateComment(spaceId, taskId, id, text),
+    mutationFn: ({ id, text, ids }: { id: string; text: string; ids: string[] }) =>
+      commentsApi.updateComment(spaceId, taskId, id, text, ids),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
       setEditingId(null);
@@ -48,6 +53,8 @@ export function CommentThread({ spaceId, taskId }: Props) {
     mutationFn: (commentId: string) => commentsApi.deleteComment(spaceId, taskId, commentId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['comments', taskId] }),
   });
+
+  const textareaClass = 'w-full px-3.5 py-2.5 bg-input border border-line rounded-xl text-sm text-ink placeholder:text-ink-muted resize-y focus:outline-none focus:border-brand transition-colors';
 
   return (
     <div>
@@ -78,7 +85,11 @@ export function CommentThread({ spaceId, taskId }: Props) {
                   <div className="ml-auto flex gap-0.5">
                     <button
                       aria-label="Editar"
-                      onClick={() => { setEditingId(comment._id); setEditContent(comment.content); }}
+                      onClick={() => {
+                        setEditingId(comment._id);
+                        setEditContent(comment.content);
+                        setEditMentionIds([]);
+                      }}
                       className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors"
                     >
                       <Pencil size={11} />
@@ -96,15 +107,17 @@ export function CommentThread({ spaceId, taskId }: Props) {
 
               {editingId === comment._id ? (
                 <div>
-                  <textarea
+                  <MentionTextarea
+                    spaceId={spaceId}
                     value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
+                    onChange={setEditContent}
+                    onMentionIdsChange={setEditMentionIds}
                     rows={3}
-                    className="w-full px-3 py-2.5 bg-input border border-brand rounded-lg text-sm text-ink resize-y focus:outline-none"
+                    className={`${textareaClass} border-brand`}
                   />
                   <div className="flex gap-2 mt-2">
                     <button
-                      onClick={() => updateMutation.mutate({ id: comment._id, text: editContent })}
+                      onClick={() => updateMutation.mutate({ id: comment._id, text: editContent, ids: editMentionIds })}
                       disabled={updateMutation.isPending}
                       className="px-3 py-1.5 bg-brand text-white text-xs font-medium rounded-md disabled:opacity-50"
                     >
@@ -120,7 +133,9 @@ export function CommentThread({ spaceId, taskId }: Props) {
                 </div>
               ) : (
                 <div className="px-3.5 py-2.5 bg-lift border border-line-dim rounded-xl">
-                  <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">{comment.content}</p>
+                  <p className="text-sm text-ink whitespace-pre-wrap leading-relaxed">
+                    {renderMentions(comment.content)}
+                  </p>
                   {comment.attachments.length > 0 && (
                     <div className="mt-2.5 flex flex-wrap gap-2 pt-2 border-t border-line-dim">
                       {comment.attachments.map((att) => (
@@ -147,15 +162,17 @@ export function CommentThread({ spaceId, taskId }: Props) {
       <div className="flex gap-3">
         <Avatar name={currentUser?.displayName ?? '?'} />
         <div className="flex-1">
-          <textarea
+          <MentionTextarea
+            spaceId={spaceId}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Escreva um comentário…"
+            onChange={setContent}
+            onMentionIdsChange={setMentionIds}
+            placeholder="Escreva um comentário… use @ para mencionar"
             rows={3}
+            className={textareaClass}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && e.ctrlKey && content.trim()) createMutation.mutate();
             }}
-            className="w-full px-3.5 py-2.5 bg-input border border-line rounded-xl text-sm text-ink placeholder:text-ink-muted resize-y focus:outline-none focus:border-brand transition-colors"
           />
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-ink-muted">Ctrl+Enter para enviar</span>

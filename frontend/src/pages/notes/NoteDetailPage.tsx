@@ -10,6 +10,8 @@ import { useAuthStore } from '../../store/auth.store';
 import * as notesApi from '../../api/notes.api';
 import type { NoteComment } from '../../types/note.types';
 import { cn } from '../../lib/utils';
+import { MentionTextarea } from '../../components/ui/MentionTextarea';
+import { renderMentions } from '../../components/ui/renderMentions';
 
 const LABEL_COLORS: Record<string, string> = {
   ideia:      'bg-p-normal/20 text-p-normal border-p-normal/30',
@@ -47,10 +49,11 @@ function CommentItem({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState(comment.content);
+  const [editMentionIds, setEditMentionIds] = useState<string[]>([]);
 
   const updateMutation = useMutation({
-    mutationFn: (content: string) =>
-      notesApi.updateNoteComment(spaceId, noteId, comment._id, content),
+    mutationFn: ({ content, mentionIds }: { content: string; mentionIds: string[] }) =>
+      notesApi.updateNoteComment(spaceId, noteId, comment._id, content, mentionIds),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['note-comments', noteId] });
       setEditing(false);
@@ -81,23 +84,25 @@ function CommentItem({
         </div>
         {editing ? (
           <div className="space-y-2">
-            <textarea
+            <MentionTextarea
               autoFocus
+              spaceId={spaceId}
               value={editVal}
-              onChange={(e) => setEditVal(e.target.value)}
+              onChange={setEditVal}
+              onMentionIdsChange={setEditMentionIds}
               rows={3}
-              className="w-full px-3 py-2 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand resize-none transition-colors"
+              className="w-full px-3 py-2 bg-input border border-brand rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none resize-none transition-colors"
             />
             <div className="flex gap-2">
               <button
-                onClick={() => editVal.trim() && updateMutation.mutate(editVal.trim())}
+                onClick={() => editVal.trim() && updateMutation.mutate({ content: editVal.trim(), mentionIds: editMentionIds })}
                 disabled={updateMutation.isPending || !editVal.trim()}
                 className="px-2.5 py-1 bg-brand text-white text-xs rounded-md disabled:opacity-50"
               >
                 {updateMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Salvar'}
               </button>
               <button
-                onClick={() => { setEditing(false); setEditVal(comment.content); }}
+                onClick={() => { setEditing(false); setEditVal(comment.content); setEditMentionIds([]); }}
                 className="px-2.5 py-1 text-xs text-ink-muted hover:text-ink"
               >
                 Cancelar
@@ -105,7 +110,9 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <p className="text-sm text-ink-dim leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+          <p className="text-sm text-ink-dim leading-relaxed whitespace-pre-wrap">
+            {renderMentions(comment.content)}
+          </p>
         )}
       </div>
       {isOwn && !editing && (
@@ -144,8 +151,9 @@ export function NoteDetailPage() {
   const [editingLabel, setEditingLabel] = useState(false);
   const [saveStatus,   setSaveStatus]   = useState<'saved' | 'saving' | 'error'>('saved');
   const [editorMode,   setEditorMode]   = useState<'edit' | 'preview'>('edit');
-  const [showComments, setShowComments] = useState(true);
-  const [newComment,   setNewComment]   = useState('');
+  const [showComments,        setShowComments]        = useState(true);
+  const [newComment,          setNewComment]          = useState('');
+  const [newCommentMentionIds, setNewCommentMentionIds] = useState<string[]>([]);
   const contentRef = useRef(content);
 
   const { data: note } = useQuery({
@@ -233,10 +241,11 @@ export function NoteDetailPage() {
   // ── Comment ─────────────────────────────────────────────────────────────────
 
   const addCommentMutation = useMutation({
-    mutationFn: () => notesApi.createNoteComment(spaceId!, noteId!, newComment.trim()),
+    mutationFn: () => notesApi.createNoteComment(spaceId!, noteId!, newComment.trim(), newCommentMentionIds),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['note-comments', noteId] });
       setNewComment('');
+      setNewCommentMentionIds([]);
     },
   });
 
@@ -469,9 +478,11 @@ export function NoteDetailPage() {
                     {user?.displayName?.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1">
-                    <textarea
+                    <MentionTextarea
+                      spaceId={spaceId!}
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
+                      onChange={setNewComment}
+                      onMentionIdsChange={setNewCommentMentionIds}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && newComment.trim()) {
                           e.preventDefault();
@@ -479,7 +490,7 @@ export function NoteDetailPage() {
                         }
                       }}
                       rows={2}
-                      placeholder="Escreva um comentário… (Ctrl+Enter para enviar)"
+                      placeholder="Escreva um comentário… use @ para mencionar"
                       className="w-full px-3 py-2 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand resize-none transition-colors"
                     />
                     <div className="flex justify-end mt-1.5">

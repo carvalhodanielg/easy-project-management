@@ -9,12 +9,15 @@ import { Note, NoteDocument } from './schemas/note.schema';
 import { NoteComment, NoteCommentDocument } from './schemas/note-comment.schema';
 import { CreateNoteDto, UpdateNoteDto } from './dto/create-note.dto';
 import { CreateNoteCommentDto, UpdateNoteCommentDto } from './dto/create-note-comment.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/schemas/notification.schema';
 
 @Injectable()
 export class NotesService {
   constructor(
     @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
     @InjectModel(NoteComment.name) private readonly commentModel: Model<NoteCommentDocument>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ── Notes ────────────────────────────────────────────────────────────────
@@ -104,11 +107,26 @@ export class NotesService {
   ): Promise<NoteCommentDocument> {
     const noteExists = await this.noteModel.exists({ _id: noteId });
     if (!noteExists) throw new NotFoundException('Note not found');
+
+    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter((id) => id !== userId);
+
     const comment = await this.commentModel.create({
       noteId: new Types.ObjectId(noteId),
       author: new Types.ObjectId(userId),
       content: dto.content,
+      mentions: uniqueMentions.map((id) => new Types.ObjectId(id)),
     });
+
+    await Promise.all(
+      uniqueMentions.map((mentionedId) =>
+        this.notificationsService.create({
+          userId: mentionedId,
+          type: NotificationType.Mention,
+          message: `Você foi mencionado em um comentário de nota`,
+        }),
+      ),
+    );
+
     return this.commentModel
       .findById(comment._id)
       .populate('author', 'email displayName avatarUrl')
@@ -126,10 +144,17 @@ export class NotesService {
       throw new ForbiddenException('Only the author can edit this comment');
     }
 
+    const mentionUpdate: Partial<{ mentions: Types.ObjectId[] }> = {};
+    if (dto.mentionIds !== undefined) {
+      mentionUpdate.mentions = [...new Set(dto.mentionIds)]
+        .filter((id) => id !== userId)
+        .map((id) => new Types.ObjectId(id));
+    }
+
     const updated = await this.commentModel
       .findByIdAndUpdate(
         commentId,
-        { $set: { content: dto.content ?? comment.content, edited: true } },
+        { $set: { content: dto.content ?? comment.content, edited: true, ...mentionUpdate } },
         { returnDocument: 'after' },
       )
       .populate('author', 'email displayName avatarUrl')

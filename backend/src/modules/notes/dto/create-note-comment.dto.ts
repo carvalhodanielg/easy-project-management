@@ -1,10 +1,15 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsMongoId, MinLength, MaxLength } from 'class-validator';
 
 export class CreateNoteCommentDto {
   @IsString()
   @MinLength(1)
   @MaxLength(2000)
   content: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  mentionIds?: string[];
 }
 
 export class UpdateNoteCommentDto {
@@ -13,4 +18,9 @@ export class UpdateNoteCommentDto {
   @MinLength(1)
   @MaxLength(2000)
   content?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  mentionIds?: string[];
 }

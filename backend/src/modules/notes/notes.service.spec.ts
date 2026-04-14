@@ -5,6 +5,9 @@ import { Types } from 'mongoose';
 import { NotesService } from './notes.service';
 import { Note } from './schemas/note.schema';
 import { NoteComment } from './schemas/note-comment.schema';
+import { NotificationsService } from '../notifications/notifications.service';
+
+const mockNotificationsService = { create: jest.fn() };
 
 const userId   = new Types.ObjectId().toString();
 const spaceId  = new Types.ObjectId().toString();
@@ -47,12 +50,14 @@ describe('NotesService', () => {
   beforeEach(async () => {
     noteModel    = makeMockModel([mockNote], mockNote);
     commentModel = makeMockModel([], null);
+    jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotesService,
         { provide: getModelToken(Note.name),        useValue: noteModel },
         { provide: getModelToken(NoteComment.name), useValue: commentModel },
+        { provide: NotificationsService,             useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -168,6 +173,35 @@ describe('NotesService', () => {
     it('throws NotFoundException when note does not exist', async () => {
       noteModel.exists = jest.fn().mockResolvedValue(null);
       await expect(service.createComment(noteId, userId, { content: 'x' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('sends Mention notification to mentioned users (excluding commenter)', async () => {
+      const mentionedId = new Types.ObjectId().toString();
+      noteModel.exists = jest.fn().mockResolvedValue({ _id: noteId });
+      commentModel.create = jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), noteId, author: userId, content: 'hi' });
+      commentModel.findById.mockReturnValue(populateChain({ content: 'hi' }));
+
+      await service.createComment(noteId, userId, {
+        content: `Olá @pessoa`,
+        mentionIds: [mentionedId],
+      });
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: mentionedId, type: 'mention' }),
+      );
+    });
+
+    it('does not notify commenter when they mention themselves', async () => {
+      noteModel.exists = jest.fn().mockResolvedValue({ _id: noteId });
+      commentModel.create = jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), noteId, author: userId, content: 'hi' });
+      commentModel.findById.mockReturnValue(populateChain({ content: 'hi' }));
+
+      await service.createComment(noteId, userId, {
+        content: `Eu mesmo`,
+        mentionIds: [userId],
+      });
+
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
     });
   });
 });

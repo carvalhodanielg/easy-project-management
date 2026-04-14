@@ -35,10 +35,11 @@ export async function createComment(
   taskId: string,
   content: string,
   attachments?: string[],
+  mentionIds?: string[],
 ): Promise<Comment> {
   const res = await apiClient.post<ApiResponse<Comment>>(
     `/spaces/${spaceId}/tasks/${taskId}/comments`,
-    { content, attachments },
+    { content, attachments, mentionIds },
   );
   return res.data.data;
 }
@@ -48,10 +49,11 @@ export async function updateComment(
   taskId: string,
   commentId: string,
   content: string,
+  mentionIds?: string[],
 ): Promise<Comment> {
   const res = await apiClient.patch<ApiResponse<Comment>>(
     `/spaces/${spaceId}/tasks/${taskId}/comments/${commentId}`,
-    { content },
+    { content, mentionIds },
   );
   return res.data.data;
 }

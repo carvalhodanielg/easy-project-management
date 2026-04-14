@@ -35,11 +35,14 @@ export class CommentsService {
     userId: string,
     dto: CreateCommentDto,
   ): Promise<CommentDocument> {
+    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter((id) => id !== userId);
+
     const comment = await this.commentModel.create({
       taskId: new Types.ObjectId(taskId),
       author: new Types.ObjectId(userId),
       content: dto.content,
       attachments: (dto.attachments ?? []).map((id) => new Types.ObjectId(id)),
+      mentions: uniqueMentions.map((id) => new Types.ObjectId(id)),
     });
 
     const populated = await this.commentModel
@@ -51,12 +54,12 @@ export class CommentsService {
     // Notify task assignees about the new comment (excluding commenter)
     const task = await this.taskModel.findById(taskId).exec();
     if (task) {
-      const recipients = (task.assignees as Types.ObjectId[])
+      const assigneeRecipients = (task.assignees as Types.ObjectId[])
         .map((id) => id.toString())
         .filter((id) => id !== userId);
 
       await Promise.all(
-        recipients.map((recipientId) =>
+        assigneeRecipients.map((recipientId) =>
           this.notificationsService.create({
             userId: recipientId,
             type: NotificationType.CommentAdded,
@@ -66,6 +69,18 @@ export class CommentsService {
         ),
       );
     }
+
+    // Notify mentioned users (excluding commenter)
+    await Promise.all(
+      uniqueMentions.map((mentionedId) =>
+        this.notificationsService.create({
+          userId: mentionedId,
+          type: NotificationType.Mention,
+          message: `Você foi mencionado em um comentário${task ? ` na tarefa "${task.name}"` : ''}`,
+          taskId,
+        }),
+      ),
+    );
 
     return populated;
   }
@@ -84,6 +99,11 @@ export class CommentsService {
 
     comment.content = dto.content;
     comment.edited = true;
+    if (dto.mentionIds !== undefined) {
+      comment.mentions = [...new Set(dto.mentionIds)]
+        .filter((id) => id !== userId)
+        .map((id) => new Types.ObjectId(id)) as unknown as Types.ObjectId[];
+    }
     await comment.save();
 
     return this.commentModel

@@ -14,6 +14,9 @@ export class NoteComment {
   @Prop({ required: true })
   content: string;
 
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  mentions: Types.ObjectId[];
+
   @Prop({ default: false })
   edited: boolean;
 }

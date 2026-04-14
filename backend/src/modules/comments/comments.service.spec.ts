@@ -67,6 +67,57 @@ describe('CommentsService', () => {
       const result = await service.create(taskId, authorId, { content: 'Hello!' });
       expect(result.content).toBe('Initial comment');
     });
+
+    it('sends Mention notifications to mentioned users (excluding commenter)', async () => {
+      const mentionedId1 = new Types.ObjectId().toString();
+      const mentionedId2 = new Types.ObjectId().toString();
+      const created = { ...mockComment, _id: new Types.ObjectId() };
+      mockCommentModel.create.mockResolvedValue(created);
+      mockCommentModel.findById.mockReturnValue(populateMock(created));
+      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.create(taskId, authorId, {
+        content: `Olá @pessoa1 e @pessoa2`,
+        mentionIds: [mentionedId1, mentionedId2],
+      });
+
+      expect(mockNotificationsService.create).toHaveBeenCalledTimes(2);
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: mentionedId1, type: 'mention' }),
+      );
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: mentionedId2, type: 'mention' }),
+      );
+    });
+
+    it('does not send Mention notification to the commenter themselves', async () => {
+      const created = { ...mockComment, _id: new Types.ObjectId() };
+      mockCommentModel.create.mockResolvedValue(created);
+      mockCommentModel.findById.mockReturnValue(populateMock(created));
+      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.create(taskId, authorId, {
+        content: `Eu mesmo @me`,
+        mentionIds: [authorId],
+      });
+
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates mention notifications', async () => {
+      const mentionedId = new Types.ObjectId().toString();
+      const created = { ...mockComment, _id: new Types.ObjectId() };
+      mockCommentModel.create.mockResolvedValue(created);
+      mockCommentModel.findById.mockReturnValue(populateMock(created));
+      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.create(taskId, authorId, {
+        content: `@pessoa @pessoa novamente`,
+        mentionIds: [mentionedId, mentionedId],
+      });
+
+      expect(mockNotificationsService.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('update', () => {

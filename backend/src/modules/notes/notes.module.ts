@@ -5,6 +5,7 @@ import { NoteComment, NoteCommentSchema } from './schemas/note-comment.schema';
 import { NotesService } from './notes.service';
 import { SprintNotesController, NoteDetailController } from './notes.controller';
 import { SpacesModule } from '../spaces/spaces.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SpacesModule } from '../spaces/spaces.module';
       { name: NoteComment.name, schema: NoteCommentSchema },
     ]),
     SpacesModule,
+    NotificationsModule,
   ],
   controllers: [SprintNotesController, NoteDetailController],
   providers: [NotesService],

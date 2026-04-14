@@ -12,6 +12,7 @@ A project management tool built with NestJS, React and MongoDB. Manage spaces, l
 | Frontend  | React 19 · Vite · TypeScript · Tailwind CSS v4  |
 | State     | Zustand (auth) · TanStack Query (server data)   |
 | Infra     | Docker Compose                                  |
+| MCP       | Node.js · @modelcontextprotocol/sdk             |
 
 ---
 
@@ -127,6 +128,46 @@ npm run build          # tsc + Vite production build
         ├── store/           # Zustand stores
         └── types/           # TypeScript types
 ```
+
+---
+
+## MCP — Controle via linguagem natural
+
+O projeto inclui um servidor MCP (Model Context Protocol) que permite controlar espaços, sprints e tarefas via linguagem natural dentro do Claude Code ou qualquer cliente MCP compatível.
+
+### Configuração
+
+1. **Build do servidor:**
+   ```bash
+   cd mcp && npm install && npm run build
+   ```
+
+2. **Crie o arquivo `.mcp.json` na raiz do projeto** com suas credenciais:
+   ```json
+   {
+     "mcpServers": {
+       "claudio": {
+         "command": "node",
+         "args": ["/caminho/absoluto/para/claudio/mcp/dist/index.js"],
+         "env": {
+           "CLAUDIO_API_URL": "http://localhost:3000",
+           "CLAUDIO_EMAIL": "seu@email.com",
+           "CLAUDIO_PASSWORD": "sua_senha"
+         }
+       }
+     }
+   }
+   ```
+
+   > `.mcp.json` está no `.gitignore` — nunca commite esse arquivo, pois contém credenciais.
+
+3. **Reinicie o Claude Code** e verifique com `/mcp`. O servidor `claudio` deve aparecer com 10 ferramentas disponíveis.
+
+### Ferramentas disponíveis
+
+`list_spaces` · `list_members` · `list_sprint_folders` · `list_sprints` · `get_sprint_stats` · `create_sprint_folder` · `update_sprint` · `list_tasks` · `create_task` · `update_task`
+
+Consulte [`mcp/README.md`](mcp/README.md) para documentação completa.
 
 ---
 

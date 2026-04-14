@@ -36,6 +36,24 @@ Página de perfil do usuário com upload de foto. O campo `avatarUrl` já existe
 
 ## Média prioridade
 
+### Pastas de sprints configuráveis
+Dentro de um espaço, permitir criar **pastas de sprints** — um contêiner que gera e gerencia sprints automaticamente com base em uma cadência definida.
+
+**Configurações da pasta:**
+- **Nome** — identificador da pasta de sprints
+- **Dia de início do sprint** — dia da semana (segunda, terça, …, domingo) em que cada sprint começa
+- **Duração** — número de semanas de cada sprint
+- **Encerramento automático** — opção para marcar a sprint como concluída automaticamente quando a data de término chegar (cron NestJS)
+- **Sprints futuras abertas** — quantas sprints futuras devem existir abertas ao mesmo tempo; ao finalizar uma sprint, se o total de abertas cair abaixo desse número, uma nova é criada automaticamente
+- **Data limite da pasta** *(opcional)* — data de encerramento da pasta; após essa data nenhuma nova sprint é criada e a pasta é arquivada
+
+**Requisitos técnicos:**
+- Novo schema `SprintFolder` com os campos acima, vinculado ao `spaceId`
+- Cron job que, a cada dia, verifica sprints vencidas para encerrar e pastas que precisam gerar novas sprints
+- UI de criação/edição da pasta nas settings do espaço e acesso às sprints da pasta na sidebar
+
+
+
 ### Timeline / Gantt view
 Terceira visualização além de Lista e Board. Mostra tarefas numa linha do tempo com base em `startDate`/`dueDate`. Especialmente útil na tela de sprint.
 

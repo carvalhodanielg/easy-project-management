@@ -51,6 +51,7 @@ export class SprintsService {
       name: dto.name,
       startDate: new Date(dto.startDate),
       endDate: new Date(dto.endDate),
+      folderId: dto.folderId ? new Types.ObjectId(dto.folderId) : null,
     });
   }
 

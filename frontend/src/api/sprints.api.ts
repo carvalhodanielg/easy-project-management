@@ -5,7 +5,9 @@ interface ApiResponse<T> { data: T; }
 export interface Sprint {
   _id: string;
   spaceId: string;
+  folderId: string | null;
   number: number;
+  folderNumber: number | null;
   name: string;
   startDate: string;
   endDate: string;

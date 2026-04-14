@@ -22,6 +22,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SeedModule } from './modules/seed/seed.module';
 import { TaskEventsModule } from './modules/task-events/task-events.module';
 import { SavedFiltersModule } from './modules/saved-filters/saved-filters.module';
+import { SprintFoldersModule } from './modules/sprint-folders/sprint-folders.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SavedFiltersModule } from './modules/saved-filters/saved-filters.module
     SeedModule,
     TaskEventsModule,
     SavedFiltersModule,
+    SprintFoldersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

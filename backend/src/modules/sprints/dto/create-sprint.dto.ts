@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsEnum,
   IsDateString,
+  IsMongoId,
 } from 'class-validator';
 import { SprintStatus } from '../schemas/sprint.schema';
 
@@ -19,6 +20,10 @@ export class CreateSprintDto {
 
   @IsDateString()
   endDate: string;
+
+  @IsOptional()
+  @IsMongoId()
+  folderId?: string | null;
 }
 
 export class UpdateSprintDto {

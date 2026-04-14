@@ -28,6 +28,14 @@ export class Sprint {
 
   @Prop({ type: String, enum: SprintStatus, default: SprintStatus.Planning })
   status: SprintStatus;
+
+  /** Optional reference to the SprintFolder that manages this sprint */
+  @Prop({ type: Types.ObjectId, ref: 'SprintFolder', default: null, index: true })
+  folderId: Types.ObjectId | null;
+
+  /** Sequential number within the folder (1, 2, 3…). Null for sprints without a folder. */
+  @Prop({ type: Number, default: null })
+  folderNumber: number | null;
 }
 
 export const SprintSchema = SchemaFactory.createForClass(Sprint);

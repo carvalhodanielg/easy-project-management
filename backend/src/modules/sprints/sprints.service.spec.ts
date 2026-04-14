@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { SprintsService } from './sprints.service';
 import { Sprint, SprintStatus } from './schemas/sprint.schema';
+import { Task, TaskStatus } from '../tasks/schemas/task.schema';
 import { Types } from 'mongoose';
 
 const spaceId = new Types.ObjectId().toString();
@@ -30,16 +31,21 @@ const mockSprintModel = {
   countDocuments: jest.fn(),
 };
 
+const mockTaskModel = {
+  find: jest.fn(),
+};
+
 describe('SprintsService', () => {
   let service: SprintsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SprintsService,
         { provide: getModelToken(Sprint.name), useValue: mockSprintModel },
+        { provide: getModelToken(Task.name), useValue: mockTaskModel },
       ],
     }).compile();
 
@@ -100,6 +106,142 @@ describe('SprintsService', () => {
     it('throws NotFoundException when not found', async () => {
       mockSprintModel.findOne.mockReturnValue(execMock(null));
       await expect(service.findById(spaceId, sprintId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getStats', () => {
+    const startDate = new Date('2026-04-01');
+    const endDate = new Date('2026-04-14');
+    const userId1 = new Types.ObjectId();
+    const userId2 = new Types.ObjectId();
+
+    const mockSprint = {
+      _id: new Types.ObjectId(sprintId),
+      spaceId: new Types.ObjectId(spaceId),
+      number: 2,
+      name: 'Sprint 2',
+      startDate,
+      endDate,
+      status: SprintStatus.Active,
+    };
+
+    const mockTasks = [
+      {
+        _id: new Types.ObjectId(),
+        status: TaskStatus.Feito,
+        storyPoints: 5,
+        assignees: [userId1],
+        updatedAt: new Date('2026-04-03'),
+      },
+      {
+        _id: new Types.ObjectId(),
+        status: TaskStatus.EmProgresso,
+        storyPoints: 3,
+        assignees: [userId1, userId2],
+        updatedAt: new Date('2026-04-05'),
+      },
+      {
+        _id: new Types.ObjectId(),
+        status: TaskStatus.Pendente,
+        storyPoints: null,
+        assignees: [],
+        updatedAt: new Date('2026-04-01'),
+      },
+    ];
+
+    const prevSprint = { _id: new Types.ObjectId(), number: 1, status: SprintStatus.Completed };
+    const prevTasks = [
+      { status: TaskStatus.Feito, storyPoints: 8 },
+      { status: TaskStatus.Feito, storyPoints: 5 },
+      { status: TaskStatus.Pendente, storyPoints: 3 },
+    ];
+
+    function populateChain<T>(value: T) {
+      return {
+        populate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(value) }),
+        exec: jest.fn().mockResolvedValue(value),
+      };
+    }
+
+    it('throws NotFoundException when sprint not found', async () => {
+      mockSprintModel.findOne.mockReturnValue(execMock(null));
+      await expect(service.getStats(spaceId, sprintId)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns total tasks and points correctly', async () => {
+      mockSprintModel.findOne
+        .mockReturnValueOnce(execMock(mockSprint))
+        .mockReturnValueOnce(chainMock(null));
+      mockTaskModel.find
+        .mockReturnValueOnce(populateChain(mockTasks))
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+
+      const stats = await service.getStats(spaceId, sprintId);
+
+      expect(stats.totalTasks).toBe(3);
+      expect(stats.doneTasks).toBe(1);
+      expect(stats.totalPoints).toBe(8);
+      expect(stats.donePoints).toBe(5);
+    });
+
+    it('returns tasks grouped by status', async () => {
+      mockSprintModel.findOne
+        .mockReturnValueOnce(execMock(mockSprint))
+        .mockReturnValueOnce(chainMock(null));
+      mockTaskModel.find
+        .mockReturnValueOnce(populateChain(mockTasks))
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+
+      const stats = await service.getStats(spaceId, sprintId);
+
+      expect(stats.tasksByStatus.feito.count).toBe(1);
+      expect(stats.tasksByStatus.feito.points).toBe(5);
+      expect(stats.tasksByStatus.em_progresso.count).toBe(1);
+      expect(stats.tasksByStatus.pendente.count).toBe(1);
+    });
+
+    it('returns previous sprint velocity when previous sprint exists', async () => {
+      mockSprintModel.findOne
+        .mockReturnValueOnce(execMock(mockSprint))
+        .mockReturnValueOnce(chainMock(prevSprint));
+      mockTaskModel.find
+        .mockReturnValueOnce(populateChain(mockTasks))
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(prevTasks) });
+
+      const stats = await service.getStats(spaceId, sprintId);
+
+      expect(stats.previousSprintPoints).toBe(13);
+    });
+
+    it('returns null previousSprintPoints when no previous sprint', async () => {
+      mockSprintModel.findOne
+        .mockReturnValueOnce(execMock(mockSprint))
+        .mockReturnValueOnce(chainMock(null));
+      mockTaskModel.find
+        .mockReturnValueOnce(populateChain(mockTasks))
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+
+      const stats = await service.getStats(spaceId, sprintId);
+
+      expect(stats.previousSprintPoints).toBeNull();
+    });
+
+    it('includes burndown data with ideal and remaining lines', async () => {
+      mockSprintModel.findOne
+        .mockReturnValueOnce(execMock(mockSprint))
+        .mockReturnValueOnce(chainMock(null));
+      mockTaskModel.find
+        .mockReturnValueOnce(populateChain(mockTasks))
+        .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([]) });
+
+      const stats = await service.getStats(spaceId, sprintId);
+
+      expect(stats.burndown.length).toBeGreaterThan(0);
+      expect(stats.burndown[0]).toHaveProperty('date');
+      expect(stats.burndown[0]).toHaveProperty('ideal');
+      expect(stats.burndown[0]).toHaveProperty('remaining');
+      // First day: nothing done yet, remaining = totalPoints
+      expect(stats.burndown[0].ideal).toBe(8);
     });
   });
 

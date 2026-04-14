@@ -37,6 +37,14 @@ export class SprintsController {
     return this.sprintsService.create(spaceId, dto);
   }
 
+  @Get(':sprintId/stats')
+  getStats(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('sprintId', ObjectIdValidationPipe) sprintId: string,
+  ) {
+    return this.sprintsService.getStats(spaceId, sprintId);
+  }
+
   @Get(':sprintId')
   findOne(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,

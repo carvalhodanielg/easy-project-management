@@ -30,3 +30,27 @@ export async function updateSprint(spaceId: string, sprintId: string, payload: P
 export async function deleteSprint(spaceId: string, sprintId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/sprints/${sprintId}`);
 }
+
+export interface SprintStats {
+  totalTasks: number;
+  doneTasks: number;
+  totalPoints: number;
+  donePoints: number;
+  tasksByStatus: Record<string, { count: number; points: number }>;
+  tasksByAssignee: Array<{
+    userId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    count: number;
+    points: number;
+  }>;
+  burndown: Array<{ date: string; ideal: number; remaining: number }>;
+  previousSprintPoints: number | null;
+}
+
+export async function getSprintStats(spaceId: string, sprintId: string): Promise<SprintStats> {
+  const res = await apiClient.get<ApiResponse<SprintStats>>(
+    `/spaces/${spaceId}/sprints/${sprintId}/stats`,
+  );
+  return res.data.data;
+}

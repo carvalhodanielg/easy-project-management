@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { LayoutList, Kanban, Plus, X, Zap, Calendar, FileText, Loader2, Tag, ChevronRight } from 'lucide-react';
+import { LayoutList, Kanban, Plus, X, Zap, Calendar, FileText, Loader2, Tag, ChevronRight, BarChart2 } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as notesApi from '../../api/notes.api';
@@ -27,6 +27,7 @@ import { TASK_COLS } from '../../components/task/TaskRow';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
+import { SprintDashboard } from '../../components/sprint/SprintDashboard';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { useTaskSelection } from '../../hooks/useTaskSelection';
 import { Task, GroupedTaskResult } from '../../types/task.types';
@@ -60,7 +61,7 @@ export function SprintPage() {
   const { spaceId, sprintId } = useParams<{ spaceId: string; sprintId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'tarefas' | 'notas'>('tarefas');
+  const [tab, setTab] = useState<'tarefas' | 'notas' | 'dashboard'>('tarefas');
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showCreate, setShowCreate] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
@@ -211,14 +212,15 @@ export function SprintPage() {
               </div>
             </div>
           </div>
-          {tab === 'tarefas' ? (
+          {tab === 'tarefas' && (
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
             >
               <Plus size={13} /> Nova tarefa
             </button>
-          ) : (
+          )}
+          {tab === 'notas' && (
             <button
               onClick={() => setShowCreateNote(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
@@ -230,19 +232,23 @@ export function SprintPage() {
 
         {/* Main tabs */}
         <div className="flex items-center gap-0 px-6 border-b border-line-dim">
-          {(['tarefas', 'notas'] as const).map((t) => (
+          {([
+            { key: 'tarefas', label: 'Tarefas', icon: <LayoutList size={13} /> },
+            { key: 'notas', label: 'Notas', icon: <FileText size={13} /> },
+            { key: 'dashboard', label: 'Dashboard', icon: <BarChart2 size={13} /> },
+          ] as const).map(({ key, label, icon }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={key}
+              onClick={() => setTab(key)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors capitalize',
-                tab === t
+                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                tab === key
                   ? 'border-brand text-brand font-medium'
                   : 'border-transparent text-ink-muted hover:text-ink-dim',
               )}
             >
-              {t === 'tarefas' ? <LayoutList size={13} /> : <FileText size={13} />}
-              {t === 'tarefas' ? 'Tarefas' : 'Notas'}
+              {icon}
+              {label}
             </button>
           ))}
 
@@ -286,6 +292,11 @@ export function SprintPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
+
+        {/* ── Dashboard tab ── */}
+        {tab === 'dashboard' && spaceId && sprintId && (
+          <SprintDashboard spaceId={spaceId} sprintId={sprintId} />
+        )}
 
         {/* ── Notas tab ── */}
         {tab === 'notas' && (

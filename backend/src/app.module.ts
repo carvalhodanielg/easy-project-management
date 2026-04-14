@@ -19,6 +19,7 @@ import { WikiModule } from './modules/wiki/wiki.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { SearchModule } from './modules/search/search.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SeedModule } from './modules/seed/seed.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     NotesModule,
     SearchModule,
     NotificationsModule,
+    SeedModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

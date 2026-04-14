@@ -5,6 +5,7 @@ import { X, Pencil, Check, Loader2 } from 'lucide-react';
 import MDEditor from '@uiw/react-md-editor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
+import { ActivityLog } from '../../components/task/ActivityLog';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
 import { SubtaskList } from '../../components/task/SubtaskList';
@@ -51,6 +52,7 @@ export function TaskDetailPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
     },
   });
 
@@ -287,6 +289,11 @@ export function TaskDetailPage() {
               <div className="border border-line rounded-xl overflow-hidden">
                 <SubtaskList spaceId={spaceId!} taskId={taskId!} />
               </div>
+            </div>
+
+            {/* Activity log */}
+            <div className="border-t border-line pt-6">
+              <ActivityLog spaceId={spaceId!} taskId={taskId!} />
             </div>
 
             {/* Comments */}

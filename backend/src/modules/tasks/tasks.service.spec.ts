@@ -4,9 +4,11 @@ import { getModelToken } from '@nestjs/mongoose';
 import { TasksService } from './tasks.service';
 import { Task, TaskStatus, TaskPriority } from './schemas/task.schema';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TaskEventsService } from '../task-events/task-events.service';
 import { Types } from 'mongoose';
 
 const mockNotificationsService = { create: jest.fn() };
+const mockTaskEventsService = { create: jest.fn().mockResolvedValue({}) };
 
 const spaceId = new Types.ObjectId().toString();
 const taskId = new Types.ObjectId().toString();
@@ -71,6 +73,7 @@ describe('TasksService', () => {
         TasksService,
         { provide: getModelToken(Task.name), useValue: mockTaskModel },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: TaskEventsService, useValue: mockTaskEventsService },
       ],
     }).compile();
     service = module.get<TasksService>(TasksService);
@@ -122,14 +125,41 @@ describe('TasksService', () => {
   describe('update', () => {
     it('returns updated task', async () => {
       const updated = { ...mockTask, name: 'Updated' };
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
       const result = await service.update(spaceId, taskId, { name: 'Updated' });
       expect(result.name).toBe('Updated');
     });
 
     it('throws NotFoundException when task not found', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(null));
       await expect(service.update(spaceId, taskId, { name: 'X' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('logs status_changed event when status changes', async () => {
+      const updatedTask = { ...mockTask, status: TaskStatus.EmProgresso };
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
+      mockTaskEventsService.create.mockResolvedValue({});
+
+      await service.update(spaceId, taskId, { status: TaskStatus.EmProgresso }, userId);
+
+      expect(mockTaskEventsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'status_changed',
+          changes: expect.objectContaining({ field: 'status', newValue: TaskStatus.EmProgresso }),
+        }),
+      );
+    });
+
+    it('does not log event when status is unchanged', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
+
+      await service.update(spaceId, taskId, { status: TaskStatus.Pendente }, userId);
+
+      expect(mockTaskEventsService.create).not.toHaveBeenCalled();
     });
   });
 

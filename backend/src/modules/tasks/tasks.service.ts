@@ -16,12 +16,15 @@ import {
 } from './dto/create-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
+import { TaskEventsService } from '../task-events/task-events.service';
+import { TaskEventType } from '../task-events/schemas/task-event.schema';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
     private readonly notificationsService: NotificationsService,
+    private readonly taskEventsService: TaskEventsService,
   ) {}
 
   async create(spaceId: string, userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
@@ -52,7 +55,7 @@ export class TasksService {
       })
       .exec();
 
-    return this.taskModel.create({
+    const task = await this.taskModel.create({
       spaceId: new Types.ObjectId(spaceId),
       listId: resolvedListId ? new Types.ObjectId(resolvedListId) : null,
       sprintId: resolvedSprintId ? new Types.ObjectId(resolvedSprintId) : null,
@@ -69,6 +72,15 @@ export class TasksService {
       position: dto.position ?? count,
       createdBy: new Types.ObjectId(userId),
     });
+
+    await this.taskEventsService.create({
+      taskId: task._id.toString(),
+      spaceId,
+      userId,
+      type: TaskEventType.Created,
+    });
+
+    return task;
   }
 
   async findById(taskId: string): Promise<TaskDocument> {
@@ -126,13 +138,13 @@ export class TasksService {
       .exec();
   }
 
-  async update(spaceId: string, taskId: string, dto: UpdateTaskDto): Promise<TaskDocument> {
+  async update(spaceId: string, taskId: string, dto: UpdateTaskDto, actorId?: string): Promise<TaskDocument> {
     const updates: Record<string, unknown> = { ...dto };
 
-    let previousAssignees: string[] = [];
+    const existing = await this.taskModel.findById(taskId).exec();
+    const previousAssignees = (existing?.assignees ?? []).map((id) => id.toString());
+
     if (dto.assignees !== undefined) {
-      const existing = await this.taskModel.findById(taskId).exec();
-      previousAssignees = (existing?.assignees ?? []).map((id) => id.toString());
       updates.assignees = dto.assignees.map((id) => new Types.ObjectId(id));
     }
     if (dto.tags !== undefined) {
@@ -171,7 +183,113 @@ export class TasksService {
       );
     }
 
+    if (actorId && existing) {
+      await this.logUpdateEvents(taskId, spaceId, actorId, existing, dto);
+    }
+
     return task;
+  }
+
+  private async logUpdateEvents(
+    taskId: string,
+    spaceId: string,
+    actorId: string,
+    existing: TaskDocument,
+    dto: UpdateTaskDto,
+  ): Promise<void> {
+    const base = { taskId, spaceId, userId: actorId };
+
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      await this.taskEventsService.create({
+        ...base,
+        type: TaskEventType.StatusChanged,
+        changes: { field: 'status', oldValue: existing.status, newValue: dto.status },
+      });
+    }
+
+    if (dto.priority !== undefined && dto.priority !== existing.priority) {
+      await this.taskEventsService.create({
+        ...base,
+        type: TaskEventType.PriorityChanged,
+        changes: { field: 'priority', oldValue: existing.priority, newValue: dto.priority },
+      });
+    }
+
+    if (dto.name !== undefined && dto.name !== existing.name) {
+      await this.taskEventsService.create({
+        ...base,
+        type: TaskEventType.NameChanged,
+        changes: { field: 'name', oldValue: existing.name, newValue: dto.name },
+      });
+    }
+
+    if (dto.description !== undefined && dto.description !== existing.description) {
+      await this.taskEventsService.create({
+        ...base,
+        type: TaskEventType.DescriptionChanged,
+        changes: null,
+      });
+    }
+
+    if (dto.storyPoints !== undefined && dto.storyPoints !== existing.storyPoints) {
+      await this.taskEventsService.create({
+        ...base,
+        type: TaskEventType.StoryPointsChanged,
+        changes: {
+          field: 'storyPoints',
+          oldValue: existing.storyPoints != null ? String(existing.storyPoints) : null,
+          newValue: dto.storyPoints != null ? String(dto.storyPoints) : null,
+        },
+      });
+    }
+
+    if (dto.dueDate !== undefined) {
+      const oldDue = existing.dueDate ? existing.dueDate.toISOString().substring(0, 10) : null;
+      const newDue = dto.dueDate ? new Date(dto.dueDate).toISOString().substring(0, 10) : null;
+      if (oldDue !== newDue) {
+        await this.taskEventsService.create({
+          ...base,
+          type: TaskEventType.DueDateChanged,
+          changes: { field: 'dueDate', oldValue: oldDue, newValue: newDue },
+        });
+      }
+    }
+
+    if (dto.startDate !== undefined) {
+      const oldStart = existing.startDate ? existing.startDate.toISOString().substring(0, 10) : null;
+      const newStart = dto.startDate ? new Date(dto.startDate).toISOString().substring(0, 10) : null;
+      if (oldStart !== newStart) {
+        await this.taskEventsService.create({
+          ...base,
+          type: TaskEventType.StartDateChanged,
+          changes: { field: 'startDate', oldValue: oldStart, newValue: newStart },
+        });
+      }
+    }
+
+    if (dto.assignees !== undefined) {
+      const prevSet = new Set((existing.assignees as Types.ObjectId[]).map((id) => id.toString()));
+      const nextSet = new Set(dto.assignees);
+
+      for (const id of nextSet) {
+        if (!prevSet.has(id)) {
+          await this.taskEventsService.create({
+            ...base,
+            type: TaskEventType.AssigneeAdded,
+            changes: { field: 'assignees', oldValue: null, newValue: id },
+          });
+        }
+      }
+      for (const id of prevSet) {
+        if (!nextSet.has(id)) {
+          await this.taskEventsService.create({
+            ...base,
+            type: TaskEventType.AssigneeRemoved,
+            changes: { field: 'assignees', oldValue: id, newValue: null },
+          });
+        }
+      }
+    }
   }
 
   async move(spaceId: string, taskId: string, dto: MoveTaskDto): Promise<TaskDocument> {

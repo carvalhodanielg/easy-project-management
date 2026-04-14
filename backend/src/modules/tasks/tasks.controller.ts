@@ -143,8 +143,9 @@ export class TasksController {
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Param('taskId', ObjectIdValidationPipe) taskId: string,
     @Body() dto: UpdateTaskDto,
+    @CurrentUser() user: UserDocument,
   ) {
-    return this.tasksService.update(spaceId, taskId, dto);
+    return this.tasksService.update(spaceId, taskId, dto, (user._id as Types.ObjectId).toString());
   }
 
   @Patch(':taskId/move')

@@ -26,9 +26,11 @@ interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
+  disabled?: boolean;
 }
 
-export function Tooltip({ children, content, side = 'top' }: TooltipProps) {
+export function Tooltip({ children, content, side = 'top', disabled = false }: TooltipProps) {
+  if (disabled) return <>{children}</>;
   return (
     <TooltipProvider delayDuration={300}>
       <TooltipRoot>

@@ -19,6 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import * as tasksApi from '../../api/tasks.api';
 import * as listsApi from '../../api/lists.api';
+import * as savedFiltersApi from '../../api/saved-filters.api';
 import { SortableTaskRow } from '../../components/task/SortableTaskRow';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { SelectionBar } from '../../components/task/SelectionBar';
@@ -50,6 +51,23 @@ export function ListPage() {
 
   const taskFilter = useTaskFilter({ listId });
   const selection = useTaskSelection();
+
+  const { data: savedFilters = [] } = useQuery({
+    queryKey: ['saved-filters', spaceId],
+    queryFn: () => savedFiltersApi.getSavedFilters(spaceId!),
+    enabled: !!spaceId,
+  });
+
+  const createSavedFilter = useMutation({
+    mutationFn: (name: string) =>
+      savedFiltersApi.createSavedFilter(spaceId!, { name, filters: taskFilter.filters }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
+  });
+
+  const deleteSavedFilter = useMutation({
+    mutationFn: (id: string) => savedFiltersApi.deleteSavedFilter(spaceId!, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
+  });
 
   const { data: list } = useQuery({
     queryKey: ['list', listId],
@@ -176,6 +194,10 @@ export function ListPage() {
             onToggleSubtasks={taskFilter.toggleSubtasks}
             onReset={taskFilter.reset}
             isActive={taskFilter.isActive}
+            savedFilters={savedFilters}
+            onSaveFilter={(name) => createSavedFilter.mutate(name)}
+            onLoadFilter={taskFilter.loadFilter}
+            onDeleteFilter={(id) => deleteSavedFilter.mutate(id)}
           />
         </div>
       </header>

@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { vi, describe, it, expect } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TaskRow } from './TaskRow';
 import type { Task } from '../../types/task.types';
 
@@ -8,6 +9,12 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ spaceId: 'sp1' }) };
 });
+
+vi.mock('../../api/tasks.api', () => ({
+  updateTask: vi.fn().mockResolvedValue({}),
+}));
+
+import * as tasksApi from '../../api/tasks.api';
 
 const TASK: Task = {
   _id: 't1',
@@ -30,16 +37,21 @@ const TASK: Task = {
 };
 
 function renderRow(task: Task = TASK, props = {}) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={['/spaces/sp1']}>
-      <Routes>
-        <Route path="/spaces/:spaceId" element={<TaskRow task={task} {...props} />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={['/spaces/sp1']}>
+        <Routes>
+          <Route path="/spaces/:spaceId" element={<TaskRow task={task} {...props} />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
 describe('TaskRow', () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it('renders task name', () => {
     renderRow();
     expect(screen.getByText('Implementar autenticação')).toBeInTheDocument();
@@ -100,5 +112,37 @@ describe('TaskRow', () => {
     const onSelect = vi.fn();
     renderRow(TASK, { onSelect, isSelected: true });
     expect(screen.getByRole('button', { name: /desmarcar/i })).toBeInTheDocument();
+  });
+
+  describe('status picker', () => {
+    it('status button is present in normal mode', () => {
+      renderRow();
+      expect(screen.getByRole('button', { name: /status/i })).toBeInTheDocument();
+    });
+
+    it('opens status dropdown when status button is clicked', () => {
+      renderRow();
+      const btn = screen.getByRole('button', { name: /status/i });
+      fireEvent.click(btn);
+      expect(screen.getByText('Pendente')).toBeInTheDocument();
+      expect(screen.getByText('Em progresso')).toBeInTheDocument();
+      expect(screen.getByText('Em review')).toBeInTheDocument();
+      expect(screen.getByText('Feito')).toBeInTheDocument();
+      expect(screen.getByText('Fechado')).toBeInTheDocument();
+    });
+
+    it('calls updateTask when a new status is selected', async () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /status/i }));
+      fireEvent.click(screen.getByText('Feito'));
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { status: 'feito' });
+      });
+    });
+
+    it('does not show status button in selection mode', () => {
+      renderRow(TASK, { onSelect: vi.fn(), isSelected: false });
+      expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
+    });
   });
 });

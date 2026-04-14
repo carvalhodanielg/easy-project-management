@@ -74,12 +74,18 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
 
   const reset = useCallback(() => setFilters(INITIAL), []);
 
+  const loadFilter = useCallback((saved: Partial<FilterState>) => {
+    setFilters({ ...INITIAL, ...saved });
+  }, []);
+
   const isActive =
     filters.status.length > 0 ||
     filters.priority.length > 0 ||
     filters.assignees.length > 0 ||
     filters.tags.length > 0 ||
-    filters.q.length > 0;
+    filters.q.length > 0 ||
+    filters.groupBy !== undefined ||
+    filters.includeSubtasks;
 
   const toQueryParams = (): TaskFilterParams => ({
     ...baseParams,
@@ -103,6 +109,7 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     setSearch,
     toggleSubtasks,
     reset,
+    loadFilter,
     toQueryParams,
   };
 }

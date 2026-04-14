@@ -20,6 +20,8 @@ import { NotesModule } from './modules/notes/notes.module';
 import { SearchModule } from './modules/search/search.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SeedModule } from './modules/seed/seed.module';
+import { TaskEventsModule } from './modules/task-events/task-events.module';
+import { SavedFiltersModule } from './modules/saved-filters/saved-filters.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { SeedModule } from './modules/seed/seed.module';
     SearchModule,
     NotificationsModule,
     SeedModule,
+    TaskEventsModule,
+    SavedFiltersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

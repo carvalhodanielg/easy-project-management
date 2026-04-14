@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Filter, X, ChevronDown, Search, SlidersHorizontal } from 'lucide-react';
-import * as Popover from '@radix-ui/react-popover';
+import { useState, useRef, useEffect } from 'react';
+import { X, ChevronDown, Search, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2 } from 'lucide-react';
 import type { FilterState } from '../../hooks/useTaskFilter';
 import { type TaskStatus, type TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
+import type { SavedFilter } from '../../api/saved-filters.api';
 import { T } from '../../theme';
 import { cn } from '../../lib/utils';
 
@@ -22,6 +22,11 @@ interface Props {
   onToggleSubtasks: () => void;
   onReset: () => void;
   isActive: boolean;
+  // Saved filters
+  savedFilters?: SavedFilter[];
+  onSaveFilter?: (name: string) => void;
+  onLoadFilter?: (filters: Partial<FilterState>) => void;
+  onDeleteFilter?: (id: string) => void;
 }
 
 const STATUSES   = Object.keys(STATUS_LABELS)   as TaskStatus[];
@@ -35,12 +40,42 @@ const GROUP_OPTIONS: { value: FilterState['groupBy']; label: string }[] = [
   { value: 'sprint',     label: 'Por sprint' },
 ];
 
+function useDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  return { open, setOpen, ref };
+}
+
 export function FilterBar({
   filters, members = [], tags = [],
   onToggleStatus, onTogglePriority, onToggleAssignee, onToggleTag,
   onSetGroupBy, onSetSearch, onToggleSubtasks, onReset, isActive,
+  savedFilters = [], onSaveFilter, onLoadFilter, onDeleteFilter,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const filterDropdown = useDropdown();
+  const savedDropdown  = useDropdown();
+  const [saveName, setSaveName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  function handleSave() {
+    const trimmed = saveName.trim();
+    if (!trimmed || !onSaveFilter) return;
+    onSaveFilter(trimmed);
+    setSaveName('');
+    setShowSaveInput(false);
+  }
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -56,28 +91,24 @@ export function FilterBar({
         />
       </div>
 
-      {/* Filter popover */}
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger asChild>
-          <button
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-sm font-medium transition-colors',
-              open || isActive
-                ? 'bg-brand/12 border-brand/30 text-brand'
-                : 'bg-lift border-line text-ink-dim hover:text-ink hover:border-brand/20',
-            )}
-          >
-            <SlidersHorizontal size={13} />
-            Filtros
-            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
-          </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            sideOffset={6}
-            align="start"
-            className="z-50 w-76 bg-modal border border-line rounded-xl shadow-2xl p-4 flex flex-col gap-4"
-          >
+      {/* Filter dropdown */}
+      <div ref={filterDropdown.ref} className="relative">
+        <button
+          onClick={() => filterDropdown.setOpen((v) => !v)}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-sm font-medium transition-colors',
+            filterDropdown.open || isActive
+              ? 'bg-brand/12 border-brand/30 text-brand'
+              : 'bg-lift border-line text-ink-dim hover:text-ink hover:border-brand/20',
+          )}
+        >
+          <SlidersHorizontal size={13} />
+          Filtros
+          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
+        </button>
+
+        {filterDropdown.open && (
+          <div className="absolute top-full left-0 mt-1.5 z-50 w-76 bg-modal border border-line rounded-xl shadow-2xl p-4 flex flex-col gap-4">
             {/* Status */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted mb-2.5">Status</p>
@@ -185,15 +216,16 @@ export function FilterBar({
                   <X size={11} /> Limpar filtros
                 </button>
               ) : <span />}
-              <Popover.Close asChild>
-                <button className="text-xs text-ink-dim hover:text-ink transition-colors px-2.5 py-1.5 rounded-lg hover:bg-lift">
-                  Fechar
-                </button>
-              </Popover.Close>
+              <button
+                onClick={() => filterDropdown.setOpen(false)}
+                className="text-xs text-ink-dim hover:text-ink transition-colors px-2.5 py-1.5 rounded-lg hover:bg-lift"
+              >
+                Fechar
+              </button>
             </div>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+          </div>
+        )}
+      </div>
 
       {/* Group by */}
       <div className="relative flex items-center">
@@ -221,6 +253,104 @@ export function FilterBar({
         />
         Subtarefas
       </label>
+
+      {/* Saved filters dropdown — last control */}
+      {(savedFilters.length > 0 || onSaveFilter) && (
+        <div ref={savedDropdown.ref} className="relative">
+          <button
+            onClick={() => savedDropdown.setOpen((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-sm font-medium transition-colors',
+              savedDropdown.open
+                ? 'bg-brand/12 border-brand/30 text-brand'
+                : 'bg-lift border-line text-ink-dim hover:text-ink hover:border-brand/20',
+            )}
+          >
+            <BookmarkCheck size={13} />
+            Salvos
+            {savedFilters.length > 0 && (
+              <span className="text-[10px] font-semibold bg-brand/15 text-brand rounded-full px-1.5 py-0.5 leading-none">
+                {savedFilters.length}
+              </span>
+            )}
+          </button>
+
+          {savedDropdown.open && (
+            <div className="absolute top-full right-0 mt-1.5 z-50 w-68 bg-modal border border-line rounded-xl shadow-2xl p-2 flex flex-col gap-0.5">
+              {/* Save current config */}
+              {onSaveFilter && (
+                <div className="px-1 pb-2 mb-1 border-b border-line">
+                  {showSaveInput ? (
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={saveName}
+                        onChange={(e) => setSaveName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setShowSaveInput(false); }}
+                        placeholder="Nome da configuração…"
+                        className="flex-1 px-2.5 py-1 bg-lift border border-line rounded-lg text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors"
+                      />
+                      <button
+                        onClick={handleSave}
+                        disabled={!saveName.trim()}
+                        className="px-2.5 py-1 rounded-lg text-xs bg-brand text-white font-semibold disabled:opacity-40 transition-opacity"
+                      >
+                        Salvar
+                      </button>
+                      <button
+                        onClick={() => { setShowSaveInput(false); setSaveName(''); }}
+                        className="p-1 rounded text-ink-dim hover:text-ink transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowSaveInput(true)}
+                      className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-xs text-ink-dim hover:text-brand hover:bg-lift transition-colors"
+                    >
+                      <Bookmark size={12} /> Salvar configuração atual
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {savedFilters.length === 0 ? (
+                <p className="text-xs text-ink-muted px-3 py-3 text-center">
+                  Nenhuma configuração salva ainda.
+                </p>
+              ) : (
+                savedFilters.map((sf) => (
+                  <div
+                    key={sf._id}
+                    className="flex items-center gap-1 group rounded-lg hover:bg-lift px-2 py-1.5 transition-colors"
+                  >
+                    <button
+                      className="flex-1 text-sm text-left text-ink truncate"
+                      onClick={() => {
+                        onLoadFilter?.(sf.filters as Partial<FilterState>);
+                        savedDropdown.setOpen(false);
+                      }}
+                    >
+                      {sf.name}
+                    </button>
+                    {onDeleteFilter && (
+                      <button
+                        onClick={() => onDeleteFilter(sf._id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-muted hover:text-danger transition-all"
+                        title="Excluir"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Active filter chips */}
       {filters.status.map((s) => (

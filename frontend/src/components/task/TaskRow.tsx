@@ -1,8 +1,13 @@
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ChevronDown } from 'lucide-react';
-import type { Task, TaskStatus } from '../../types/task.types';
+import type { Task, TaskStatus, GroupedTaskResult } from '../../types/task.types';
+import { STATUS_LABELS } from '../../types/task.types';
+import { updateTask } from '../../api/tasks.api';
 import { PriorityIcon } from '../ui/PriorityIcon';
 import { Tooltip } from '../ui/tooltip';
+import { T } from '../../theme';
 
 export const TASK_COLS = '36px 1fr 88px 52px 80px 90px';
 
@@ -14,13 +19,7 @@ const STATUS_DOT: Record<TaskStatus, string> = {
   fechado:      'border-s-closed bg-s-closed/30',
 };
 
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  pendente:     'Pendente',
-  em_progresso: 'Em progresso',
-  em_review:    'Em revisão',
-  feito:        'Feito',
-  fechado:      'Fechado',
-};
+const STATUSES = Object.keys(STATUS_LABELS) as TaskStatus[];
 
 function Avatar({ name }: { name: string }) {
   return (
@@ -42,8 +41,56 @@ interface Props {
 export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect }: Props) {
   const navigate  = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
+  const queryClient = useQueryClient();
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
+
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [localStatus, setLocalStatus] = useState<TaskStatus>(task.status);
+  const statusRef = useRef<HTMLDivElement>(null);
+
+  // Sync local status when server data changes (e.g. after query refetch)
+  useEffect(() => { setLocalStatus(task.status); }, [task.status]);
+
+  useEffect(() => {
+    if (!statusOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+        setStatusOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [statusOpen]);
+
+  const { mutate: changeStatus } = useMutation({
+    mutationFn: (status: TaskStatus) => updateTask(spaceId!, task._id, { status }),
+    onMutate: (newStatus) => {
+      setLocalStatus(newStatus);
+      setStatusOpen(false);
+      // Optimistically update list queries for this space
+      const queries = queryClient.getQueriesData<Task[] | GroupedTaskResult[]>({ queryKey: ['tasks', spaceId] });
+      for (const [key, data] of queries) {
+        if (!data) continue;
+        const updated = Array.isArray(data) && data.length > 0 && 'tasks' in data[0]
+          ? (data as GroupedTaskResult[]).map((g) => ({ ...g, tasks: g.tasks.map((t) => t._id === task._id ? { ...t, status: newStatus } : t) }))
+          : (data as Task[]).map((t) => t._id === task._id ? { ...t, status: newStatus } : t);
+        queryClient.setQueryData(key, updated);
+      }
+      // Optimistically update the detail query if already cached
+      const detail = queryClient.getQueryData<Task>(['task', task._id]);
+      if (detail) queryClient.setQueryData(['task', task._id], { ...detail, status: newStatus });
+    },
+    onError: () => {
+      setLocalStatus(task.status);
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['task', task._id] });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['task', task._id] });
+    },
+  });
 
   return (
     <div
@@ -75,7 +122,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             )}
           </button>
         ) : (
-          /* Normal mode: expand toggle + status dot */
+          /* Normal mode: expand toggle + status dot (clickable) */
           <>
             {onToggleExpand ? (
               <button
@@ -88,11 +135,40 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             ) : (
               <span className="w-4" />
             )}
-            <Tooltip content={STATUS_LABEL[task.status]}>
-              <span
-                className={`w-3 h-3 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[task.status]}`}
-              />
-            </Tooltip>
+
+            {/* Status picker */}
+            <div ref={statusRef} className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
+              <Tooltip content={STATUS_LABELS[localStatus]} disabled={statusOpen}>
+                <button
+                  aria-label={`Status: ${STATUS_LABELS[localStatus]}`}
+                  onClick={() => setStatusOpen((v) => !v)}
+                  className={`w-3 h-3 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[localStatus]} hover:scale-125 transition-transform`}
+                />
+              </Tooltip>
+
+              {statusOpen && (
+                <div className="absolute top-full left-0 mt-1.5 z-50 min-w-[140px] bg-modal border border-line rounded-xl shadow-2xl py-1 flex flex-col">
+                  {STATUSES.map((s) => {
+                    const isCurrent = s === localStatus;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => changeStatus(s)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-lift transition-colors"
+                      >
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[s]}`}
+                        />
+                        <span style={isCurrent ? { color: T.status[s] } : {}} className={isCurrent ? 'font-semibold' : 'text-ink'}>
+                          {STATUS_LABELS[s]}
+                        </span>
+                        {isCurrent && <span className="ml-auto text-[10px] text-ink-muted">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

@@ -11,13 +11,12 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 - [x] Drag-and-drop na list view — reordenar tarefas arrastando na visualização de lista (`SprintPage` e `ListPage`)
 - [x] Dashboard de sprint — burndown chart, velocidade vs sprint anterior, distribuição por status e responsável
 - [x] Menções `@usuario` em comentários e notas — dropdown de membros, notificação `mention`, campo `mentions[]` persistido
+- [x] Activity log por tarefa — collection `TaskEvent`, eventos de criação/edição de status, prioridade, nome, descrição, datas, pontos e responsáveis; exibidos no painel de detalhes da tarefa
+- [x] Filtros salvos — salvar combinações de filtros por espaço com nome, carregar e excluir; disponível em listas e sprints via botão "Salvos" na FilterBar
 
 ---
 
 ## Alta prioridade
-
-### Activity log por tarefa
-Histórico de alterações em cada tarefa: quem mudou o quê e quando ("Alice: status Pendente → Em progresso"). Requer collection separada `TaskEvent` ou campo `history[]` no schema de Task. Alto valor para times — elimina a pergunta "quem mudou isso?".
 
 ### Lembretes de prazo
 Notificação automática quando uma tarefa está vencendo (ex.: 1 dia antes do `dueDate`). Requer um job agendado no backend (cron NestJS) que consulta tarefas com `dueDate` próximo e cria notificações `due_soon`. Baixo custo, alto impacto para adoção.
@@ -39,9 +38,6 @@ Página de perfil do usuário com upload de foto. O campo `avatarUrl` já existe
 
 ### Timeline / Gantt view
 Terceira visualização além de Lista e Board. Mostra tarefas numa linha do tempo com base em `startDate`/`dueDate`. Especialmente útil na tela de sprint.
-
-### Filtros salvos
-Salvar combinações de filtros frequentes por espaço (ex.: "Minhas tarefas urgentes", "Em review sem dono"). Requer novo campo `savedFilters[]` no espaço ou collection separada. Melhora muito o fluxo de times que filtram sempre da mesma forma.
 
 ### Relatórios por espaço
 Além do dashboard de sprint, uma visão de produtividade do espaço inteiro: velocity histórica por sprint, tarefas abertas vs fechadas por semana, distribuição de carga por membro. Requer apenas agregações MongoDB sobre dados já existentes.

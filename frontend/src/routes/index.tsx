@@ -12,6 +12,7 @@ import { TaskDetailPage } from '../pages/task/TaskDetailPage';
 import { WikiFolderPage } from '../pages/wiki/WikiFolderPage';
 import { WikiDocumentPage } from '../pages/wiki/WikiDocumentPage';
 import { NoteDetailPage } from '../pages/notes/NoteDetailPage';
+import { SpaceHomePage } from '../pages/space/SpaceHomePage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
         path: '/spaces/:spaceId',
         element: <SpaceLayout />,
         children: [
+          { index: true, element: <SpaceHomePage /> },
           { path: 'members', element: <MembersPage /> },
           { path: 'lists/:listId', element: <ListPage /> },
           { path: 'sprints', element: <SprintListPage /> },

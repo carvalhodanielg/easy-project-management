@@ -18,13 +18,17 @@ A project management tool built with NestJS, React and MongoDB. Manage spaces, l
 ## Features
 
 - **Spaces** — workspaces with role-based membership (Editor / Viewer)
-- **Lists** — task lists inside a space
-- **Sprints** — time-boxed iterations with progress tracking (story points)
-- **Tasks** — subtasks, assignees, tags, priority, due date, comments, attachments
+- **Lists** — task lists inside a space with inline status changes and drag-and-drop reordering
+- **Sprints** — time-boxed iterations with burndown chart, velocity, and distribution dashboards
+- **Tasks** — subtasks, assignees, tags, priority, due date, comments, attachments and activity log
 - **Kanban board** — drag-and-drop board view per sprint or list
 - **Sprint notes** — Obsidian-style Markdown editor with labels, auto-save and comments
 - **Wiki** — folders and documents with live Markdown editor
-- **Filters & grouping** — filter by status, priority, assignee, tag; group by any field
+- **Filters & grouping** — filter by status, priority, assignee, tag; group by any field; save filters per space
+- **Global search** — `Ctrl/Cmd+K` searches tasks, notes, and wiki documents across a space
+- **Notifications** — in-app bell with badge; events for task assignment, comments, and @mentions
+- **@mentions** — autocomplete dropdown in comments and notes; notifies mentioned members
+- **Activity log** — full history of changes per task (status, priority, assignees, dates, points)
 
 ---
 
@@ -102,12 +106,17 @@ npm run build          # tsc + Vite production build
 │           ├── spaces/      # Spaces + role-based membership
 │           ├── lists/       # Task lists
 │           ├── sprints/     # Sprints
-│           ├── tasks/       # Tasks, subtasks, filtering, grouping
-│           ├── tags/        # Tags
-│           ├── comments/    # Task comments
-│           ├── attachments/ # File uploads
-│           ├── notes/       # Sprint notes + note comments
-│           └── wiki/        # Wiki folders and documents
+│           ├── tasks/         # Tasks, subtasks, filtering, grouping
+│           ├── task-events/   # Activity log (creation, edits, status changes)
+│           ├── tags/          # Tags
+│           ├── comments/      # Task comments with @mention support
+│           ├── attachments/   # File uploads
+│           ├── notes/         # Sprint notes + note comments
+│           ├── wiki/          # Wiki folders and documents
+│           ├── notifications/ # In-app notifications and events
+│           ├── search/        # Global search across tasks, notes, wiki
+│           ├── saved-filters/ # Saved filter sets per space
+│           └── seed/          # Database seeder for development
 └── frontend/
     └── src/
         ├── api/             # Axios API clients (one file per resource)

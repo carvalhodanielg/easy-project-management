@@ -65,6 +65,7 @@ export class CommentsService {
             type: NotificationType.CommentAdded,
             message: `Novo comentário na tarefa "${task.name}"`,
             taskId,
+            spaceId: task.spaceId?.toString(),
           }),
         ),
       );
@@ -78,6 +79,7 @@ export class CommentsService {
           type: NotificationType.Mention,
           message: `Você foi mencionado em um comentário${task ? ` na tarefa "${task.name}"` : ''}`,
           taskId,
+          spaceId: task?.spaceId?.toString(),
         }),
       ),
     );

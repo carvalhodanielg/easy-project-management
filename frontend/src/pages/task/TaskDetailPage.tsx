@@ -6,9 +6,9 @@ import MDEditor from '@uiw/react-md-editor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
-import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
 import { SubtaskList } from '../../components/task/SubtaskList';
+import { DependenciesSection, isTaskBlocked } from '../../components/task/DependenciesSection';
 import {
   type TaskStatus, type TaskPriority,
   FIBONACCI_POINTS, STATUS_LABELS, PRIORITY_LABELS,
@@ -70,6 +70,7 @@ export function TaskDetailPage() {
   }
 
   const statusColor = STATUS_COLORS[task.status];
+  const blocked = isTaskBlocked(task);
 
   return (
     <div
@@ -134,6 +135,7 @@ export function TaskDetailPage() {
               <select
                 value={task.status}
                 onChange={(e) => updateMutation.mutate({ status: e.target.value as TaskStatus })}
+                title={blocked ? 'Tarefa bloqueada — conclua as dependências primeiro' : undefined}
                 className="appearance-none px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none border transition-colors"
                 style={{
                   background: statusColor + '15',
@@ -142,7 +144,13 @@ export function TaskDetailPage() {
                 }}
               >
                 {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
+                  <option
+                    key={v}
+                    value={v}
+                    disabled={blocked && (v === 'feito' || v === 'fechado')}
+                  >
+                    {l}{blocked && (v === 'feito' || v === 'fechado') ? ' (bloqueada)' : ''}
+                  </option>
                 ))}
               </select>
 
@@ -209,31 +217,7 @@ export function TaskDetailPage() {
             )}
 
             {/* Dependencies */}
-            {(task.blockedBy.length > 0 || task.blocks.length > 0) && (
-              <div>
-                <label className={FIELD_LABEL}>Dependências</label>
-                {task.blockedBy.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-2 items-center">
-                    <span className="text-xs text-danger font-semibold">Bloqueado por:</span>
-                    {task.blockedBy.map((dep) => (
-                      <span key={dep._id} className="flex items-center gap-1.5 text-sm text-ink">
-                        {dep.name} <StatusBadge status={dep.status} />
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {task.blocks.length > 0 && (
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-xs text-p-high font-semibold">Bloqueia:</span>
-                    {task.blocks.map((dep) => (
-                      <span key={dep._id} className="flex items-center gap-1.5 text-sm text-ink">
-                        {dep.name} <StatusBadge status={dep.status} />
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            <DependenciesSection spaceId={spaceId!} task={task} />
 
             {/* Description */}
             <div>

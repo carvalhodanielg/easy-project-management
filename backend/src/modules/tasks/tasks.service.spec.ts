@@ -161,6 +161,24 @@ describe('TasksService', () => {
 
       expect(mockTaskEventsService.create).not.toHaveBeenCalled();
     });
+
+    it('sends task_assigned notification with spaceId when new assignees are added', async () => {
+      const newUserId = new Types.ObjectId().toString();
+      const updated = { ...mockTask, _id: new Types.ObjectId(taskId), name: 'Test Task', assignees: [newUserId] };
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
+      mockNotificationsService.create.mockResolvedValue({});
+
+      await service.update(spaceId, taskId, { assignees: [newUserId] }, userId);
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'task_assigned',
+          taskId: updated._id.toString(),
+          spaceId,
+        }),
+      );
+    });
   });
 
   describe('remove', () => {
@@ -334,6 +352,84 @@ describe('TasksService', () => {
       await expect(
         service.create(spaceId, userId, { name: 'Task without container' }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('update — blocking rule', () => {
+    const blockerId = new Types.ObjectId().toString();
+    const blockedTask = {
+      ...mockTask,
+      blockedBy: [new Types.ObjectId(blockerId)],
+    };
+
+    it('throws BadRequestException when completing a task blocked by unfinished tasks', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.EmProgresso },
+        ]),
+      });
+
+      await expect(
+        service.update(spaceId, taskId, { status: TaskStatus.Feito }, userId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when closing a task blocked by unfinished tasks', async () => {
+      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Pendente },
+        ]),
+      });
+
+      await expect(
+        service.update(spaceId, taskId, { status: TaskStatus.Fechado }, userId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('allows completing a task when all blockers are finished', async () => {
+      const updatedTask = { ...blockedTask, status: TaskStatus.Feito };
+      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Feito },
+        ]),
+      });
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
+
+      await expect(
+        service.update(spaceId, taskId, { status: TaskStatus.Feito }, userId),
+      ).resolves.toBeDefined();
+    });
+
+    it('allows completing a task when all blockers are closed', async () => {
+      const updatedTask = { ...blockedTask, status: TaskStatus.Feito };
+      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Fechado },
+        ]),
+      });
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
+
+      await expect(
+        service.update(spaceId, taskId, { status: TaskStatus.Feito }, userId),
+      ).resolves.toBeDefined();
+    });
+
+    it('allows completing a task with no blockers', async () => {
+      const updatedTask = { ...mockTask, status: TaskStatus.Feito };
+      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
+
+      await expect(
+        service.update(spaceId, taskId, { status: TaskStatus.Feito }, userId),
+      ).resolves.toBeDefined();
     });
   });
 

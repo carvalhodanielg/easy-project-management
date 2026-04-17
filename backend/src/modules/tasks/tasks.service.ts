@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Task, TaskDocument, FIBONACCI_POINTS } from './schemas/task.schema';
+import { Task, TaskDocument, TaskStatus, FIBONACCI_POINTS } from './schemas/task.schema';
 import {
   CreateTaskDto,
   UpdateTaskDto,
@@ -157,6 +157,28 @@ export class TasksService {
       updates.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
     }
 
+    const isCompletingStatus = (s: TaskStatus) =>
+      s === TaskStatus.Feito || s === TaskStatus.Fechado;
+
+    if (dto.status && isCompletingStatus(dto.status) && existing) {
+      const blockedByIds = existing.blockedBy as Types.ObjectId[];
+      if (blockedByIds.length > 0) {
+        const blockers = await this.taskModel
+          .find({ _id: { $in: blockedByIds } })
+          .select('status name')
+          .exec();
+        const pending = blockers.filter(
+          (t) => t.status !== TaskStatus.Feito && t.status !== TaskStatus.Fechado,
+        );
+        if (pending.length > 0) {
+          const names = pending.map((t) => t.name).join(', ');
+          throw new BadRequestException(
+            `Tarefa bloqueada por tarefas não concluídas: ${names}`,
+          );
+        }
+      }
+    }
+
     const task = await this.taskModel
       .findOneAndUpdate(
         { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
@@ -178,6 +200,7 @@ export class TasksService {
             type: NotificationType.TaskAssigned,
             message: `Você foi atribuído à tarefa "${task.name}"`,
             taskId: task._id.toString(),
+            spaceId,
           }),
         ),
       );

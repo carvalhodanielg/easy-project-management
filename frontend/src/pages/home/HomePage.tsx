@@ -5,6 +5,7 @@ import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid } from
 import { useAuthStore } from '../../store/auth.store';
 import * as spacesApi from '../../api/spaces.api';
 import type { Space } from '../../types/space.types';
+import { UserAvatar } from '../../components/ui/UserAvatar';
 
 const PRESET_COLORS = [
   '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
@@ -43,10 +44,6 @@ export function HomePage() {
       setFormError(detail ?? 'Falha ao criar espaço.');
     },
   });
-
-  const initials = user?.displayName
-    ? user.displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
 
   const firstName = user?.displayName?.split(' ')[0] ?? 'usuário';
 
@@ -107,14 +104,18 @@ export function HomePage() {
         {/* User footer */}
         <div className="px-2 py-2.5 border-t border-line shrink-0">
           <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-lift transition-colors group">
-            <div className="w-7 h-7 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center shrink-0">
-              {initials}
-            </div>
-            <span className="flex-1 text-sm text-ink-dim truncate">{user?.displayName}</span>
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 flex-1 min-w-0"
+            >
+              {user && <UserAvatar user={user} size="sm" />}
+              <span className="flex-1 text-sm text-ink-dim truncate text-left">{user?.displayName}</span>
+            </button>
             <button
               onClick={logout}
               title="Sair"
-              className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-muted hover:text-danger transition-all"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-muted hover:text-danger transition-all shrink-0"
             >
               <LogOut size={13} />
             </button>

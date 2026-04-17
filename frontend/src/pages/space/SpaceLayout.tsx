@@ -15,6 +15,7 @@ import * as sprintFoldersApi from '../../api/sprint-folders.api';
 import type { DayOfWeek } from '../../api/sprint-folders.api';
 import { GlobalSearch } from '../../components/search/GlobalSearch';
 import { NotificationBell } from '../../components/notifications/NotificationBell';
+import { UserAvatar } from '../../components/ui/UserAvatar';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../../components/ui/tooltip';
 
@@ -412,9 +413,6 @@ export function SpaceLayout() {
     return () => document.removeEventListener('keydown', handleGlobalKey);
   }, [handleGlobalKey]);
 
-  const initials = user?.displayName
-    ? user.displayName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
 
   const sprintsListActive = location.pathname.endsWith('/sprints');
 
@@ -604,14 +602,18 @@ export function SpaceLayout() {
         {/* User footer */}
         <div className="px-2 py-2.5 border-t border-line shrink-0">
           <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-lift transition-colors group">
-            <div className="w-7 h-7 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center shrink-0">
-              {initials}
-            </div>
-            <span className="flex-1 text-sm text-ink-dim truncate">{user?.displayName}</span>
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2.5 flex-1 min-w-0"
+            >
+              {user && <UserAvatar user={user} size="sm" />}
+              <span className="flex-1 text-sm text-ink-dim truncate text-left">{user?.displayName}</span>
+            </button>
             <Tooltip content="Sair" side="right">
               <button
                 onClick={logout}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-muted hover:text-danger transition-all"
+                className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-muted hover:text-danger transition-all shrink-0"
               >
                 <LogOut size={13} />
               </button>

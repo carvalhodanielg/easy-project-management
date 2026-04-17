@@ -6,4 +6,12 @@ export default () => ({
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   },
   uploadDest: process.env.UPLOAD_DEST ?? './uploads',
+  r2: {
+    endpoint: process.env.R2_ENDPOINT ?? '',       // custom endpoint (MinIO dev); if empty, uses R2 default
+    accountId: process.env.R2_ACCOUNT_ID ?? '',    // only needed for real R2 (ignored when endpoint set)
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
+    bucket: process.env.R2_BUCKET_NAME ?? '',
+    publicUrl: process.env.R2_PUBLIC_URL ?? '',
+  },
 });

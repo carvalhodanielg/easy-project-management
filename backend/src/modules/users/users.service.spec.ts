@@ -4,6 +4,9 @@ import { getModelToken } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
 import { User } from './schemas/user.schema';
 import { Types } from 'mongoose';
+import { R2StorageService } from '../../common/r2/r2-storage.service';
+
+jest.mock('crypto', () => ({ randomUUID: () => 'test-uuid' }));
 
 const userId = new Types.ObjectId().toString();
 
@@ -27,6 +30,11 @@ const mockUserModel = {
   find: jest.fn(),
 };
 
+const mockR2 = {
+  upload: jest.fn(),
+  delete: jest.fn(),
+};
+
 describe('UsersService', () => {
   let service: UsersService;
 
@@ -37,6 +45,7 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getModelToken(User.name), useValue: mockUserModel },
+        { provide: R2StorageService, useValue: mockR2 },
       ],
     }).compile();
 
@@ -121,6 +130,65 @@ describe('UsersService', () => {
       expect(result).not.toHaveProperty('passwordHash');
       expect(result).toHaveProperty('email', 'alice@example.com');
       expect(result).toHaveProperty('displayName', 'Alice');
+    });
+  });
+
+  describe('update', () => {
+    it('returns updated user', async () => {
+      const updated = { ...mockUser, displayName: 'Alice Updated' };
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
+      const result = await service.update(userId, { displayName: 'Alice Updated' });
+      expect(result.displayName).toBe('Alice Updated');
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.update(userId, { displayName: 'X' })).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    const mockFile = {
+      originalname: 'photo.jpg',
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+    } as Express.Multer.File;
+
+    it('uploads file to R2 and returns user with new avatarUrl', async () => {
+      const newUrl = 'https://pub.r2.dev/avatars/test-uuid.jpg';
+      mockUserModel.findById.mockReturnValue(execMock({ ...mockUser, avatarUrl: null }));
+      mockR2.upload.mockResolvedValue(newUrl);
+      mockUserModel.findByIdAndUpdate.mockReturnValue(
+        execMock({ ...mockUser, avatarUrl: newUrl }),
+      );
+
+      const result = await service.uploadAvatar(userId, mockFile);
+
+      expect(mockR2.upload).toHaveBeenCalledWith(
+        'avatars/test-uuid.jpg',
+        mockFile.buffer,
+        'image/jpeg',
+      );
+      expect(result.avatarUrl).toBe(newUrl);
+    });
+
+    it('deletes old avatar from R2 when one already exists', async () => {
+      const oldUrl = 'https://pub.r2.dev/avatars/old-uuid.jpg';
+      const newUrl = 'https://pub.r2.dev/avatars/test-uuid.jpg';
+      mockUserModel.findById.mockReturnValue(execMock({ ...mockUser, avatarUrl: oldUrl }));
+      mockR2.upload.mockResolvedValue(newUrl);
+      mockUserModel.findByIdAndUpdate.mockReturnValue(
+        execMock({ ...mockUser, avatarUrl: newUrl }),
+      );
+
+      await service.uploadAvatar(userId, mockFile);
+
+      expect(mockR2.delete).toHaveBeenCalledWith('avatars/old-uuid.jpg');
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockUserModel.findById.mockReturnValue(execMock(null));
+      await expect(service.uploadAvatar(userId, mockFile)).rejects.toThrow(NotFoundException);
     });
   });
 });

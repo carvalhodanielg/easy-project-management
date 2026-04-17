@@ -7,6 +7,7 @@ import { Notification, NotificationType } from './schemas/notification.schema';
 const userId = new Types.ObjectId().toString();
 const notifId = new Types.ObjectId().toString();
 const taskId = new Types.ObjectId().toString();
+const spaceId = new Types.ObjectId().toString();
 
 const mockNotif = {
   _id: new Types.ObjectId(notifId),
@@ -14,6 +15,7 @@ const mockNotif = {
   type: NotificationType.TaskAssigned,
   message: 'Você foi atribuído a uma tarefa',
   taskId: new Types.ObjectId(taskId),
+  spaceId: new Types.ObjectId(spaceId),
   read: false,
   save: jest.fn(),
 };
@@ -50,22 +52,26 @@ describe('NotificationsService', () => {
   });
 
   describe('create', () => {
-    it('creates a notification and returns it', async () => {
+    it('creates a notification with taskId and spaceId', async () => {
       mockModel.create.mockResolvedValue(mockNotif);
       const result = await service.create({
         userId,
         type: NotificationType.TaskAssigned,
         message: 'Você foi atribuído a uma tarefa',
         taskId,
+        spaceId,
       });
       expect(result.type).toBe(NotificationType.TaskAssigned);
       expect(mockModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: new Types.ObjectId(userId) }),
+        expect.objectContaining({
+          userId: new Types.ObjectId(userId),
+          spaceId: new Types.ObjectId(spaceId),
+        }),
       );
     });
 
-    it('creates a notification without taskId', async () => {
-      const notifNoTask = { ...mockNotif, taskId: null };
+    it('creates a notification without taskId or spaceId', async () => {
+      const notifNoTask = { ...mockNotif, taskId: null, spaceId: null };
       mockModel.create.mockResolvedValue(notifNoTask);
       const result = await service.create({
         userId,
@@ -73,6 +79,7 @@ describe('NotificationsService', () => {
         message: 'Você foi mencionado',
       });
       expect(result.taskId).toBeNull();
+      expect(result.spaceId).toBeNull();
     });
   });
 

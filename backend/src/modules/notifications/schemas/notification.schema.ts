@@ -23,6 +23,9 @@ export class Notification {
   @Prop({ type: Types.ObjectId, ref: 'Task', default: null })
   taskId: Types.ObjectId | null;
 
+  @Prop({ type: Types.ObjectId, ref: 'Space', default: null })
+  spaceId: Types.ObjectId | null;
+
   @Prop({ default: false })
   read: boolean;
 }

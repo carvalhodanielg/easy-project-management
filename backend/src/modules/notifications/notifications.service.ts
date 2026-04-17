@@ -8,6 +8,7 @@ export interface CreateNotificationDto {
   type: NotificationType;
   message: string;
   taskId?: string;
+  spaceId?: string;
 }
 
 @Injectable()
@@ -23,6 +24,7 @@ export class NotificationsService {
       type: dto.type,
       message: dto.message,
       taskId: dto.taskId ? new Types.ObjectId(dto.taskId) : null,
+      spaceId: dto.spaceId ? new Types.ObjectId(dto.spaceId) : null,
     });
   }
 

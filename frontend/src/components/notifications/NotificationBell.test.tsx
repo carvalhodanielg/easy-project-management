@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NotificationBell } from './NotificationBell';
@@ -14,6 +15,7 @@ const NOTIFICATIONS: Notification[] = [
     type: 'task_assigned',
     message: 'Você foi atribuído à tarefa "Fix bug"',
     taskId: 't1',
+    spaceId: 's1',
     read: false,
     createdAt: new Date().toISOString(),
   },
@@ -23,6 +25,7 @@ const NOTIFICATIONS: Notification[] = [
     type: 'comment_added',
     message: 'Novo comentário na tarefa "Deploy"',
     taskId: 't2',
+    spaceId: 's1',
     read: true,
     createdAt: new Date().toISOString(),
   },
@@ -31,9 +34,11 @@ const NOTIFICATIONS: Notification[] = [
 function renderComponent() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
-      <NotificationBell />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
+        <NotificationBell />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

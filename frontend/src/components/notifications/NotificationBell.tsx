@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as notifApi from '../../api/notifications.api';
 import type { Notification } from '../../types/notification.types';
@@ -14,6 +15,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -84,6 +86,10 @@ export function NotificationBell() {
                   key={notif._id}
                   onClick={() => {
                     if (!notif.read) markAsReadMutation.mutate(notif._id);
+                    if (notif.taskId && notif.spaceId) {
+                      setOpen(false);
+                      navigate(`/spaces/${notif.spaceId}/tasks/${notif.taskId}`);
+                    }
                   }}
                   className={`w-full text-left px-4 py-3 flex gap-3 items-start hover:bg-surface-hi transition-colors border-b border-line last:border-0 ${
                     notif.read ? 'opacity-60' : ''

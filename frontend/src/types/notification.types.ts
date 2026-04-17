@@ -6,6 +6,7 @@ export interface Notification {
   type: NotificationType;
   message: string;
   taskId: string | null;
+  spaceId: string | null;
   read: boolean;
   createdAt: string;
 }

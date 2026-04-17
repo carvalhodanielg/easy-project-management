@@ -13,6 +13,7 @@ import { WikiFolderPage } from '../pages/wiki/WikiFolderPage';
 import { WikiDocumentPage } from '../pages/wiki/WikiDocumentPage';
 import { NoteDetailPage } from '../pages/notes/NoteDetailPage';
 import { SpaceHomePage } from '../pages/space/SpaceHomePage';
+import { ProfilePage } from '../pages/profile/ProfilePage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { path: '/home', element: <HomePage /> },
+      { path: '/profile', element: <ProfilePage /> },
       {
         path: '/spaces/:spaceId',
         element: <SpaceLayout />,

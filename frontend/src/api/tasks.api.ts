@@ -116,3 +116,7 @@ export async function promoteToMainTask(spaceId: string, taskIds: string[], dest
 export async function moveSubtask(spaceId: string, taskIds: string[], newParentTaskId: string): Promise<void> {
   await apiClient.post(`/spaces/${spaceId}/tasks/move-subtask`, { taskIds, newParentTaskId });
 }
+
+export async function duplicateSubtask(spaceId: string, taskId: string, newParentTaskId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/duplicate-subtask`, { taskId, newParentTaskId });
+}

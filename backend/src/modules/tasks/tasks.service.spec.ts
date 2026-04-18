@@ -208,6 +208,9 @@ describe('TasksService', () => {
   describe('remove', () => {
     it('deletes task and cleans dependency arrays', async () => {
       mockTaskModel.findOneAndDelete.mockReturnValue(execMock(mockTask));
+      mockTaskModel.deleteMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
       mockTaskModel.updateMany.mockResolvedValue({});
 
       await service.remove(spaceId, taskId);
@@ -694,6 +697,83 @@ describe('TasksService', () => {
       mockTaskModel.findOne.mockReturnValue(execMock(null));
       await expect(
         service.moveSubtask(spaceId, [taskId], targetId),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('remove', () => {
+    it('cascade-deletes subtasks when removing a task', async () => {
+      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(mockTask));
+      mockTaskModel.deleteMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany.mockResolvedValue({});
+
+      await service.remove(spaceId, taskId);
+
+      expect(mockTaskModel.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ parentTask: expect.anything() }),
+      );
+    });
+
+    it('throws NotFoundException when task not found', async () => {
+      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(null));
+      await expect(service.remove(spaceId, taskId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('duplicateSubtask', () => {
+    it('creates a copy of the subtask under the new parent with inherited listId/sprintId', async () => {
+      const newParentId = new Types.ObjectId().toString();
+      const newParent = {
+        ...mockTask,
+        _id: new Types.ObjectId(newParentId),
+        listId: new Types.ObjectId(listId),
+        sprintId: null,
+      };
+      const subtask = {
+        ...mockTask,
+        _id: new Types.ObjectId(taskId),
+        parentTask: new Types.ObjectId(newParentId),
+        name: 'Subtask',
+      };
+      mockTaskModel.findOne
+        .mockReturnValueOnce(execMock(subtask))
+        .mockReturnValueOnce(execMock(newParent));
+      mockTaskModel.create.mockResolvedValue({
+        ...subtask,
+        _id: new Types.ObjectId(),
+        parentTask: new Types.ObjectId(newParentId),
+      });
+
+      await service.duplicateSubtask(spaceId, taskId, newParentId);
+
+      expect(mockTaskModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parentTask: expect.anything(),
+          listId: newParent.listId,
+          sprintId: null,
+        }),
+      );
+    });
+
+    it('throws NotFoundException when subtask not found', async () => {
+      mockTaskModel.findOne
+        .mockReturnValueOnce(execMock(null));
+      await expect(
+        service.duplicateSubtask(spaceId, taskId, targetId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws NotFoundException when new parent not found', async () => {
+      const subtask = { ...mockTask, _id: new Types.ObjectId(taskId) };
+      mockTaskModel.findOne
+        .mockReturnValueOnce(execMock(subtask))
+        .mockReturnValueOnce(execMock(null));
+      await expect(
+        service.duplicateSubtask(spaceId, taskId, targetId),
       ).rejects.toThrow(NotFoundException);
     });
   });

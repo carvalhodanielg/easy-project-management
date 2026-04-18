@@ -416,8 +416,11 @@ export class TasksService {
 
     if (!task) throw new NotFoundException('Task not found');
 
-    // Remove from other tasks' dependency arrays
     await Promise.all([
+      this.taskModel.deleteMany({
+        parentTask: new Types.ObjectId(taskId),
+        spaceId: new Types.ObjectId(spaceId),
+      }),
       this.taskModel.updateMany(
         { spaceId: new Types.ObjectId(spaceId) },
         {
@@ -695,5 +698,41 @@ export class TasksService {
         },
       )
       .exec();
+  }
+
+  async duplicateSubtask(
+    spaceId: string,
+    taskId: string,
+    newParentTaskId: string,
+  ): Promise<void> {
+    const [subtask, newParent] = await Promise.all([
+      this.taskModel
+        .findOne({ _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) })
+        .exec(),
+      this.taskModel
+        .findOne({ _id: new Types.ObjectId(newParentTaskId), spaceId: new Types.ObjectId(spaceId) })
+        .exec(),
+    ]);
+
+    if (!subtask) throw new NotFoundException('Subtask not found');
+    if (!newParent) throw new NotFoundException('Parent task not found');
+
+    await this.taskModel.create({
+      spaceId: subtask.spaceId,
+      listId: newParent.listId,
+      sprintId: newParent.sprintId,
+      name: subtask.name,
+      description: subtask.description,
+      status: subtask.status,
+      priority: subtask.priority,
+      assignees: subtask.assignees,
+      startDate: subtask.startDate,
+      dueDate: subtask.dueDate,
+      tags: subtask.tags,
+      storyPoints: subtask.storyPoints,
+      parentTask: new Types.ObjectId(newParentTaskId),
+      position: subtask.position,
+      createdBy: subtask.createdBy,
+    });
   }
 }

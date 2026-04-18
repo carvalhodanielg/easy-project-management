@@ -24,6 +24,7 @@ import {
   ConvertToSubtaskDto,
   PromoteToMainTaskDto,
   MoveSubtaskDto,
+  DuplicateSubtaskDto,
 } from './dto/create-task.dto';
 import { TaskFilterQueryDto } from './dto/task-filter-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -136,6 +137,20 @@ export class TasksController {
     return this.tasksService.moveSubtask(
       spaceId,
       dto.taskIds,
+      dto.newParentTaskId,
+    );
+  }
+
+  @Post('duplicate-subtask')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  duplicateSubtask(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: DuplicateSubtaskDto,
+  ) {
+    return this.tasksService.duplicateSubtask(
+      spaceId,
+      dto.taskId,
       dto.newParentTaskId,
     );
   }

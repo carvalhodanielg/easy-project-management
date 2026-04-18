@@ -21,7 +21,8 @@ A project management tool built with NestJS, React and MongoDB. Manage spaces, l
 - **Spaces** — workspaces with role-based membership (Editor / Viewer)
 - **Lists** — task lists inside a space with inline status changes and drag-and-drop reordering
 - **Sprints** — time-boxed iterations with burndown chart, velocity, and distribution dashboards
-- **Tasks** — subtasks, assignees, tags, priority, due date, comments, attachments and activity log
+- **Tasks** — subtasks, assignees, tags, priority, due date, comments, attachments and activity log; inline editing of status, assignees and story points directly in the list row
+- **Task actions** — per-row `⋯` menu to delete (with subtask cascade warning), move, or duplicate individual tasks and subtasks
 - **Kanban board** — drag-and-drop board view per sprint or list
 - **Sprint notes** — Obsidian-style Markdown editor with labels, auto-save and comments
 - **Wiki** — folders and documents with live Markdown editor

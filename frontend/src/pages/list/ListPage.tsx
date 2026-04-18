@@ -39,6 +39,7 @@ const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
   { label: 'Pts', align: 'center' },
   { label: 'Prioridade', align: 'center' },
   { label: 'Prazo', align: 'right' },
+  { label: '' },
 ];
 
 export function ListPage() {
@@ -348,7 +349,7 @@ export function ListPage() {
                   placeholder="Nome da tarefa…"
                   className="bg-transparent border-b border-brand text-sm text-ink placeholder:text-ink-muted focus:outline-none py-1 pr-2"
                 />
-                <div className="col-span-4 flex gap-1.5 pl-2">
+                <div className="col-span-5 flex gap-1.5 pl-2">
                   <button
                     onClick={() => newTaskName.trim() && createMutation.mutate(newTaskName.trim())}
                     disabled={!newTaskName.trim() || createMutation.isPending}

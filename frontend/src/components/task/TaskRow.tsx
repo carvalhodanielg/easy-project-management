@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, Pencil, Check, Plus } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask } from '../../api/tasks.api';
+import { TaskActionMenu } from './TaskActionMenu';
 import { getSpaceMembers } from '../../api/spaces.api';
 import { PriorityIcon } from '../ui/PriorityIcon';
 import { Tooltip } from '../ui/tooltip';
@@ -14,7 +15,7 @@ import { T } from '../../theme';
 import type { SpaceMember } from '../../types/space.types';
 import type { User } from '../../types/user.types';
 
-export const TASK_COLS = '48px 1fr 88px 52px 80px 90px';
+export const TASK_COLS = '48px 1fr 88px 52px 80px 90px 36px';
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   pendente:     'border-s-pending bg-transparent',
@@ -482,11 +483,25 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       </div>
 
       {/* Col 6 — due date */}
-      <div className="pr-4 text-right">
+      <div className="pr-1 text-right">
         {task.dueDate && (
           <span className={`text-xs tabular-nums font-medium ${isOverdue ? 'text-danger' : 'text-ink-dim'}`}>
             {new Date(task.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
           </span>
+        )}
+      </div>
+
+      {/* Col 7 — action menu */}
+      <div
+        className="flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {spaceId && (
+          <TaskActionMenu
+            task={task}
+            spaceId={spaceId}
+            onDone={() => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] })}
+          />
         )}
       </div>
     </div>

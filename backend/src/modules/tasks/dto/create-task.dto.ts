@@ -204,3 +204,11 @@ export class MoveSubtaskDto {
   @IsMongoId()
   newParentTaskId: string;
 }
+
+export class DuplicateSubtaskDto {
+  @IsMongoId()
+  taskId: string;
+
+  @IsMongoId()
+  newParentTaskId: string;
+}

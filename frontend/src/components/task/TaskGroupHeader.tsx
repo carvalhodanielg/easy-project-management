@@ -62,7 +62,7 @@ export function TaskGroupHeader({ groupKey, groupBy, count, totalStoryPoints }: 
         )}
       </div>
 
-      <div /><div /><div /><div />
+      <div /><div /><div /><div /><div />
     </div>
   );
 }

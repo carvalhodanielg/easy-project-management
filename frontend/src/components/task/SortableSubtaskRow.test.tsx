@@ -4,7 +4,7 @@ import { vi, describe, it, expect } from 'vitest';
 import { DndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SortableTaskRow } from './SortableTaskRow';
+import { SortableSubtaskRow } from './SortableSubtaskRow';
 import type { Task } from '../../types/task.types';
 
 vi.mock('react-router-dom', async () => {
@@ -14,14 +14,15 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../api/tasks.api', () => ({
   getSubtasks: vi.fn().mockResolvedValue([]),
+  updateTask: vi.fn(),
 }));
 
-const TASK: Task = {
-  _id: 't1',
-  name: 'Implementar autenticação',
-  status: 'em_progresso',
-  priority: 'alta',
-  storyPoints: 5,
+const SUBTASK: Task = {
+  _id: 's1',
+  name: 'Subtarefa de teste',
+  status: 'pendente',
+  priority: 'normal',
+  storyPoints: null,
   dueDate: null,
   assignees: [],
   tags: [],
@@ -29,7 +30,7 @@ const TASK: Task = {
   blockedBy: [],
   blocks: [],
   description: '',
-  parentTask: null,
+  parentTask: 't1',
   listId: 'l1',
   sprintId: null,
   position: 0,
@@ -38,10 +39,10 @@ const TASK: Task = {
   updatedAt: '',
 };
 
-function renderSortable(task: Task = TASK) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function renderSortable(task: Task = SUBTASK) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/spaces/sp1']}>
         <Routes>
           <Route
@@ -49,7 +50,7 @@ function renderSortable(task: Task = TASK) {
             element={
               <DndContext>
                 <SortableContext items={[task._id]} strategy={verticalListSortingStrategy}>
-                  <SortableTaskRow task={task} spaceId="sp1" />
+                  <SortableSubtaskRow task={task} parentId="t1" />
                 </SortableContext>
               </DndContext>
             }
@@ -60,24 +61,20 @@ function renderSortable(task: Task = TASK) {
   );
 }
 
-describe('SortableTaskRow', () => {
-  it('renders task name', () => {
+describe('SortableSubtaskRow', () => {
+  it('renders the subtask name', () => {
     renderSortable();
-    expect(screen.getByText('Implementar autenticação')).toBeInTheDocument();
+    expect(screen.getByText('Subtarefa de teste')).toBeInTheDocument();
   });
 
-  it('renders drag grip icon', () => {
+  it('renders a grip handle button', () => {
     renderSortable();
-    // GripVertical is aria-hidden; confirm the sortable wrapper is present via data-attributes
-    const wrapper = document.querySelector('[data-dnd-kit-sortable-node-ref]') ??
-      document.querySelector('.group\\/drag');
-    expect(wrapper ?? document.body).toBeTruthy();
+    expect(screen.getByRole('button', { name: /arrastar subtarefa/i })).toBeInTheDocument();
   });
 
-  it('grip is a dedicated handle button, not pointer-events-none', () => {
+  it('grip handle is not pointer-events-none', () => {
     renderSortable();
-    const grip = screen.getByRole('button', { name: /arrastar tarefa/i });
-    expect(grip).toBeInTheDocument();
+    const grip = screen.getByRole('button', { name: /arrastar subtarefa/i });
     expect(grip.classList.contains('pointer-events-none')).toBe(false);
   });
 });

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, MaxLength, MinLength, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  MinLength,
+  Matches,
+} from 'class-validator';
 
 export class UpdateSpaceDto {
   @IsOptional()

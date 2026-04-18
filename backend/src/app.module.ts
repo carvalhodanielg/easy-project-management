@@ -34,7 +34,9 @@ import { SprintFoldersModule } from './modules/sprint-folders/sprint-folders.mod
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => [
         {
-          rootPath: path.resolve(config.get<string>('uploadDest') ?? './uploads'),
+          rootPath: path.resolve(
+            config.get<string>('uploadDest') ?? './uploads',
+          ),
           serveRoot: '/uploads',
           serveStaticOptions: { index: false },
         },

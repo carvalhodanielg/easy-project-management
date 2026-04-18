@@ -47,7 +47,10 @@ describe('SprintFoldersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SprintFoldersService,
-        { provide: getModelToken(SprintFolder.name), useValue: folderModelMock },
+        {
+          provide: getModelToken(SprintFolder.name),
+          useValue: folderModelMock,
+        },
         { provide: getModelToken(Sprint.name), useValue: sprintModelMock },
       ],
     }).compile();
@@ -59,7 +62,11 @@ describe('SprintFoldersService', () => {
   describe('findBySpace', () => {
     it('returns folders sorted by createdAt', async () => {
       const folders = [makeFolder(), makeFolder()];
-      folderModelMock.find.mockReturnValue({ sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(folders) }) });
+      folderModelMock.find.mockReturnValue({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(folders) }),
+      });
 
       const result = await service.findBySpace(mockId());
       expect(result).toHaveLength(2);
@@ -69,13 +76,19 @@ describe('SprintFoldersService', () => {
   /* ── findById ── */
   describe('findById', () => {
     it('throws NotFoundException when folder does not exist', async () => {
-      folderModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.findById(mockId(), mockId())).rejects.toThrow(NotFoundException);
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.findById(mockId(), mockId())).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns the folder when found', async () => {
       const folder = makeFolder();
-      folderModelMock.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(folder) });
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(folder),
+      });
       const result = await service.findById(mockId(), mockId());
       expect(result).toEqual(folder);
     });
@@ -91,9 +104,13 @@ describe('SprintFoldersService', () => {
       sprintModelMock.countDocuments.mockResolvedValue(0); // 0 open sprints
       const sortChain = {
         exec: jest.fn().mockResolvedValue(null),
-        select: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+        select: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
       };
-      sprintModelMock.findOne.mockReturnValue({ sort: jest.fn().mockReturnValue(sortChain) });
+      sprintModelMock.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnValue(sortChain),
+      });
       sprintModelMock.create.mockResolvedValue({});
 
       const dto = {
@@ -114,14 +131,22 @@ describe('SprintFoldersService', () => {
   /* ── update ── */
   describe('update', () => {
     it('throws NotFoundException when folder does not exist', async () => {
-      folderModelMock.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.update(mockId(), mockId(), { name: 'X' })).rejects.toThrow(NotFoundException);
+      folderModelMock.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(
+        service.update(mockId(), mockId(), { name: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('updates and returns the folder', async () => {
       const folder = makeFolder({ name: 'Updated' });
-      folderModelMock.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(folder) });
-      const result = await service.update(mockId(), mockId(), { name: 'Updated' });
+      folderModelMock.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(folder),
+      });
+      const result = await service.update(mockId(), mockId(), {
+        name: 'Updated',
+      });
       expect(result.name).toBe('Updated');
     });
   });
@@ -129,12 +154,18 @@ describe('SprintFoldersService', () => {
   /* ── remove ── */
   describe('remove', () => {
     it('throws NotFoundException when folder does not exist', async () => {
-      folderModelMock.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.remove(mockId(), mockId())).rejects.toThrow(NotFoundException);
+      folderModelMock.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.remove(mockId(), mockId())).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('resolves without error when folder exists', async () => {
-      folderModelMock.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(makeFolder()) });
+      folderModelMock.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(makeFolder()),
+      });
       await expect(service.remove(mockId(), mockId())).resolves.not.toThrow();
     });
   });
@@ -152,7 +183,10 @@ describe('SprintFoldersService', () => {
       sprintModelMock.updateMany.mockResolvedValue({ modifiedCount: 1 });
       await service.autoCompleteExpiredSprints(folder);
       expect(sprintModelMock.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ folderId: folder._id, status: expect.anything() }),
+        expect.objectContaining({
+          folderId: folder._id,
+          status: expect.anything(),
+        }),
         { $set: { status: SprintStatus.Completed } },
       );
     });
@@ -169,7 +203,10 @@ describe('SprintFoldersService', () => {
 
     it('does nothing when folderEndDate has passed', async () => {
       const past = new Date(Date.now() - 86_400_000);
-      const folder = makeFolder({ openFutureSprints: 1, folderEndDate: past }) as any;
+      const folder = makeFolder({
+        openFutureSprints: 1,
+        folderEndDate: past,
+      }) as any;
       sprintModelMock.countDocuments.mockResolvedValue(0);
       await service.fillOpenSprints(folder);
       expect(sprintModelMock.create).not.toHaveBeenCalled();
@@ -182,9 +219,13 @@ describe('SprintFoldersService', () => {
       // No existing sprint in folder (for anchor) and no sprint in space (for number)
       const sortChain2 = {
         exec: jest.fn().mockResolvedValue(null),
-        select: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+        select: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
       };
-      sprintModelMock.findOne.mockReturnValue({ sort: jest.fn().mockReturnValue(sortChain2) });
+      sprintModelMock.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnValue(sortChain2),
+      });
       sprintModelMock.create.mockResolvedValue({});
 
       await service.fillOpenSprints(folder);

@@ -42,11 +42,7 @@ export class CommentsController {
     @Body() dto: CreateCommentDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.commentsService.create(
-      taskId,
-      (user._id as Types.ObjectId).toString(),
-      dto,
-    );
+    return this.commentsService.create(taskId, user._id.toString(), dto);
   }
 
   @Patch(':commentId')
@@ -55,11 +51,7 @@ export class CommentsController {
     @Body() dto: UpdateCommentDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.commentsService.update(
-      commentId,
-      (user._id as Types.ObjectId).toString(),
-      dto,
-    );
+    return this.commentsService.update(commentId, user._id.toString(), dto);
   }
 
   @Delete(':commentId')
@@ -69,7 +61,7 @@ export class CommentsController {
     @Param('commentId', ObjectIdValidationPipe) commentId: string,
     @CurrentUser() user: UserDocument,
   ) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     const role = await this.spacesService.getUserRole(spaceId, userId);
     const isEditor = role === SpaceRole.Editor;
 

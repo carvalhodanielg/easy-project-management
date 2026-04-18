@@ -97,7 +97,11 @@ describe('SprintsService', () => {
 
   describe('findById', () => {
     it('returns sprint when found', async () => {
-      const sprint = { _id: new Types.ObjectId(sprintId), number: 1, name: 'Sprint 1' };
+      const sprint = {
+        _id: new Types.ObjectId(sprintId),
+        number: 1,
+        name: 'Sprint 1',
+      };
       mockSprintModel.findOne.mockReturnValue(execMock(sprint));
       const result = await service.findById(spaceId, sprintId);
       expect(result.number).toBe(1);
@@ -105,7 +109,9 @@ describe('SprintsService', () => {
 
     it('throws NotFoundException when not found', async () => {
       mockSprintModel.findOne.mockReturnValue(execMock(null));
-      await expect(service.findById(spaceId, sprintId)).rejects.toThrow(NotFoundException);
+      await expect(service.findById(spaceId, sprintId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -149,7 +155,11 @@ describe('SprintsService', () => {
       },
     ];
 
-    const prevSprint = { _id: new Types.ObjectId(), number: 1, status: SprintStatus.Completed };
+    const prevSprint = {
+      _id: new Types.ObjectId(),
+      number: 1,
+      status: SprintStatus.Completed,
+    };
     const prevTasks = [
       { status: TaskStatus.Feito, storyPoints: 8 },
       { status: TaskStatus.Feito, storyPoints: 5 },
@@ -158,14 +168,18 @@ describe('SprintsService', () => {
 
     function populateChain<T>(value: T) {
       return {
-        populate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(value) }),
+        populate: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(value) }),
         exec: jest.fn().mockResolvedValue(value),
       };
     }
 
     it('throws NotFoundException when sprint not found', async () => {
       mockSprintModel.findOne.mockReturnValue(execMock(null));
-      await expect(service.getStats(spaceId, sprintId)).rejects.toThrow(NotFoundException);
+      await expect(service.getStats(spaceId, sprintId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns total tasks and points correctly', async () => {
@@ -247,15 +261,24 @@ describe('SprintsService', () => {
 
   describe('update', () => {
     it('updates sprint fields', async () => {
-      const updated = { _id: new Types.ObjectId(sprintId), number: 1, name: 'Updated', status: SprintStatus.Active };
+      const updated = {
+        _id: new Types.ObjectId(sprintId),
+        number: 1,
+        name: 'Updated',
+        status: SprintStatus.Active,
+      };
       mockSprintModel.findOneAndUpdate.mockReturnValue(execMock(updated));
-      const result = await service.update(spaceId, sprintId, { status: SprintStatus.Active });
+      const result = await service.update(spaceId, sprintId, {
+        status: SprintStatus.Active,
+      });
       expect(result.status).toBe(SprintStatus.Active);
     });
 
     it('throws NotFoundException when not found', async () => {
       mockSprintModel.findOneAndUpdate.mockReturnValue(execMock(null));
-      await expect(service.update(spaceId, sprintId, { name: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.update(spaceId, sprintId, { name: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

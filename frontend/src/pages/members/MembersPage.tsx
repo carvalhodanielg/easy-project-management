@@ -11,6 +11,7 @@ import { useSpacesStore } from '../../store/spaces.store';
 import type { SpaceRole } from '../../types/space.types';
 import type { User } from '../../types/user.types';
 import { cn } from '../../lib/utils';
+import { UserAvatar } from '../../components/ui/UserAvatar';
 
 /* ── helpers ── */
 const ROLE_META: Record<SpaceRole, { label: string; icon: React.ElementType; color: string; bg: string }> = {
@@ -20,15 +21,6 @@ const ROLE_META: Record<SpaceRole, { label: string; icon: React.ElementType; col
 
 function memberUser(m: spacesApi.SpaceMember): User | null {
   return typeof m.userId === 'object' ? m.userId : null;
-}
-
-function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
-  const cls = size === 'lg' ? 'w-10 h-10 text-sm' : size === 'md' ? 'w-8 h-8 text-xs' : 'w-6 h-6 text-[10px]';
-  return (
-    <span className={`${cls} rounded-full bg-brand/20 text-brand font-bold flex items-center justify-center shrink-0`}>
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
 }
 
 /* ── Add member panel ── */
@@ -101,7 +93,7 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
               onClick={() => { setSelected(user); setQuery(user.displayName); setResults([]); }}
               className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-lift/80 transition-colors text-left"
             >
-              <Avatar name={user.displayName} size="sm" />
+              <UserAvatar user={user} size="xs" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">{user.displayName}</p>
                 <p className="text-xs text-ink-muted truncate">{user.email}</p>
@@ -119,7 +111,7 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       {/* Selected user preview */}
       {selected && (
         <div className="flex items-center gap-3 px-3 py-2.5 bg-brand/8 border border-brand/20 rounded-lg">
-          <Avatar name={selected.displayName} size="sm" />
+          <UserAvatar user={selected} size="xs" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-ink">{selected.displayName}</p>
             <p className="text-xs text-ink-muted">{selected.email}</p>
@@ -186,7 +178,7 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-line-dim last:border-0 hover:bg-lift/30 transition-colors">
       {/* Avatar + info */}
-      <Avatar name={user.displayName} size="md" />
+      <UserAvatar user={user} size="lg" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-ink truncate">{user.displayName}</p>

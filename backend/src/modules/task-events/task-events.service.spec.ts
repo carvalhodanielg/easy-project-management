@@ -70,8 +70,16 @@ describe('TaskEventsService', () => {
     });
 
     it('stores changes when provided', async () => {
-      const changes = { field: 'status', oldValue: 'pendente', newValue: 'em_progresso' };
-      mockEventModel.create.mockResolvedValue({ ...mockEvent, type: TaskEventType.StatusChanged, changes });
+      const changes = {
+        field: 'status',
+        oldValue: 'pendente',
+        newValue: 'em_progresso',
+      };
+      mockEventModel.create.mockResolvedValue({
+        ...mockEvent,
+        type: TaskEventType.StatusChanged,
+        changes,
+      });
 
       const result = await service.create({
         taskId,
@@ -95,7 +103,9 @@ describe('TaskEventsService', () => {
 
       const result = await service.findByTask(taskId);
 
-      expect(mockEventModel.find).toHaveBeenCalledWith({ taskId: new Types.ObjectId(taskId) });
+      expect(mockEventModel.find).toHaveBeenCalledWith({
+        taskId: new Types.ObjectId(taskId),
+      });
       expect(result).toEqual(events);
     });
 

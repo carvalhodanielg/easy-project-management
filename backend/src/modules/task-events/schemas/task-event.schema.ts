@@ -32,7 +32,11 @@ export class TaskEvent {
   type: TaskEventType;
 
   @Prop({ type: Object, default: null })
-  changes: { field: string; oldValue: string | null; newValue: string | null } | null;
+  changes: {
+    field: string;
+    oldValue: string | null;
+    newValue: string | null;
+  } | null;
 }
 
 export const TaskEventSchema = SchemaFactory.createForClass(TaskEvent);

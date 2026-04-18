@@ -3,7 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Task, TaskDocument } from '../tasks/schemas/task.schema';
 import { Note, NoteDocument } from '../notes/schemas/note.schema';
-import { WikiDocument as WikiDoc, WikiDocumentDocument } from '../wiki/schemas/wiki-document.schema';
+import {
+  WikiDocument as WikiDoc,
+  WikiDocumentDocument,
+} from '../wiki/schemas/wiki-document.schema';
 
 export interface SearchResultItem {
   _id: string;
@@ -24,9 +27,10 @@ const MAX_PER_TYPE = 5;
 @Injectable()
 export class SearchService {
   constructor(
-    @InjectModel(Task.name)      private readonly taskModel: Model<TaskDocument>,
-    @InjectModel(Note.name)      private readonly noteModel: Model<NoteDocument>,
-    @InjectModel(WikiDoc.name)   private readonly wikiModel: Model<WikiDocumentDocument>,
+    @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
+    @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
+    @InjectModel(WikiDoc.name)
+    private readonly wikiModel: Model<WikiDocumentDocument>,
   ) {}
 
   async search(spaceId: string, q: string): Promise<SearchResult> {
@@ -75,7 +79,8 @@ export class SearchService {
         _id: d._id.toString(),
         type: 'wiki',
         title: d.title,
-        subtitle: (d.folderId as unknown as { name: string } | null)?.name ?? 'wiki',
+        subtitle:
+          (d.folderId as unknown as { name: string } | null)?.name ?? 'wiki',
         url: `/spaces/${spaceId}/wiki/documents/${d._id}`,
       })),
     };

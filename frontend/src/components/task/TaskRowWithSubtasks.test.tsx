@@ -86,4 +86,49 @@ describe('TaskRowWithSubtasks', () => {
     renderComponent({ ...TASK, subtaskCount: 0 });
     expect(screen.queryByRole('button', { name: /expandir|recolher/i })).not.toBeInTheDocument();
   });
+
+  it('shows add subtask button in normal mode', () => {
+    renderComponent({ ...TASK, subtaskCount: 0 });
+    expect(screen.getByRole('button', { name: /adicionar subtarefa/i })).toBeInTheDocument();
+  });
+
+  it('opens subtask input when add subtask button clicked on task with no subtasks', async () => {
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([]);
+    renderComponent({ ...TASK, subtaskCount: 0 });
+    fireEvent.click(screen.getByRole('button', { name: /adicionar subtarefa/i }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
+    });
+  });
+
+  it('expands and opens input when add subtask button clicked on task with existing subtasks', async () => {
+    renderComponent({ ...TASK, subtaskCount: 0, _id: 't2' });
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([]);
+    fireEvent.click(screen.getByRole('button', { name: /adicionar subtarefa/i }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
+    });
+  });
+
+  it('keeps subtask section visible after adding first subtask before query refetches', async () => {
+    const newSub = { ...TASK, _id: 's3', name: 'Nova subtarefa', subtaskCount: 0, parentTask: 't1' };
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([]);
+    vi.mocked(tasksApi.createTask).mockResolvedValue(newSub as never);
+
+    renderComponent({ ...TASK, subtaskCount: 0 });
+    fireEvent.click(screen.getByRole('button', { name: /adicionar subtarefa/i }));
+
+    await waitFor(() => screen.getByPlaceholderText(/nome da subtarefa/i));
+
+    // Simulate the subtask list returning the new subtask after creation
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([newSub] as never);
+
+    fireEvent.change(screen.getByPlaceholderText(/nome da subtarefa/i), { target: { value: 'Nova subtarefa' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+    await waitFor(() => {
+      // Both TaskRow's + button and SubtaskList's own button are present = section still mounted
+      expect(screen.getAllByRole('button', { name: /adicionar subtarefa/i })).toHaveLength(2);
+    });
+  });
 });

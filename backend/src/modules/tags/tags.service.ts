@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tag, TagDocument } from './schemas/tag.schema';
@@ -31,7 +35,10 @@ export class TagsService {
       .findOne({ spaceId: new Types.ObjectId(spaceId), name: dto.name })
       .exec();
 
-    if (existing) throw new ConflictException(`Tag "${dto.name}" already exists in this space`);
+    if (existing)
+      throw new ConflictException(
+        `Tag "${dto.name}" already exists in this space`,
+      );
 
     return this.tagModel.create({
       spaceId: new Types.ObjectId(spaceId),
@@ -40,10 +47,17 @@ export class TagsService {
     });
   }
 
-  async update(spaceId: string, tagId: string, dto: UpdateTagDto): Promise<TagDocument> {
+  async update(
+    spaceId: string,
+    tagId: string,
+    dto: UpdateTagDto,
+  ): Promise<TagDocument> {
     const tag = await this.tagModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(tagId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(tagId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         dto,
         { returnDocument: 'after' },
       )
@@ -59,7 +73,10 @@ export class TagsService {
     taskModel: Model<unknown>,
   ): Promise<void> {
     const tag = await this.tagModel
-      .findOneAndDelete({ _id: new Types.ObjectId(tagId), spaceId: new Types.ObjectId(spaceId) })
+      .findOneAndDelete({
+        _id: new Types.ObjectId(tagId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
 
     if (!tag) throw new NotFoundException('Tag not found');

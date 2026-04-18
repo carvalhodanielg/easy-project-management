@@ -70,14 +70,22 @@ describe('Auth (e2e)', () => {
     it('rejects invalid email with 400', async () => {
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'not-an-email', password: 'password123', displayName: 'X' })
+        .send({
+          email: 'not-an-email',
+          password: 'password123',
+          displayName: 'X',
+        })
         .expect(400);
     });
 
     it('rejects short password with 400', async () => {
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'other@example.com', password: 'short', displayName: 'X' })
+        .send({
+          email: 'other@example.com',
+          password: 'short',
+          displayName: 'X',
+        })
         .expect(400);
     });
   });
@@ -86,7 +94,10 @@ describe('Auth (e2e)', () => {
     it('returns token with valid credentials', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login')
-        .send({ email: registerPayload.email, password: registerPayload.password })
+        .send({
+          email: registerPayload.email,
+          password: registerPayload.password,
+        })
         .expect(200);
 
       expect(res.body.data).toHaveProperty('token');

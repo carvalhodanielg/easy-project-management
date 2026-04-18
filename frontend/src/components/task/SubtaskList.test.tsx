@@ -62,4 +62,39 @@ describe('SubtaskList', () => {
     fireEvent.keyDown(screen.getByPlaceholderText(/nome da subtarefa/i), { key: 'Escape' });
     expect(screen.queryByPlaceholderText(/nome da subtarefa/i)).not.toBeInTheDocument();
   });
+
+  it('auto-opens input when autoFocusAdd is true', () => {
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId" element={<SubtaskList spaceId="sp1" taskId="t1" autoFocusAdd />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
+  });
+
+  it('calls onAddDone when Escape is pressed on auto-focused input', () => {
+    const onAddDone = vi.fn();
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route
+              path="/spaces/:spaceId"
+              element={<SubtaskList spaceId="sp1" taskId="t1" autoFocusAdd onAddDone={onAddDone} />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.keyDown(screen.getByPlaceholderText(/nome da subtarefa/i), { key: 'Escape' });
+    expect(onAddDone).toHaveBeenCalled();
+  });
 });

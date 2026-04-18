@@ -30,12 +30,12 @@ export class SpacesController {
 
   @Post()
   create(@Body() dto: CreateSpaceDto, @CurrentUser() user: UserDocument) {
-    return this.spacesService.create(dto, (user._id as Types.ObjectId).toString());
+    return this.spacesService.create(dto, user._id.toString());
   }
 
   @Get()
   findAll(@CurrentUser() user: UserDocument) {
-    return this.spacesService.findAllForUser((user._id as Types.ObjectId).toString());
+    return this.spacesService.findAllForUser(user._id.toString());
   }
 
   @Get(':spaceId')
@@ -101,7 +101,7 @@ export class SpacesController {
     return this.spacesService.removeMember(
       spaceId,
       userId,
-      (user._id as Types.ObjectId).toString(),
+      user._id.toString(),
     );
   }
 }

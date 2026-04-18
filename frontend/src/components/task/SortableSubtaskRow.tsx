@@ -1,18 +1,18 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
-import { TaskRowWithSubtasks } from './TaskRowWithSubtasks';
+import { TaskRow } from './TaskRow';
 import type { Task } from '../../types/task.types';
 
 interface Props {
   task: Task;
-  spaceId: string;
+  parentId: string;
+  depth?: number;
   isSelected?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
-  isSelectedFn?: (id: string) => boolean;
 }
 
-export function SortableTaskRow({ task, ...rest }: Props) {
+export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, onSelect }: Props) {
   const {
     attributes,
     listeners,
@@ -21,20 +21,18 @@ export function SortableTaskRow({ task, ...rest }: Props) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task._id, data: { type: 'task' } });
+  } = useSortable({ id: task._id, data: { type: 'subtask', parentId } });
 
-  const dragEnabled = !rest.onSelect;
-
-  const dragHandle = dragEnabled ? (
+  const dragHandle = (
     <button
       ref={setActivatorNodeRef}
       {...listeners}
-      aria-label="Arrastar tarefa"
+      aria-label="Arrastar subtarefa"
       className="w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-40 hover:!opacity-100 text-ink-muted cursor-grab active:cursor-grabbing shrink-0"
     >
       <GripVertical size={12} aria-hidden />
     </button>
-  ) : undefined;
+  );
 
   return (
     <div
@@ -44,7 +42,13 @@ export function SortableTaskRow({ task, ...rest }: Props) {
       className="relative group/drag"
     >
       <div style={{ opacity: isDragging ? 0.4 : 1, transition: 'opacity 150ms' }}>
-        <TaskRowWithSubtasks task={task} subtaskSortable dragHandle={dragHandle} {...rest} />
+        <TaskRow
+          task={task}
+          depth={depth}
+          isSelected={isSelected}
+          onSelect={onSelect}
+          dragHandle={dragHandle}
+        />
       </div>
     </div>
   );

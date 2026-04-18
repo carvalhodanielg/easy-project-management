@@ -137,13 +137,17 @@ describe('UsersService', () => {
     it('returns updated user', async () => {
       const updated = { ...mockUser, displayName: 'Alice Updated' };
       mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
-      const result = await service.update(userId, { displayName: 'Alice Updated' });
+      const result = await service.update(userId, {
+        displayName: 'Alice Updated',
+      });
       expect(result.displayName).toBe('Alice Updated');
     });
 
     it('throws NotFoundException when user not found', async () => {
       mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(null));
-      await expect(service.update(userId, { displayName: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.update(userId, { displayName: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -156,7 +160,9 @@ describe('UsersService', () => {
 
     it('uploads file to R2 and returns user with new avatarUrl', async () => {
       const newUrl = 'https://pub.r2.dev/avatars/test-uuid.jpg';
-      mockUserModel.findById.mockReturnValue(execMock({ ...mockUser, avatarUrl: null }));
+      mockUserModel.findById.mockReturnValue(
+        execMock({ ...mockUser, avatarUrl: null }),
+      );
       mockR2.upload.mockResolvedValue(newUrl);
       mockUserModel.findByIdAndUpdate.mockReturnValue(
         execMock({ ...mockUser, avatarUrl: newUrl }),
@@ -175,7 +181,9 @@ describe('UsersService', () => {
     it('deletes old avatar from R2 when one already exists', async () => {
       const oldUrl = 'https://pub.r2.dev/avatars/old-uuid.jpg';
       const newUrl = 'https://pub.r2.dev/avatars/test-uuid.jpg';
-      mockUserModel.findById.mockReturnValue(execMock({ ...mockUser, avatarUrl: oldUrl }));
+      mockUserModel.findById.mockReturnValue(
+        execMock({ ...mockUser, avatarUrl: oldUrl }),
+      );
       mockR2.upload.mockResolvedValue(newUrl);
       mockUserModel.findByIdAndUpdate.mockReturnValue(
         execMock({ ...mockUser, avatarUrl: newUrl }),
@@ -188,7 +196,9 @@ describe('UsersService', () => {
 
     it('throws NotFoundException when user not found', async () => {
       mockUserModel.findById.mockReturnValue(execMock(null));
-      await expect(service.uploadAvatar(userId, mockFile)).rejects.toThrow(NotFoundException);
+      await expect(service.uploadAvatar(userId, mockFile)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

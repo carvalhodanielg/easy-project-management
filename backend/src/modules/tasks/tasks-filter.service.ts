@@ -41,13 +41,16 @@ export class TasksFilterService {
   private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
     if (tasks.length === 0) return;
     const ids = tasks.map((t) => t._id);
-    const counts = await this.taskModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+    const counts = await this.taskModel.aggregate<{
+      _id: Types.ObjectId;
+      count: number;
+    }>([
       { $match: { parentTask: { $in: ids } } },
       { $group: { _id: '$parentTask', count: { $sum: 1 } } },
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
     for (const task of tasks) {
-      task.subtaskCount = countMap.get((task._id as Types.ObjectId).toString()) ?? 0;
+      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
     }
   }
 
@@ -67,7 +70,10 @@ export class TasksFilterService {
       },
     };
 
-    const result = await this.taskModel.aggregate<{ _id: Types.ObjectId; total: number }>([
+    const result = await this.taskModel.aggregate<{
+      _id: Types.ObjectId;
+      total: number;
+    }>([
       matchStage,
       { $group: { _id: '$sprintId', total: { $sum: '$storyPoints' } } },
     ]);
@@ -111,10 +117,16 @@ export class TasksFilterService {
     }
 
     if (dto.dueBefore) {
-      match.dueDate = { ...(match.dueDate as object ?? {}), $lte: new Date(dto.dueBefore) };
+      match.dueDate = {
+        ...((match.dueDate as object) ?? {}),
+        $lte: new Date(dto.dueBefore),
+      };
     }
     if (dto.dueAfter) {
-      match.dueDate = { ...(match.dueDate as object ?? {}), $gte: new Date(dto.dueAfter) };
+      match.dueDate = {
+        ...((match.dueDate as object) ?? {}),
+        $gte: new Date(dto.dueAfter),
+      };
     }
 
     if (dto.q) {
@@ -170,7 +182,7 @@ export class TasksFilterService {
       .sort({ position: 1, createdAt: 1 })
       .exec()) as unknown as TaskDocument[];
 
-    const taskMap = new Map(populated.map((t) => [(t._id as Types.ObjectId).toString(), t]));
+    const taskMap = new Map(populated.map((t) => [t._id.toString(), t]));
 
     return raw.map((r) => ({
       groupKey: r._id?.toString() ?? null,
@@ -182,7 +194,9 @@ export class TasksFilterService {
     }));
   }
 
-  private async groupByAssignee(match: Record<string, unknown>): Promise<GroupedResult[]> {
+  private async groupByAssignee(
+    match: Record<string, unknown>,
+  ): Promise<GroupedResult[]> {
     // Unwind so a task with N assignees appears in N groups.
     // Use $lookup to resolve the assignee's display name for the group header.
     const pipeline: PipelineStage[] = [
@@ -196,7 +210,11 @@ export class TasksFilterService {
           as: '_assigneeDocs',
         },
       },
-      { $addFields: { _assigneeDisplay: { $first: '$_assigneeDocs.displayName' } } },
+      {
+        $addFields: {
+          _assigneeDisplay: { $first: '$_assigneeDocs.displayName' },
+        },
+      },
       {
         $group: {
           _id: '$assignees',
@@ -220,7 +238,9 @@ export class TasksFilterService {
     if (raw.length === 0) return [];
 
     // De-duplicate task IDs (a task with 2 assignees appears in 2 groups)
-    const uniqueIds = [...new Set(raw.flatMap((r) => r.taskIds.map((id) => id.toString())))];
+    const uniqueIds = [
+      ...new Set(raw.flatMap((r) => r.taskIds.map((id) => id.toString()))),
+    ];
     const populated = (await this.taskModel
       .find({ _id: { $in: uniqueIds } })
       .populate('assignees', 'email displayName avatarUrl')
@@ -228,7 +248,7 @@ export class TasksFilterService {
       .sort({ position: 1, createdAt: 1 })
       .exec()) as unknown as TaskDocument[];
 
-    const taskMap = new Map(populated.map((t) => [(t._id as Types.ObjectId).toString(), t]));
+    const taskMap = new Map(populated.map((t) => [t._id.toString(), t]));
 
     return raw.map((r) => ({
       groupKey: r._groupName ?? null,

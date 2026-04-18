@@ -9,9 +9,12 @@ import {
   IsArray,
   MinLength,
   MaxLength,
-  Min,
 } from 'class-validator';
-import { TaskStatus, TaskPriority, FIBONACCI_POINTS } from '../schemas/task.schema';
+import {
+  TaskStatus,
+  TaskPriority,
+  FIBONACCI_POINTS,
+} from '../schemas/task.schema';
 
 export class CreateTaskDto {
   @IsString()
@@ -68,7 +71,6 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
   position?: number;
 }
 
@@ -116,7 +118,6 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
   position?: number;
 }
 

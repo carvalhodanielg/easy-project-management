@@ -82,7 +82,12 @@ export class WikiController {
     @CurrentUser() user: UserDocument,
     @Body() dto: CreateWikiDocumentDto,
   ) {
-    return this.wikiService.createDocument(spaceId, folderId, user._id.toString(), dto);
+    return this.wikiService.createDocument(
+      spaceId,
+      folderId,
+      user._id.toString(),
+      dto,
+    );
   }
 
   @Roles('editor', 'viewer')
@@ -102,7 +107,12 @@ export class WikiController {
     @CurrentUser() user: UserDocument,
     @Body() dto: UpdateWikiDocumentDto,
   ) {
-    return this.wikiService.updateDocument(spaceId, documentId, user._id.toString(), dto);
+    return this.wikiService.updateDocument(
+      spaceId,
+      documentId,
+      user._id.toString(),
+      dto,
+    );
   }
 
   @Roles('editor')

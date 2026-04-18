@@ -18,7 +18,8 @@ export class R2StorageService {
 
     const customEndpoint = config.get<string>('r2.endpoint');
     const accountId = config.get<string>('r2.accountId');
-    const endpoint = customEndpoint || `https://${accountId}.r2.cloudflarestorage.com`;
+    const endpoint =
+      customEndpoint || `https://${accountId}.r2.cloudflarestorage.com`;
 
     this.client = new S3Client({
       region: 'auto',
@@ -31,7 +32,11 @@ export class R2StorageService {
     });
   }
 
-  async upload(key: string, buffer: Buffer, contentType: string): Promise<string> {
+  async upload(
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+  ): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,

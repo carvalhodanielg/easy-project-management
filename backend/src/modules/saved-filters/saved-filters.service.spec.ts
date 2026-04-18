@@ -9,7 +9,13 @@ const spaceId = new Types.ObjectId().toString();
 const userId = new Types.ObjectId().toString();
 const filterId = new Types.ObjectId().toString();
 
-const mockFilters = { status: ['pendente'], priority: [], assignees: [], tags: [], q: '' };
+const mockFilters = {
+  status: ['pendente'],
+  priority: [],
+  assignees: [],
+  tags: [],
+  q: '',
+};
 
 const mockSavedFilter = {
   _id: new Types.ObjectId(filterId),
@@ -46,12 +52,16 @@ describe('SavedFiltersService', () => {
     it('returns all saved filters for a space sorted by name', async () => {
       const list = [mockSavedFilter];
       mockModel.find.mockReturnValue({
-        sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(list) }),
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(list) }),
       });
 
       const result = await service.findBySpace(spaceId);
 
-      expect(mockModel.find).toHaveBeenCalledWith({ spaceId: new Types.ObjectId(spaceId) });
+      expect(mockModel.find).toHaveBeenCalledWith({
+        spaceId: new Types.ObjectId(spaceId),
+      });
       expect(result).toEqual(list);
     });
   });
@@ -84,10 +94,15 @@ describe('SavedFiltersService', () => {
         exec: jest.fn().mockResolvedValue(updated),
       });
 
-      const result = await service.update(filterId, spaceId, { name: 'Novo nome' });
+      const result = await service.update(filterId, spaceId, {
+        name: 'Novo nome',
+      });
 
       expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: new Types.ObjectId(filterId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(filterId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         { $set: { name: 'Novo nome' } },
         { new: true },
       );
@@ -124,7 +139,9 @@ describe('SavedFiltersService', () => {
         exec: jest.fn().mockResolvedValue(null),
       });
 
-      await expect(service.remove(filterId, spaceId)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(filterId, spaceId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

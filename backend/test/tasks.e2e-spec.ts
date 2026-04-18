@@ -31,9 +31,7 @@ async function buildApp(uri: string): Promise<INestApplication> {
   }).compile();
 
   const app = moduleFixture.createNestApplication();
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true }),
-  );
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
   await app.init();
@@ -54,9 +52,11 @@ describe('Tasks (e2e)', () => {
     mongod = await MongoMemoryServer.create();
     app = await buildApp(mongod.getUri());
 
-    const reg = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({ email: 'dev@test.com', password: 'password123', displayName: 'Dev' });
+    const reg = await request(app.getHttpServer()).post('/auth/register').send({
+      email: 'dev@test.com',
+      password: 'password123',
+      displayName: 'Dev',
+    });
     token = reg.body.data.token as string;
 
     const space = await request(app.getHttpServer())
@@ -74,7 +74,11 @@ describe('Tasks (e2e)', () => {
     const sprint = await request(app.getHttpServer())
       .post(`/spaces/${spaceId}/sprints`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Sprint 1', startDate: '2025-01-01', endDate: '2025-01-14' });
+      .send({
+        name: 'Sprint 1',
+        startDate: '2025-01-01',
+        endDate: '2025-01-14',
+      });
     sprintId = sprint.body.data._id as string;
   });
 
@@ -91,7 +95,10 @@ describe('Tasks (e2e)', () => {
         .send({ name: 'First Task', listId, storyPoints: 5, priority: 'alta' })
         .expect(201);
 
-      expect(res.body.data).toMatchObject({ name: 'First Task', storyPoints: 5 });
+      expect(res.body.data).toMatchObject({
+        name: 'First Task',
+        storyPoints: 5,
+      });
       taskId = res.body.data._id as string;
     });
 
@@ -230,7 +237,11 @@ describe('Tasks (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post(`/spaces/${spaceId}/sprints`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Sprint 2', startDate: '2025-01-15', endDate: '2025-01-28' })
+        .send({
+          name: 'Sprint 2',
+          startDate: '2025-01-15',
+          endDate: '2025-01-28',
+        })
         .expect(201);
 
       expect(res.body.data.number).toBe(2);

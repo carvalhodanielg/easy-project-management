@@ -66,7 +66,9 @@ export class SpacesService {
   async remove(spaceId: string): Promise<void> {
     const space = await this.spaceModel.findByIdAndDelete(spaceId).exec();
     if (!space) throw new NotFoundException('Space not found');
-    await this.spaceMemberModel.deleteMany({ spaceId: new Types.ObjectId(spaceId) }).exec();
+    await this.spaceMemberModel
+      .deleteMany({ spaceId: new Types.ObjectId(spaceId) })
+      .exec();
   }
 
   async getMembers(spaceId: string): Promise<SpaceMemberDocument[]> {
@@ -76,12 +78,19 @@ export class SpacesService {
       .exec();
   }
 
-  async addMember(spaceId: string, dto: AddMemberDto): Promise<SpaceMemberDocument> {
+  async addMember(
+    spaceId: string,
+    dto: AddMemberDto,
+  ): Promise<SpaceMemberDocument> {
     const existing = await this.spaceMemberModel
-      .findOne({ spaceId: new Types.ObjectId(spaceId), userId: new Types.ObjectId(dto.userId) })
+      .findOne({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(dto.userId),
+      })
       .exec();
 
-    if (existing) throw new ConflictException('User is already a member of this space');
+    if (existing)
+      throw new ConflictException('User is already a member of this space');
 
     return this.spaceMemberModel.create({
       spaceId: new Types.ObjectId(spaceId),
@@ -97,7 +106,10 @@ export class SpacesService {
   ): Promise<SpaceMemberDocument> {
     const member = await this.spaceMemberModel
       .findOneAndUpdate(
-        { spaceId: new Types.ObjectId(spaceId), userId: new Types.ObjectId(userId) },
+        {
+          spaceId: new Types.ObjectId(spaceId),
+          userId: new Types.ObjectId(userId),
+        },
         { role: dto.role },
         { returnDocument: 'after' },
       )
@@ -107,21 +119,34 @@ export class SpacesService {
     return member;
   }
 
-  async removeMember(spaceId: string, userId: string, requesterId: string): Promise<void> {
+  async removeMember(
+    spaceId: string,
+    userId: string,
+    requesterId: string,
+  ): Promise<void> {
     if (userId === requesterId) {
       throw new ForbiddenException('Cannot remove yourself from a space');
     }
 
     const result = await this.spaceMemberModel
-      .findOneAndDelete({ spaceId: new Types.ObjectId(spaceId), userId: new Types.ObjectId(userId) })
+      .findOneAndDelete({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(userId),
+      })
       .exec();
 
     if (!result) throw new NotFoundException('Member not found');
   }
 
-  async getUserRole(spaceId: string, userId: string): Promise<SpaceRole | null> {
+  async getUserRole(
+    spaceId: string,
+    userId: string,
+  ): Promise<SpaceRole | null> {
     const member = await this.spaceMemberModel
-      .findOne({ spaceId: new Types.ObjectId(spaceId), userId: new Types.ObjectId(userId) })
+      .findOne({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(userId),
+      })
       .exec();
     return member?.role ?? null;
   }

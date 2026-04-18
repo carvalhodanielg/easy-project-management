@@ -62,9 +62,13 @@ describe('CommentsService', () => {
       const created = { ...mockComment, _id: new Types.ObjectId() };
       mockCommentModel.create.mockResolvedValue(created);
       mockCommentModel.findById.mockReturnValue(populateMock(created));
-      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockTaskModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
-      const result = await service.create(taskId, authorId, { content: 'Hello!' });
+      const result = await service.create(taskId, authorId, {
+        content: 'Hello!',
+      });
       expect(result.content).toBe('Initial comment');
     });
 
@@ -74,7 +78,9 @@ describe('CommentsService', () => {
       const created = { ...mockComment, _id: new Types.ObjectId() };
       mockCommentModel.create.mockResolvedValue(created);
       mockCommentModel.findById.mockReturnValue(populateMock(created));
-      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockTaskModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       await service.create(taskId, authorId, {
         content: `Olá @pessoa1 e @pessoa2`,
@@ -94,7 +100,9 @@ describe('CommentsService', () => {
       const created = { ...mockComment, _id: new Types.ObjectId() };
       mockCommentModel.create.mockResolvedValue(created);
       mockCommentModel.findById.mockReturnValue(populateMock(created));
-      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockTaskModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       await service.create(taskId, authorId, {
         content: `Eu mesmo @me`,
@@ -109,7 +117,9 @@ describe('CommentsService', () => {
       const created = { ...mockComment, _id: new Types.ObjectId() };
       mockCommentModel.create.mockResolvedValue(created);
       mockCommentModel.findById.mockReturnValue(populateMock(created));
-      mockTaskModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockTaskModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       await service.create(taskId, authorId, {
         content: `@pessoa @pessoa novamente`,
@@ -122,7 +132,9 @@ describe('CommentsService', () => {
 
   describe('update', () => {
     it('throws NotFoundException when comment not found', async () => {
-      mockCommentModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockCommentModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
       await expect(
         service.update(commentId, authorId, { content: 'Updated' }),
       ).rejects.toThrow(NotFoundException);
@@ -130,7 +142,9 @@ describe('CommentsService', () => {
 
     it('throws ForbiddenException when non-author tries to edit', async () => {
       const comment = { ...mockComment };
-      mockCommentModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(comment) });
+      mockCommentModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(comment),
+      });
       await expect(
         service.update(commentId, otherId, { content: 'Updated' }),
       ).rejects.toThrow(ForbiddenException);
@@ -140,37 +154,59 @@ describe('CommentsService', () => {
       const comment = { ...mockComment };
       mockCommentModel.findById
         .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(comment) })
-        .mockReturnValue(populateMock({ ...comment, content: 'Updated', edited: true }));
+        .mockReturnValue(
+          populateMock({ ...comment, content: 'Updated', edited: true }),
+        );
       comment.save.mockResolvedValue(comment);
 
-      const result = await service.update(commentId, authorId, { content: 'Updated' });
+      const result = await service.update(commentId, authorId, {
+        content: 'Updated',
+      });
       expect(result.content).toBe('Updated');
     });
   });
 
   describe('remove', () => {
     it('throws NotFoundException when comment not found', async () => {
-      mockCommentModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.remove(commentId, authorId, false)).rejects.toThrow(NotFoundException);
+      mockCommentModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.remove(commentId, authorId, false)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when non-author non-editor tries to delete', async () => {
       mockCommentModel.findById.mockReturnValue({
         exec: jest.fn().mockResolvedValue(mockComment),
       });
-      await expect(service.remove(commentId, otherId, false)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(commentId, otherId, false)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('allows author to delete own comment', async () => {
-      mockCommentModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockComment) });
-      mockCommentModel.findByIdAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockComment) });
-      await expect(service.remove(commentId, authorId, false)).resolves.not.toThrow();
+      mockCommentModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockComment),
+      });
+      mockCommentModel.findByIdAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockComment),
+      });
+      await expect(
+        service.remove(commentId, authorId, false),
+      ).resolves.not.toThrow();
     });
 
     it('allows editor to delete any comment', async () => {
-      mockCommentModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockComment) });
-      mockCommentModel.findByIdAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockComment) });
-      await expect(service.remove(commentId, otherId, true)).resolves.not.toThrow();
+      mockCommentModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockComment),
+      });
+      mockCommentModel.findByIdAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockComment),
+      });
+      await expect(
+        service.remove(commentId, otherId, true),
+      ).resolves.not.toThrow();
     });
   });
 });

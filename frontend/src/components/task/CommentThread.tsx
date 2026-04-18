@@ -5,17 +5,9 @@ import * as commentsApi from '../../api/comments.api';
 import { useAuthStore } from '../../store/auth.store';
 import { MentionTextarea } from '../ui/MentionTextarea';
 import { renderMentions } from '../ui/renderMentions';
+import { UserAvatar } from '../ui/UserAvatar';
 
 interface Props { spaceId: string; taskId: string; }
-
-function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
-  const s = size === 'md' ? 'w-8 h-8 text-xs' : 'w-6 h-6 text-[10px]';
-  return (
-    <span className={`${s} rounded-full bg-brand/20 text-brand font-bold flex items-center justify-center shrink-0`}>
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
-}
 
 export function CommentThread({ spaceId, taskId }: Props) {
   const queryClient  = useQueryClient();
@@ -69,7 +61,7 @@ export function CommentThread({ spaceId, taskId }: Props) {
       <div className="space-y-4 mb-5">
         {comments.map((comment) => (
           <div key={comment._id} className="flex gap-3">
-            <Avatar name={comment.author.displayName} />
+            <UserAvatar user={comment.author} size="xs" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm font-semibold text-ink">{comment.author.displayName}</span>
@@ -160,7 +152,7 @@ export function CommentThread({ spaceId, taskId }: Props) {
 
       {/* New comment */}
       <div className="flex gap-3">
-        <Avatar name={currentUser?.displayName ?? '?'} />
+        <UserAvatar user={currentUser ?? { displayName: '?', avatarUrl: null }} size="xs" />
         <div className="flex-1">
           <MentionTextarea
             spaceId={spaceId}

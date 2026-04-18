@@ -3,7 +3,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Note, NoteSchema } from './schemas/note.schema';
 import { NoteComment, NoteCommentSchema } from './schemas/note-comment.schema';
 import { NotesService } from './notes.service';
-import { SprintNotesController, NoteDetailController } from './notes.controller';
+import {
+  SprintNotesController,
+  NoteDetailController,
+} from './notes.controller';
 import { SpacesModule } from '../spaces/spaces.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 

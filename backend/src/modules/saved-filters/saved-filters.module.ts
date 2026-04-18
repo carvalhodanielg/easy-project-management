@@ -7,7 +7,9 @@ import { SpacesModule } from '../spaces/spaces.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: SavedFilter.name, schema: SavedFilterSchema }]),
+    MongooseModule.forFeature([
+      { name: SavedFilter.name, schema: SavedFilterSchema },
+    ]),
     SpacesModule,
   ],
   controllers: [SavedFiltersController],

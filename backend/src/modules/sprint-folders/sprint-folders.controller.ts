@@ -11,7 +11,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { SprintFoldersService } from './sprint-folders.service';
-import { CreateSprintFolderDto, UpdateSprintFolderDto } from './dto/sprint-folder.dto';
+import {
+  CreateSprintFolderDto,
+  UpdateSprintFolderDto,
+} from './dto/sprint-folder.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';

@@ -46,7 +46,11 @@ describe('Spaces (e2e)', () => {
     // Register editor user
     const editorReg = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email: 'editor@test.com', password: 'password123', displayName: 'Editor' });
+      .send({
+        email: 'editor@test.com',
+        password: 'password123',
+        displayName: 'Editor',
+      });
     editorToken = editorReg.body.data.token as string;
 
     const editorMe = await request(app.getHttpServer())
@@ -57,7 +61,11 @@ describe('Spaces (e2e)', () => {
     // Register viewer user
     const viewerReg = await request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email: 'viewer@test.com', password: 'password123', displayName: 'Viewer' });
+      .send({
+        email: 'viewer@test.com',
+        password: 'password123',
+        displayName: 'Viewer',
+      });
     viewerToken = viewerReg.body.data.token as string;
 
     const viewerMe = await request(app.getHttpServer())
@@ -79,7 +87,10 @@ describe('Spaces (e2e)', () => {
         .send({ name: 'Test Space', color: '#FF5733' })
         .expect(201);
 
-      expect(res.body.data).toMatchObject({ name: 'Test Space', color: '#FF5733' });
+      expect(res.body.data).toMatchObject({
+        name: 'Test Space',
+        color: '#FF5733',
+      });
       spaceId = res.body.data._id as string;
     });
 
@@ -155,7 +166,11 @@ describe('Spaces (e2e)', () => {
       // Register a third user
       const thirdReg = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ email: 'third@test.com', password: 'password123', displayName: 'Third' });
+        .send({
+          email: 'third@test.com',
+          password: 'password123',
+          displayName: 'Third',
+        });
       const thirdId = (
         await request(app.getHttpServer())
           .get('/auth/me')

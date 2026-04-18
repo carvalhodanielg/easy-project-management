@@ -6,9 +6,15 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Note, NoteDocument } from './schemas/note.schema';
-import { NoteComment, NoteCommentDocument } from './schemas/note-comment.schema';
+import {
+  NoteComment,
+  NoteCommentDocument,
+} from './schemas/note-comment.schema';
 import { CreateNoteDto, UpdateNoteDto } from './dto/create-note.dto';
-import { CreateNoteCommentDto, UpdateNoteCommentDto } from './dto/create-note-comment.dto';
+import {
+  CreateNoteCommentDto,
+  UpdateNoteCommentDto,
+} from './dto/create-note-comment.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
 
@@ -16,7 +22,8 @@ import { NotificationType } from '../notifications/schemas/notification.schema';
 export class NotesService {
   constructor(
     @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
-    @InjectModel(NoteComment.name) private readonly commentModel: Model<NoteCommentDocument>,
+    @InjectModel(NoteComment.name)
+    private readonly commentModel: Model<NoteCommentDocument>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -57,10 +64,14 @@ export class NotesService {
       .exec() as Promise<NoteDocument>;
   }
 
-  async update(noteId: string, userId: string, dto: UpdateNoteDto): Promise<NoteDocument> {
+  async update(
+    noteId: string,
+    userId: string,
+    dto: UpdateNoteDto,
+  ): Promise<NoteDocument> {
     const note = await this.noteModel.findById(noteId).exec();
     if (!note) throw new NotFoundException('Note not found');
-    if ((note.createdBy as Types.ObjectId).toString() !== userId) {
+    if (note.createdBy.toString() !== userId) {
       throw new ForbiddenException('Only the author can edit this note');
     }
 
@@ -68,9 +79,9 @@ export class NotesService {
     // Avoids overwriting required fields with `undefined` when class-transformer
     // initialises all DTO properties (useDefineForClassFields=true with ES2023+).
     const patch: Record<string, unknown> = {};
-    if (dto.title   !== undefined) patch.title   = dto.title;
+    if (dto.title !== undefined) patch.title = dto.title;
     if (dto.content !== undefined) patch.content = dto.content;
-    if ('label' in dto)            patch.label   = dto.label; // allow explicit null
+    if ('label' in dto) patch.label = dto.label; // allow explicit null
 
     const updated = await this.noteModel
       .findByIdAndUpdate(noteId, { $set: patch }, { returnDocument: 'after' })
@@ -81,13 +92,20 @@ export class NotesService {
     return updated as unknown as NoteDocument;
   }
 
-  async remove(noteId: string, userId: string, isEditor: boolean): Promise<void> {
+  async remove(
+    noteId: string,
+    userId: string,
+    isEditor: boolean,
+  ): Promise<void> {
     const note = await this.noteModel.findById(noteId).exec();
     if (!note) throw new NotFoundException('Note not found');
-    const isAuthor = (note.createdBy as Types.ObjectId).toString() === userId;
-    if (!isAuthor && !isEditor) throw new ForbiddenException('Cannot delete this note');
+    const isAuthor = note.createdBy.toString() === userId;
+    if (!isAuthor && !isEditor)
+      throw new ForbiddenException('Cannot delete this note');
     await this.noteModel.findByIdAndDelete(noteId).exec();
-    await this.commentModel.deleteMany({ noteId: new Types.ObjectId(noteId) }).exec();
+    await this.commentModel
+      .deleteMany({ noteId: new Types.ObjectId(noteId) })
+      .exec();
   }
 
   // ── Comments ─────────────────────────────────────────────────────────────
@@ -108,7 +126,9 @@ export class NotesService {
     const noteExists = await this.noteModel.exists({ _id: noteId });
     if (!noteExists) throw new NotFoundException('Note not found');
 
-    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter((id) => id !== userId);
+    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter(
+      (id) => id !== userId,
+    );
 
     const comment = await this.commentModel.create({
       noteId: new Types.ObjectId(noteId),
@@ -140,7 +160,7 @@ export class NotesService {
   ): Promise<NoteCommentDocument> {
     const comment = await this.commentModel.findById(commentId).exec();
     if (!comment) throw new NotFoundException('Comment not found');
-    if ((comment.author as Types.ObjectId).toString() !== userId) {
+    if (comment.author.toString() !== userId) {
       throw new ForbiddenException('Only the author can edit this comment');
     }
 
@@ -154,7 +174,13 @@ export class NotesService {
     const updated = await this.commentModel
       .findByIdAndUpdate(
         commentId,
-        { $set: { content: dto.content ?? comment.content, edited: true, ...mentionUpdate } },
+        {
+          $set: {
+            content: dto.content ?? comment.content,
+            edited: true,
+            ...mentionUpdate,
+          },
+        },
         { returnDocument: 'after' },
       )
       .populate('author', 'email displayName avatarUrl')
@@ -164,11 +190,16 @@ export class NotesService {
     return updated as unknown as NoteCommentDocument;
   }
 
-  async removeComment(commentId: string, userId: string, isEditor: boolean): Promise<void> {
+  async removeComment(
+    commentId: string,
+    userId: string,
+    isEditor: boolean,
+  ): Promise<void> {
     const comment = await this.commentModel.findById(commentId).exec();
     if (!comment) throw new NotFoundException('Comment not found');
-    const isAuthor = (comment.author as Types.ObjectId).toString() === userId;
-    if (!isAuthor && !isEditor) throw new ForbiddenException('Cannot delete this comment');
+    const isAuthor = comment.author.toString() === userId;
+    if (!isAuthor && !isEditor)
+      throw new ForbiddenException('Cannot delete this comment');
     await this.commentModel.findByIdAndDelete(commentId).exec();
   }
 }

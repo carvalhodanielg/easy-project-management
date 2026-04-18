@@ -38,13 +38,27 @@ export class Task {
   @Prop({ default: '' })
   description: string;
 
-  @Prop({ type: String, enum: TaskStatus, default: TaskStatus.Pendente, index: true })
+  @Prop({
+    type: String,
+    enum: TaskStatus,
+    default: TaskStatus.Pendente,
+    index: true,
+  })
   status: TaskStatus;
 
-  @Prop({ type: String, enum: TaskPriority, default: TaskPriority.Normal, index: true })
+  @Prop({
+    type: String,
+    enum: TaskPriority,
+    default: TaskPriority.Normal,
+    index: true,
+  })
   priority: TaskPriority;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [], index: true })
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'User' }],
+    default: [],
+    index: true,
+  })
   assignees: Types.ObjectId[];
 
   @Prop({ type: Date, default: null })

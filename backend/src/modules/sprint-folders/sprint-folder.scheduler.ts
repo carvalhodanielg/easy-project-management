@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { SprintFolder, SprintFolderDocument } from './schemas/sprint-folder.schema';
+import {
+  SprintFolder,
+  SprintFolderDocument,
+} from './schemas/sprint-folder.schema';
 import { SprintFoldersService } from './sprint-folders.service';
 
 @Injectable()

@@ -108,10 +108,56 @@ export function ListPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] }),
   });
 
+  const moveSubtaskMutation = useMutation({
+    mutationFn: ({ taskIds, newParentTaskId }: { taskIds: string[]; newParentTaskId: string }) =>
+      tasksApi.moveSubtask(spaceId!, taskIds, newParentTaskId),
+    onSuccess: (_data, { newParentTaskId }) => {
+      void queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['task', spaceId, newParentTaskId] });
+    },
+  });
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
+    const activeType = active.data.current?.type as string | undefined;
+    const overType = over.data.current?.type as string | undefined;
+
+    if (activeType === 'subtask') {
+      const activeParentId = active.data.current?.parentId as string;
+      const overParentId = over.data.current?.parentId as string | undefined;
+
+      if (overParentId && overParentId !== activeParentId) {
+        // Cross-parent move
+        moveSubtaskMutation.mutate({ taskIds: [active.id as string], newParentTaskId: overParentId });
+      } else if (overParentId === activeParentId) {
+        // Within-parent reorder: optimistic update then persist
+        const currentSubtasks = queryClient.getQueryData<Task[]>(['subtasks', activeParentId]) ?? [];
+        const oldIdx = currentSubtasks.findIndex((s) => s._id === active.id);
+        const newIdx = currentSubtasks.findIndex((s) => s._id === over.id);
+        if (oldIdx === -1 || newIdx === -1) return;
+        const reorderedSubs = arrayMove(currentSubtasks, oldIdx, newIdx);
+        queryClient.setQueryData(['subtasks', activeParentId], reorderedSubs);
+        const prev = reorderedSubs[newIdx - 1];
+        const next = reorderedSubs[newIdx + 1];
+        const newPos = !prev
+          ? (next?.position ?? 0) - 1
+          : !next
+            ? (prev.position ?? 0) + 1
+            : ((prev.position ?? 0) + (next.position ?? 0)) / 2;
+        reorderMutation.mutate({ taskId: active.id as string, position: newPos }, {
+          onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['subtasks', activeParentId] }),
+        });
+      } else if (overType === 'task') {
+        // Dropped onto a main task header — reparent to that task
+        moveSubtaskMutation.mutate({ taskIds: [active.id as string], newParentTaskId: over.id as string });
+      }
+      return;
+    }
+
+    // Main task reorder
     const oldIndex = orderedTasks.findIndex((t) => t._id === active.id);
     const newIndex = orderedTasks.findIndex((t) => t._id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;

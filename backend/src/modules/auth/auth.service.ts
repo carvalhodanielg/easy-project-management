@@ -46,7 +46,7 @@ export class AuthService {
 
   private signToken(user: UserDocument): string {
     return this.jwtService.sign({
-      sub: (user._id as Types.ObjectId).toString(),
+      sub: user._id.toString(),
       email: user.email,
     });
   }

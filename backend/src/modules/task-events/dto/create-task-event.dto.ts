@@ -5,5 +5,9 @@ export class CreateTaskEventDto {
   spaceId: string;
   userId: string;
   type: TaskEventType;
-  changes?: { field: string; oldValue: string | null; newValue: string | null } | null;
+  changes?: {
+    field: string;
+    oldValue: string | null;
+    newValue: string | null;
+  } | null;
 }

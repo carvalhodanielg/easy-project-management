@@ -62,7 +62,10 @@ describe('WikiService', () => {
       providers: [
         WikiService,
         { provide: getModelToken(WikiFolder.name), useValue: mockFolderModel },
-        { provide: getModelToken(WikiDocument.name), useValue: mockDocumentModel },
+        {
+          provide: getModelToken(WikiDocument.name),
+          useValue: mockDocumentModel,
+        },
       ],
     }).compile();
     service = module.get<WikiService>(WikiService);
@@ -79,65 +82,99 @@ describe('WikiService', () => {
 
   describe('createFolder', () => {
     it('creates a folder with auto-incremented position', async () => {
-      mockFolderModel.countDocuments.mockReturnValue({ exec: jest.fn().mockResolvedValue(2) });
+      mockFolderModel.countDocuments.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(2),
+      });
       mockFolderModel.create.mockResolvedValue({ ...mockFolder, position: 2 });
-      const result = await service.createFolder(spaceId, { name: 'Engineering' });
+      const result = await service.createFolder(spaceId, {
+        name: 'Engineering',
+      });
       expect(result.position).toBe(2);
     });
   });
 
   describe('updateFolder', () => {
     it('throws NotFoundException when folder not found', async () => {
-      mockFolderModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.updateFolder(folderId, spaceId, { name: 'New Name' })).rejects.toThrow(NotFoundException);
+      mockFolderModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(
+        service.updateFolder(folderId, spaceId, { name: 'New Name' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('updates folder name', async () => {
       const updated = { ...mockFolder, name: 'New Name' };
-      mockFolderModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(updated) });
-      const result = await service.updateFolder(folderId, spaceId, { name: 'New Name' });
+      mockFolderModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(updated),
+      });
+      const result = await service.updateFolder(folderId, spaceId, {
+        name: 'New Name',
+      });
       expect(result.name).toBe('New Name');
     });
   });
 
   describe('deleteFolder', () => {
     it('throws NotFoundException when folder not found', async () => {
-      mockFolderModel.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.deleteFolder(folderId, spaceId)).rejects.toThrow(NotFoundException);
+      mockFolderModel.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.deleteFolder(folderId, spaceId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('deletes folder and cascades to documents', async () => {
-      mockFolderModel.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockFolder) });
-      mockDocumentModel.deleteMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 3 }) });
-      await expect(service.deleteFolder(folderId, spaceId)).resolves.not.toThrow();
+      mockFolderModel.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockFolder),
+      });
+      mockDocumentModel.deleteMany.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ deletedCount: 3 }),
+      });
+      await expect(
+        service.deleteFolder(folderId, spaceId),
+      ).resolves.not.toThrow();
       expect(mockDocumentModel.deleteMany).toHaveBeenCalled();
     });
   });
 
   describe('createDocument', () => {
     it('throws NotFoundException when folder not found', async () => {
-      mockFolderModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockFolderModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
       await expect(
         service.createDocument(spaceId, folderId, userId, { title: 'Doc' }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('creates document in folder', async () => {
-      mockFolderModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockFolder) });
+      mockFolderModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockFolder),
+      });
       mockDocumentModel.create.mockResolvedValue(mockDocument);
-      const result = await service.createDocument(spaceId, folderId, userId, { title: 'API Guide' });
+      const result = await service.createDocument(spaceId, folderId, userId, {
+        title: 'API Guide',
+      });
       expect(result.title).toBe('API Guide');
     });
   });
 
   describe('getDocument', () => {
     it('throws NotFoundException when document not found', async () => {
-      mockDocumentModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.getDocument(spaceId, documentId)).rejects.toThrow(NotFoundException);
+      mockDocumentModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.getDocument(spaceId, documentId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns document by id', async () => {
-      mockDocumentModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDocument) });
+      mockDocumentModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockDocument),
+      });
       const result = await service.getDocument(spaceId, documentId);
       expect(result.title).toBe('API Guide');
     });
@@ -145,29 +182,45 @@ describe('WikiService', () => {
 
   describe('updateDocument', () => {
     it('throws NotFoundException when document not found', async () => {
-      mockDocumentModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      mockDocumentModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
       await expect(
-        service.updateDocument(spaceId, documentId, userId, { content: 'Updated' }),
+        service.updateDocument(spaceId, documentId, userId, {
+          content: 'Updated',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('updates document content and sets lastEditedBy', async () => {
       const updated = { ...mockDocument, content: 'Updated' };
-      mockDocumentModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(updated) });
-      const result = await service.updateDocument(spaceId, documentId, userId, { content: 'Updated' });
+      mockDocumentModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(updated),
+      });
+      const result = await service.updateDocument(spaceId, documentId, userId, {
+        content: 'Updated',
+      });
       expect(result.content).toBe('Updated');
     });
   });
 
   describe('deleteDocument', () => {
     it('throws NotFoundException when document not found', async () => {
-      mockDocumentModel.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.deleteDocument(spaceId, documentId)).rejects.toThrow(NotFoundException);
+      mockDocumentModel.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.deleteDocument(spaceId, documentId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('deletes document', async () => {
-      mockDocumentModel.findOneAndDelete.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDocument) });
-      await expect(service.deleteDocument(spaceId, documentId)).resolves.not.toThrow();
+      mockDocumentModel.findOneAndDelete.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(mockDocument),
+      });
+      await expect(
+        service.deleteDocument(spaceId, documentId),
+      ).resolves.not.toThrow();
     });
   });
 });

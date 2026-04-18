@@ -7,7 +7,9 @@ import { SpacesModule } from '../spaces/spaces.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: TaskEvent.name, schema: TaskEventSchema }]),
+    MongooseModule.forFeature([
+      { name: TaskEvent.name, schema: TaskEventSchema },
+    ]),
     SpacesModule,
   ],
   controllers: [TaskEventsController],

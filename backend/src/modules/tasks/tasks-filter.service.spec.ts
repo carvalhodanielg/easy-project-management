@@ -63,7 +63,10 @@ describe('TasksFilterService', () => {
       const result = await service.findFiltered(spaceId, {}, userId);
       expect(result).toEqual(mockTasks);
       expect(mockTaskModel.find).toHaveBeenCalledWith(
-        expect.objectContaining({ spaceId: expect.anything(), parentTask: null }),
+        expect.objectContaining({
+          spaceId: expect.anything(),
+          parentTask: null,
+        }),
       );
     });
 
@@ -86,7 +89,9 @@ describe('TasksFilterService', () => {
     it('resolves "me" assignee to currentUserId', async () => {
       mockTaskModel.find.mockReturnValue(makeChain([]));
       await service.findFiltered(spaceId, { assignees: ['me'] }, userId);
-      const callArg = mockTaskModel.find.mock.calls[0][0] as { assignees: { $in: Types.ObjectId[] } };
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        assignees: { $in: Types.ObjectId[] };
+      };
       const assigneeId = callArg.assignees.$in[0].toString();
       expect(assigneeId).toBe(userId);
     });
@@ -98,28 +103,41 @@ describe('TasksFilterService', () => {
         { status: [TaskStatus.Pendente, TaskStatus.EmProgresso] },
         userId,
       );
-      const callArg = mockTaskModel.find.mock.calls[0][0] as { status: { $in: TaskStatus[] } };
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        status: { $in: TaskStatus[] };
+      };
       expect(callArg.status.$in).toContain(TaskStatus.Pendente);
     });
 
     it('filters by priority', async () => {
       mockTaskModel.find.mockReturnValue(makeChain([]));
-      await service.findFiltered(spaceId, { priority: [TaskPriority.Urgente] }, userId);
-      const callArg = mockTaskModel.find.mock.calls[0][0] as { priority: { $in: TaskPriority[] } };
+      await service.findFiltered(
+        spaceId,
+        { priority: [TaskPriority.Urgente] },
+        userId,
+      );
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        priority: { $in: TaskPriority[] };
+      };
       expect(callArg.priority.$in).toContain(TaskPriority.Urgente);
     });
 
     it('includes subtasks when includeSubtasks is true', async () => {
       mockTaskModel.find.mockReturnValue(makeChain([]));
       await service.findFiltered(spaceId, { includeSubtasks: true }, userId);
-      const callArg = mockTaskModel.find.mock.calls[0][0] as Record<string, unknown>;
+      const callArg = mockTaskModel.find.mock.calls[0][0] as Record<
+        string,
+        unknown
+      >;
       expect(callArg).not.toHaveProperty('parentTask');
     });
 
     it('filters by text search (q)', async () => {
       mockTaskModel.find.mockReturnValue(makeChain([]));
       await service.findFiltered(spaceId, { q: 'bug' }, userId);
-      const callArg = mockTaskModel.find.mock.calls[0][0] as { name: { $regex: string } };
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        name: { $regex: string };
+      };
       expect(callArg.name.$regex).toBe('bug');
     });
   });
@@ -128,11 +146,20 @@ describe('TasksFilterService', () => {
     it('uses aggregate then re-fetches with populate for groupBy=status', async () => {
       const task = mockTasks[1];
       mockTaskModel.aggregate.mockResolvedValueOnce([
-        { _id: TaskStatus.Pendente, taskIds: [task._id], totalStoryPoints: 3, count: 1 },
+        {
+          _id: TaskStatus.Pendente,
+          taskIds: [task._id],
+          totalStoryPoints: 3,
+          count: 1,
+        },
       ]);
       mockTaskModel.find.mockReturnValue(makeChain([task]));
 
-      const result = await service.findFiltered(spaceId, { groupBy: 'status' }, userId) as GroupedResult[];
+      const result = (await service.findFiltered(
+        spaceId,
+        { groupBy: 'status' },
+        userId,
+      )) as GroupedResult[];
 
       expect(mockTaskModel.aggregate).toHaveBeenCalled();
       expect(mockTaskModel.find).toHaveBeenCalled();
@@ -155,10 +182,16 @@ describe('TasksFilterService', () => {
       ]);
       mockTaskModel.find.mockReturnValue(makeChain([task]));
 
-      const result = await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId) as GroupedResult[];
+      const result = (await service.findFiltered(
+        spaceId,
+        { groupBy: 'assignee' },
+        userId,
+      )) as GroupedResult[];
 
       // The match stage must NOT restrict status to feito
-      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $match?: Record<string, unknown> }[];
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as {
+        $match?: Record<string, unknown>;
+      }[];
       const matchStage = pipeline.find((s) => s.$match);
       expect(matchStage?.$match).not.toHaveProperty('status');
 
@@ -180,7 +213,11 @@ describe('TasksFilterService', () => {
       ]);
       mockTaskModel.find.mockReturnValue(makeChain(mockTasks));
 
-      const result = await service.findFiltered(spaceId, { groupBy: 'assignee' }, userId) as GroupedResult[];
+      const result = (await service.findFiltered(
+        spaceId,
+        { groupBy: 'assignee' },
+        userId,
+      )) as GroupedResult[];
 
       expect(result[0].count).toBe(2);
       expect(result[0].tasks).toHaveLength(2);
@@ -191,7 +228,9 @@ describe('TasksFilterService', () => {
 
       await service.findFiltered(spaceId, { groupBy: 'priority' }, userId);
 
-      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as { $group?: { _id: string } }[];
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as {
+        $group?: { _id: string };
+      }[];
       const groupStage = pipeline.find((s) => s.$group);
       expect(groupStage?.$group?._id).toBe('$priority');
     });
@@ -200,7 +239,9 @@ describe('TasksFilterService', () => {
   describe('getSprintPointSums', () => {
     it('aggregates point sums grouped by sprint', async () => {
       const sprintObjId = new Types.ObjectId(sprintId);
-      mockTaskModel.aggregate.mockResolvedValue([{ _id: sprintObjId, total: 13 }]);
+      mockTaskModel.aggregate.mockResolvedValue([
+        { _id: sprintObjId, total: 13 },
+      ]);
       const result = await service.getSprintPointSums(spaceId, [sprintId]);
       expect(result[0].total).toBe(13);
       expect(result[0].sprintId).toBe(sprintId);

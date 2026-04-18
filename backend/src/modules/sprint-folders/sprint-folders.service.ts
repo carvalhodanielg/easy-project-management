@@ -1,9 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { SprintFolder, SprintFolderDocument, DayOfWeek } from './schemas/sprint-folder.schema';
-import { CreateSprintFolderDto, UpdateSprintFolderDto } from './dto/sprint-folder.dto';
-import { Sprint, SprintDocument, SprintStatus } from '../sprints/schemas/sprint.schema';
+import {
+  SprintFolder,
+  SprintFolderDocument,
+  DayOfWeek,
+} from './schemas/sprint-folder.schema';
+import {
+  CreateSprintFolderDto,
+  UpdateSprintFolderDto,
+} from './dto/sprint-folder.dto';
+import {
+  Sprint,
+  SprintDocument,
+  SprintStatus,
+} from '../sprints/schemas/sprint.schema';
 
 @Injectable()
 export class SprintFoldersService {
@@ -21,15 +32,24 @@ export class SprintFoldersService {
       .exec();
   }
 
-  async findById(spaceId: string, folderId: string): Promise<SprintFolderDocument> {
+  async findById(
+    spaceId: string,
+    folderId: string,
+  ): Promise<SprintFolderDocument> {
     const folder = await this.folderModel
-      .findOne({ _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) })
+      .findOne({
+        _id: new Types.ObjectId(folderId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!folder) throw new NotFoundException('Sprint folder not found');
     return folder;
   }
 
-  async create(spaceId: string, dto: CreateSprintFolderDto): Promise<SprintFolderDocument> {
+  async create(
+    spaceId: string,
+    dto: CreateSprintFolderDto,
+  ): Promise<SprintFolderDocument> {
     const folder = await this.folderModel.create({
       spaceId: new Types.ObjectId(spaceId),
       name: dto.name,
@@ -51,12 +71,17 @@ export class SprintFoldersService {
   ): Promise<SprintFolderDocument> {
     const updates: Record<string, unknown> = { ...dto };
     if (dto.folderEndDate !== undefined) {
-      updates.folderEndDate = dto.folderEndDate ? new Date(dto.folderEndDate) : null;
+      updates.folderEndDate = dto.folderEndDate
+        ? new Date(dto.folderEndDate)
+        : null;
     }
 
     const folder = await this.folderModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(folderId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         updates,
         { returnDocument: 'after' },
       )
@@ -68,7 +93,10 @@ export class SprintFoldersService {
 
   async remove(spaceId: string, folderId: string): Promise<void> {
     const result = await this.folderModel
-      .findOneAndDelete({ _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) })
+      .findOneAndDelete({
+        _id: new Types.ObjectId(folderId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!result) throw new NotFoundException('Sprint folder not found');
   }
@@ -78,7 +106,9 @@ export class SprintFoldersService {
   /**
    * Mark expired sprints in a folder as completed if folder.autoComplete is true.
    */
-  async autoCompleteExpiredSprints(folder: SprintFolderDocument): Promise<void> {
+  async autoCompleteExpiredSprints(
+    folder: SprintFolderDocument,
+  ): Promise<void> {
     if (!folder.autoComplete) return;
     const now = new Date();
     await this.sprintModel.updateMany(

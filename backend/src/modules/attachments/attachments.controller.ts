@@ -38,10 +38,7 @@ export class AttachmentsController {
     @CurrentUser() user: UserDocument,
   ) {
     if (!file) throw new BadRequestException('No file provided');
-    return this.attachmentsService.create(
-      (user._id as Types.ObjectId).toString(),
-      file,
-    );
+    return this.attachmentsService.create(user._id.toString(), file);
   }
 
   @Delete(':attachmentId')

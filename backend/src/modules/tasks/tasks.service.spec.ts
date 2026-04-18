@@ -88,7 +88,11 @@ describe('TasksService', () => {
 
     it('throws BadRequestException for non-Fibonacci story points', async () => {
       await expect(
-        service.create(spaceId, userId, { name: 'Task', listId, storyPoints: 4 }),
+        service.create(spaceId, userId, {
+          name: 'Task',
+          listId,
+          storyPoints: 4,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -134,7 +138,9 @@ describe('TasksService', () => {
     it('throws NotFoundException when task not found', async () => {
       mockTaskModel.findById.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(null));
-      await expect(service.update(spaceId, taskId, { name: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.update(spaceId, taskId, { name: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('logs status_changed event when status changes', async () => {
@@ -143,12 +149,20 @@ describe('TasksService', () => {
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
       mockTaskEventsService.create.mockResolvedValue({});
 
-      await service.update(spaceId, taskId, { status: TaskStatus.EmProgresso }, userId);
+      await service.update(
+        spaceId,
+        taskId,
+        { status: TaskStatus.EmProgresso },
+        userId,
+      );
 
       expect(mockTaskEventsService.create).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'status_changed',
-          changes: expect.objectContaining({ field: 'status', newValue: TaskStatus.EmProgresso }),
+          changes: expect.objectContaining({
+            field: 'status',
+            newValue: TaskStatus.EmProgresso,
+          }),
         }),
       );
     });
@@ -157,14 +171,24 @@ describe('TasksService', () => {
       mockTaskModel.findById.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
 
-      await service.update(spaceId, taskId, { status: TaskStatus.Pendente }, userId);
+      await service.update(
+        spaceId,
+        taskId,
+        { status: TaskStatus.Pendente },
+        userId,
+      );
 
       expect(mockTaskEventsService.create).not.toHaveBeenCalled();
     });
 
     it('sends task_assigned notification with spaceId when new assignees are added', async () => {
       const newUserId = new Types.ObjectId().toString();
-      const updated = { ...mockTask, _id: new Types.ObjectId(taskId), name: 'Test Task', assignees: [newUserId] };
+      const updated = {
+        ...mockTask,
+        _id: new Types.ObjectId(taskId),
+        name: 'Test Task',
+        assignees: [newUserId],
+      };
       mockTaskModel.findById.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
       mockNotificationsService.create.mockResolvedValue({});
@@ -196,7 +220,9 @@ describe('TasksService', () => {
 
     it('throws NotFoundException when task not found', async () => {
       mockTaskModel.findOneAndDelete.mockReturnValue(execMock(null));
-      await expect(service.remove(spaceId, taskId)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(spaceId, taskId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -228,7 +254,10 @@ describe('TasksService', () => {
     it('throws NotFoundException when task not found', async () => {
       mockTaskModel.findOne.mockReturnValue(execMock(null));
       await expect(
-        service.addDependency(spaceId, taskId, { targetTaskId: targetId, type: 'blocks' }),
+        service.addDependency(spaceId, taskId, {
+          targetTaskId: targetId,
+          type: 'blocks',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -327,9 +356,15 @@ describe('TasksService', () => {
     it('inherits parent listId when creating subtask without listId or sprintId', async () => {
       mockTaskModel.findById.mockReturnValue(execMock(parentTask));
       mockTaskModel.countDocuments.mockReturnValue(countMock(0));
-      mockTaskModel.create.mockResolvedValue({ ...mockTask, parentTask: new Types.ObjectId(parentId) });
+      mockTaskModel.create.mockResolvedValue({
+        ...mockTask,
+        parentTask: new Types.ObjectId(parentId),
+      });
 
-      await service.create(spaceId, userId, { name: 'Subtask', parentTask: parentId });
+      await service.create(spaceId, userId, {
+        name: 'Subtask',
+        parentTask: parentId,
+      });
 
       expect(mockTaskModel.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -344,7 +379,10 @@ describe('TasksService', () => {
       mockTaskModel.findById.mockReturnValue(execMock(null));
 
       await expect(
-        service.create(spaceId, userId, { name: 'Subtask', parentTask: parentId }),
+        service.create(spaceId, userId, {
+          name: 'Subtask',
+          parentTask: parentId,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -367,7 +405,11 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
-          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.EmProgresso },
+          {
+            _id: new Types.ObjectId(blockerId),
+            name: 'Bloqueador',
+            status: TaskStatus.EmProgresso,
+          },
         ]),
       });
 
@@ -381,7 +423,11 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
-          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Pendente },
+          {
+            _id: new Types.ObjectId(blockerId),
+            name: 'Bloqueador',
+            status: TaskStatus.Pendente,
+          },
         ]),
       });
 
@@ -396,7 +442,11 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
-          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Feito },
+          {
+            _id: new Types.ObjectId(blockerId),
+            name: 'Bloqueador',
+            status: TaskStatus.Feito,
+          },
         ]),
       });
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
@@ -412,7 +462,11 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
-          { _id: new Types.ObjectId(blockerId), name: 'Bloqueador', status: TaskStatus.Fechado },
+          {
+            _id: new Types.ObjectId(blockerId),
+            name: 'Bloqueador',
+            status: TaskStatus.Fechado,
+          },
         ]),
       });
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
@@ -437,10 +491,16 @@ describe('TasksService', () => {
     it('maps assignees and tags arrays', async () => {
       const updated = { ...mockTask, assignees: [userId] };
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
-      await service.update(spaceId, taskId, { assignees: [userId], tags: [targetId] });
+      await service.update(spaceId, taskId, {
+        assignees: [userId],
+        tags: [targetId],
+      });
       expect(mockTaskModel.findOneAndUpdate).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ assignees: expect.any(Array), tags: expect.any(Array) }),
+        expect.objectContaining({
+          assignees: expect.any(Array),
+          tags: expect.any(Array),
+        }),
         expect.anything(),
       );
     });
@@ -460,22 +520,36 @@ describe('TasksService', () => {
     it('moves task to new sprint', async () => {
       const sprintId = new Types.ObjectId().toString();
       const moved = { ...mockTask, sprintId: new Types.ObjectId(sprintId) };
-      mockTaskModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(moved) });
+      mockTaskModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(moved),
+      });
       const result = await service.move(spaceId, taskId, { sprintId });
       expect(result.sprintId?.toString()).toBe(moved.sprintId.toString());
     });
 
     it('throws NotFoundException when task not found during move', async () => {
-      mockTaskModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
-      await expect(service.move(spaceId, taskId, { listId })).rejects.toThrow(NotFoundException);
+      mockTaskModel.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(service.move(spaceId, taskId, { listId })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('bulkDelete', () => {
     it('deletes all given tasks and their subtasks', async () => {
-      const subtask = { ...mockTask, _id: new Types.ObjectId(), parentTask: new Types.ObjectId(taskId) };
-      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([subtask]) });
-      mockTaskModel.deleteMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      const subtask = {
+        ...mockTask,
+        _id: new Types.ObjectId(),
+        parentTask: new Types.ObjectId(taskId),
+      };
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([subtask]),
+      });
+      mockTaskModel.deleteMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
       mockTaskModel.updateMany.mockResolvedValue({});
 
       await service.bulkDelete(spaceId, [taskId]);
@@ -484,15 +558,24 @@ describe('TasksService', () => {
     });
 
     it('cleans up dependency arrays after bulk delete', async () => {
-      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
-      mockTaskModel.deleteMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+      mockTaskModel.deleteMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
       mockTaskModel.updateMany.mockResolvedValue({});
 
       await service.bulkDelete(spaceId, [taskId]);
 
       expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
         { spaceId: expect.anything() },
-        { $pull: { blockedBy: { $in: expect.any(Array) }, blocks: { $in: expect.any(Array) } } },
+        {
+          $pull: {
+            blockedBy: { $in: expect.any(Array) },
+            blocks: { $in: expect.any(Array) },
+          },
+        },
       );
     });
   });
@@ -500,9 +583,17 @@ describe('TasksService', () => {
   describe('bulkMove', () => {
     it('moves all tasks and their subtasks to new destination', async () => {
       const newSprintId = new Types.ObjectId().toString();
-      const subtask = { ...mockTask, _id: new Types.ObjectId(), parentTask: new Types.ObjectId(taskId) };
-      mockTaskModel.find.mockReturnValue({ exec: jest.fn().mockResolvedValue([subtask]) });
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      const subtask = {
+        ...mockTask,
+        _id: new Types.ObjectId(),
+        parentTask: new Types.ObjectId(taskId),
+      };
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([subtask]),
+      });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
       await service.bulkMove(spaceId, [taskId], { sprintId: newSprintId });
 
@@ -521,7 +612,10 @@ describe('TasksService', () => {
       mockTaskModel.find
         .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([mockTask]) })
         .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue([subtask]) });
-      mockTaskModel.create.mockResolvedValue({ ...mockTask, _id: new Types.ObjectId() });
+      mockTaskModel.create.mockResolvedValue({
+        ...mockTask,
+        _id: new Types.ObjectId(),
+      });
 
       await service.bulkDuplicate(spaceId, [taskId], userId, { listId });
 
@@ -532,9 +626,16 @@ describe('TasksService', () => {
   describe('convertToSubtask', () => {
     it('sets parentTask and inherits destination from parent', async () => {
       const parentId = new Types.ObjectId().toString();
-      const parent = { ...mockTask, _id: new Types.ObjectId(parentId), listId: new Types.ObjectId(listId), sprintId: null };
+      const parent = {
+        ...mockTask,
+        _id: new Types.ObjectId(parentId),
+        listId: new Types.ObjectId(listId),
+        sprintId: null,
+      };
       mockTaskModel.findOne.mockReturnValue(execMock(parent));
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
       await service.convertToSubtask(spaceId, [taskId], parentId);
 
@@ -546,13 +647,17 @@ describe('TasksService', () => {
 
     it('throws NotFoundException when parent does not exist', async () => {
       mockTaskModel.findOne.mockReturnValue(execMock(null));
-      await expect(service.convertToSubtask(spaceId, [taskId], targetId)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.convertToSubtask(spaceId, [taskId], targetId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('promoteToMainTask', () => {
     it('removes parentTask and sets new destination', async () => {
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
       await service.promoteToMainTask(spaceId, [taskId], { listId });
 
@@ -566,9 +671,16 @@ describe('TasksService', () => {
   describe('moveSubtask', () => {
     it('sets new parentTask and inherits destination', async () => {
       const newParentId = new Types.ObjectId().toString();
-      const newParent = { ...mockTask, _id: new Types.ObjectId(newParentId), listId: new Types.ObjectId(listId), sprintId: null };
+      const newParent = {
+        ...mockTask,
+        _id: new Types.ObjectId(newParentId),
+        listId: new Types.ObjectId(listId),
+        sprintId: null,
+      };
       mockTaskModel.findOne.mockReturnValue(execMock(newParent));
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
       await service.moveSubtask(spaceId, [taskId], newParentId);
 
@@ -580,7 +692,9 @@ describe('TasksService', () => {
 
     it('throws NotFoundException when new parent does not exist', async () => {
       mockTaskModel.findOne.mockReturnValue(execMock(null));
-      await expect(service.moveSubtask(spaceId, [taskId], targetId)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.moveSubtask(spaceId, [taskId], targetId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

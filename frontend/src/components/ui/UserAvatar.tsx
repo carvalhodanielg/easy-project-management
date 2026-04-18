@@ -1,11 +1,13 @@
 interface Props {
   user: { displayName: string; avatarUrl: string | null };
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'lg' | 'md';
   className?: string;
 }
 
 const sizeClasses = {
+  xs: 'w-6 h-6 text-[10px]',
   sm: 'w-7 h-7 text-xs',
+  lg: 'w-8 h-8 text-xs',
   md: 'w-20 h-20 text-xl',
 };
 

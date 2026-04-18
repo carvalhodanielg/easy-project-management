@@ -31,18 +31,18 @@ export class SpaceRoleGuard implements CanActivate {
 
     if (!user) throw new ForbiddenException('Not authenticated');
 
-    const spaceId =
-      (request.params as Record<string, string>).spaceId;
+    const spaceId = (request.params as Record<string, string>).spaceId;
     if (!spaceId) return true;
 
     const member = await this.spaceMemberModel
       .findOne({
         spaceId: new Types.ObjectId(spaceId),
-        userId: user._id as Types.ObjectId,
+        userId: user._id,
       })
       .exec();
 
-    if (!member) throw new NotFoundException('Space not found or access denied');
+    if (!member)
+      throw new NotFoundException('Space not found or access denied');
 
     const requiredRoles = this.reflector.getAllAndOverride<SpaceRole[]>(
       ROLES_KEY,

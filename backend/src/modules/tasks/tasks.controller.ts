@@ -52,7 +52,7 @@ export class TasksController {
     return this.tasksFilterService.findFiltered(
       spaceId,
       query,
-      (user._id as Types.ObjectId).toString(),
+      user._id.toString(),
     );
   }
 
@@ -63,7 +63,7 @@ export class TasksController {
     @Body() dto: CreateTaskDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.tasksService.create(spaceId, (user._id as Types.ObjectId).toString(), dto);
+    return this.tasksService.create(spaceId, user._id.toString(), dto);
   }
 
   @Post('bulk-delete')
@@ -97,7 +97,7 @@ export class TasksController {
     return this.tasksService.bulkDuplicate(
       spaceId,
       dto.taskIds,
-      (user._id as Types.ObjectId).toString(),
+      user._id.toString(),
       dto,
     );
   }
@@ -109,7 +109,11 @@ export class TasksController {
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Body() dto: ConvertToSubtaskDto,
   ) {
-    return this.tasksService.convertToSubtask(spaceId, dto.taskIds, dto.parentTaskId);
+    return this.tasksService.convertToSubtask(
+      spaceId,
+      dto.taskIds,
+      dto.parentTaskId,
+    );
   }
 
   @Post('promote-to-main')
@@ -129,7 +133,11 @@ export class TasksController {
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Body() dto: MoveSubtaskDto,
   ) {
-    return this.tasksService.moveSubtask(spaceId, dto.taskIds, dto.newParentTaskId);
+    return this.tasksService.moveSubtask(
+      spaceId,
+      dto.taskIds,
+      dto.newParentTaskId,
+    );
   }
 
   @Get(':taskId')
@@ -145,7 +153,7 @@ export class TasksController {
     @Body() dto: UpdateTaskDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.tasksService.update(spaceId, taskId, dto, (user._id as Types.ObjectId).toString());
+    return this.tasksService.update(spaceId, taskId, dto, user._id.toString());
   }
 
   @Patch(':taskId/move')

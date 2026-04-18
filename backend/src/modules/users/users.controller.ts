@@ -35,8 +35,10 @@ export class UsersController {
     @CurrentUser() user: UserDocument,
     @Body() dto: UpdateUserDto,
   ) {
-    const id = (user._id as Types.ObjectId).toString();
-    const updated = await this.usersService.update(id, { displayName: dto.displayName });
+    const id = user._id.toString();
+    const updated = await this.usersService.update(id, {
+      displayName: dto.displayName,
+    });
     return this.usersService.toPublic(updated);
   }
 
@@ -52,7 +54,7 @@ export class UsersController {
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     if (!file) throw new BadRequestException('No file provided');
-    const id = (user._id as Types.ObjectId).toString();
+    const id = user._id.toString();
     const updated = await this.usersService.uploadAvatar(id, file);
     return this.usersService.toPublic(updated);
   }

@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
-import { SprintFolder, SprintFolderSchema } from './schemas/sprint-folder.schema';
+import {
+  SprintFolder,
+  SprintFolderSchema,
+} from './schemas/sprint-folder.schema';
 import { SprintFoldersService } from './sprint-folders.service';
 import { SprintFoldersController } from './sprint-folders.controller';
 import { SprintFolderScheduler } from './sprint-folder.scheduler';

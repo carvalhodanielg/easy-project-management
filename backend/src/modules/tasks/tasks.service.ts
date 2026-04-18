@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Task, TaskDocument, TaskStatus, FIBONACCI_POINTS } from './schemas/task.schema';
+import {
+  Task,
+  TaskDocument,
+  TaskStatus,
+  FIBONACCI_POINTS,
+} from './schemas/task.schema';
 import {
   CreateTaskDto,
   UpdateTaskDto,
@@ -27,7 +32,11 @@ export class TasksService {
     private readonly taskEventsService: TaskEventsService,
   ) {}
 
-  async create(spaceId: string, userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
+  async create(
+    spaceId: string,
+    userId: string,
+    dto: CreateTaskDto,
+  ): Promise<TaskDocument> {
     let resolvedListId = dto.listId;
     let resolvedSprintId = dto.sprintId;
 
@@ -40,17 +49,26 @@ export class TasksService {
       throw new BadRequestException('Task must belong to a list or sprint');
     }
 
-    if (dto.storyPoints && !FIBONACCI_POINTS.includes(dto.storyPoints as (typeof FIBONACCI_POINTS)[number])) {
+    if (
+      dto.storyPoints &&
+      !FIBONACCI_POINTS.includes(
+        dto.storyPoints as (typeof FIBONACCI_POINTS)[number],
+      )
+    ) {
       throw new BadRequestException('Story points must be a Fibonacci number');
     }
 
-    const parentTaskOid = dto.parentTask ? new Types.ObjectId(dto.parentTask) : null;
+    const parentTaskOid = dto.parentTask
+      ? new Types.ObjectId(dto.parentTask)
+      : null;
 
     const count = await this.taskModel
       .countDocuments({
         spaceId: new Types.ObjectId(spaceId),
         listId: resolvedListId ? new Types.ObjectId(resolvedListId) : null,
-        sprintId: resolvedSprintId ? new Types.ObjectId(resolvedSprintId) : null,
+        sprintId: resolvedSprintId
+          ? new Types.ObjectId(resolvedSprintId)
+          : null,
         parentTask: parentTaskOid,
       })
       .exec();
@@ -96,12 +114,17 @@ export class TasksService {
     return task;
   }
 
-  async findBySpace(spaceId: string, query: {
-    listId?: string;
-    sprintId?: string;
-    parentTask?: null;
-  }): Promise<TaskDocument[]> {
-    const filter: Record<string, unknown> = { spaceId: new Types.ObjectId(spaceId) };
+  async findBySpace(
+    spaceId: string,
+    query: {
+      listId?: string;
+      sprintId?: string;
+      parentTask?: null;
+    },
+  ): Promise<TaskDocument[]> {
+    const filter: Record<string, unknown> = {
+      spaceId: new Types.ObjectId(spaceId),
+    };
     if (query.listId) filter.listId = new Types.ObjectId(query.listId);
     if (query.sprintId) filter.sprintId = new Types.ObjectId(query.sprintId);
     if ('parentTask' in query) filter.parentTask = null;
@@ -120,7 +143,10 @@ export class TasksService {
   private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
     if (tasks.length === 0) return;
     const ids = tasks.map((t) => t._id);
-    const counts = await this.taskModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+    const counts = await this.taskModel.aggregate<{
+      _id: Types.ObjectId;
+      count: number;
+    }>([
       { $match: { parentTask: { $in: ids } } },
       { $group: { _id: '$parentTask', count: { $sum: 1 } } },
     ]);
@@ -138,11 +164,18 @@ export class TasksService {
       .exec();
   }
 
-  async update(spaceId: string, taskId: string, dto: UpdateTaskDto, actorId?: string): Promise<TaskDocument> {
+  async update(
+    spaceId: string,
+    taskId: string,
+    dto: UpdateTaskDto,
+    actorId?: string,
+  ): Promise<TaskDocument> {
     const updates: Record<string, unknown> = { ...dto };
 
     const existing = await this.taskModel.findById(taskId).exec();
-    const previousAssignees = (existing?.assignees ?? []).map((id) => id.toString());
+    const previousAssignees = (existing?.assignees ?? []).map((id) =>
+      id.toString(),
+    );
 
     if (dto.assignees !== undefined) {
       updates.assignees = dto.assignees.map((id) => new Types.ObjectId(id));
@@ -161,14 +194,15 @@ export class TasksService {
       s === TaskStatus.Feito || s === TaskStatus.Fechado;
 
     if (dto.status && isCompletingStatus(dto.status) && existing) {
-      const blockedByIds = existing.blockedBy as Types.ObjectId[];
+      const blockedByIds = existing.blockedBy;
       if (blockedByIds.length > 0) {
         const blockers = await this.taskModel
           .find({ _id: { $in: blockedByIds } })
           .select('status name')
           .exec();
         const pending = blockers.filter(
-          (t) => t.status !== TaskStatus.Feito && t.status !== TaskStatus.Fechado,
+          (t) =>
+            t.status !== TaskStatus.Feito && t.status !== TaskStatus.Fechado,
         );
         if (pending.length > 0) {
           const names = pending.map((t) => t.name).join(', ');
@@ -181,7 +215,10 @@ export class TasksService {
 
     const task = await this.taskModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(taskId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         updates,
         { returnDocument: 'after' },
       )
@@ -192,7 +229,9 @@ export class TasksService {
     if (!task) throw new NotFoundException('Task not found');
 
     if (dto.assignees !== undefined) {
-      const newAssignees = dto.assignees.filter((id) => !previousAssignees.includes(id));
+      const newAssignees = dto.assignees.filter(
+        (id) => !previousAssignees.includes(id),
+      );
       await Promise.all(
         newAssignees.map((userId) =>
           this.notificationsService.create({
@@ -226,7 +265,11 @@ export class TasksService {
       await this.taskEventsService.create({
         ...base,
         type: TaskEventType.StatusChanged,
-        changes: { field: 'status', oldValue: existing.status, newValue: dto.status },
+        changes: {
+          field: 'status',
+          oldValue: existing.status,
+          newValue: dto.status,
+        },
       });
     }
 
@@ -234,7 +277,11 @@ export class TasksService {
       await this.taskEventsService.create({
         ...base,
         type: TaskEventType.PriorityChanged,
-        changes: { field: 'priority', oldValue: existing.priority, newValue: dto.priority },
+        changes: {
+          field: 'priority',
+          oldValue: existing.priority,
+          newValue: dto.priority,
+        },
       });
     }
 
@@ -246,7 +293,10 @@ export class TasksService {
       });
     }
 
-    if (dto.description !== undefined && dto.description !== existing.description) {
+    if (
+      dto.description !== undefined &&
+      dto.description !== existing.description
+    ) {
       await this.taskEventsService.create({
         ...base,
         type: TaskEventType.DescriptionChanged,
@@ -254,21 +304,29 @@ export class TasksService {
       });
     }
 
-    if (dto.storyPoints !== undefined && dto.storyPoints !== existing.storyPoints) {
+    if (
+      dto.storyPoints !== undefined &&
+      dto.storyPoints !== existing.storyPoints
+    ) {
       await this.taskEventsService.create({
         ...base,
         type: TaskEventType.StoryPointsChanged,
         changes: {
           field: 'storyPoints',
-          oldValue: existing.storyPoints != null ? String(existing.storyPoints) : null,
+          oldValue:
+            existing.storyPoints != null ? String(existing.storyPoints) : null,
           newValue: dto.storyPoints != null ? String(dto.storyPoints) : null,
         },
       });
     }
 
     if (dto.dueDate !== undefined) {
-      const oldDue = existing.dueDate ? existing.dueDate.toISOString().substring(0, 10) : null;
-      const newDue = dto.dueDate ? new Date(dto.dueDate).toISOString().substring(0, 10) : null;
+      const oldDue = existing.dueDate
+        ? existing.dueDate.toISOString().substring(0, 10)
+        : null;
+      const newDue = dto.dueDate
+        ? new Date(dto.dueDate).toISOString().substring(0, 10)
+        : null;
       if (oldDue !== newDue) {
         await this.taskEventsService.create({
           ...base,
@@ -279,19 +337,27 @@ export class TasksService {
     }
 
     if (dto.startDate !== undefined) {
-      const oldStart = existing.startDate ? existing.startDate.toISOString().substring(0, 10) : null;
-      const newStart = dto.startDate ? new Date(dto.startDate).toISOString().substring(0, 10) : null;
+      const oldStart = existing.startDate
+        ? existing.startDate.toISOString().substring(0, 10)
+        : null;
+      const newStart = dto.startDate
+        ? new Date(dto.startDate).toISOString().substring(0, 10)
+        : null;
       if (oldStart !== newStart) {
         await this.taskEventsService.create({
           ...base,
           type: TaskEventType.StartDateChanged,
-          changes: { field: 'startDate', oldValue: oldStart, newValue: newStart },
+          changes: {
+            field: 'startDate',
+            oldValue: oldStart,
+            newValue: newStart,
+          },
         });
       }
     }
 
     if (dto.assignees !== undefined) {
-      const prevSet = new Set((existing.assignees as Types.ObjectId[]).map((id) => id.toString()));
+      const prevSet = new Set(existing.assignees.map((id) => id.toString()));
       const nextSet = new Set(dto.assignees);
 
       for (const id of nextSet) {
@@ -315,7 +381,11 @@ export class TasksService {
     }
   }
 
-  async move(spaceId: string, taskId: string, dto: MoveTaskDto): Promise<TaskDocument> {
+  async move(
+    spaceId: string,
+    taskId: string,
+    dto: MoveTaskDto,
+  ): Promise<TaskDocument> {
     const updates: Record<string, unknown> = {
       listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
       sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
@@ -323,7 +393,10 @@ export class TasksService {
 
     const task = await this.taskModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(taskId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         updates,
         { returnDocument: 'after' },
       )
@@ -347,15 +420,34 @@ export class TasksService {
     await Promise.all([
       this.taskModel.updateMany(
         { spaceId: new Types.ObjectId(spaceId) },
-        { $pull: { blockedBy: new Types.ObjectId(taskId), blocks: new Types.ObjectId(taskId) } },
+        {
+          $pull: {
+            blockedBy: new Types.ObjectId(taskId),
+            blocks: new Types.ObjectId(taskId),
+          },
+        },
       ),
     ]);
   }
 
-  async addDependency(spaceId: string, taskId: string, dto: AddDependencyDto): Promise<void> {
+  async addDependency(
+    spaceId: string,
+    taskId: string,
+    dto: AddDependencyDto,
+  ): Promise<void> {
     const [task, target] = await Promise.all([
-      this.taskModel.findOne({ _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) }).exec(),
-      this.taskModel.findOne({ _id: new Types.ObjectId(dto.targetTaskId), spaceId: new Types.ObjectId(spaceId) }).exec(),
+      this.taskModel
+        .findOne({
+          _id: new Types.ObjectId(taskId),
+          spaceId: new Types.ObjectId(spaceId),
+        })
+        .exec(),
+      this.taskModel
+        .findOne({
+          _id: new Types.ObjectId(dto.targetTaskId),
+          spaceId: new Types.ObjectId(spaceId),
+        })
+        .exec(),
     ]);
 
     if (!task || !target) throw new NotFoundException('Task not found');
@@ -385,15 +477,35 @@ export class TasksService {
     }
   }
 
-  async removeDependency(spaceId: string, taskId: string, targetId: string): Promise<void> {
+  async removeDependency(
+    spaceId: string,
+    taskId: string,
+    targetId: string,
+  ): Promise<void> {
     await Promise.all([
       this.taskModel.updateOne(
-        { _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) },
-        { $pull: { blocks: new Types.ObjectId(targetId), blockedBy: new Types.ObjectId(targetId) } },
+        {
+          _id: new Types.ObjectId(taskId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
+        {
+          $pull: {
+            blocks: new Types.ObjectId(targetId),
+            blockedBy: new Types.ObjectId(targetId),
+          },
+        },
       ),
       this.taskModel.updateOne(
-        { _id: new Types.ObjectId(targetId), spaceId: new Types.ObjectId(spaceId) },
-        { $pull: { blocks: new Types.ObjectId(taskId), blockedBy: new Types.ObjectId(taskId) } },
+        {
+          _id: new Types.ObjectId(targetId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
+        {
+          $pull: {
+            blocks: new Types.ObjectId(taskId),
+            blockedBy: new Types.ObjectId(taskId),
+          },
+        },
       ),
     ]);
   }
@@ -407,12 +519,15 @@ export class TasksService {
     const subtasks = await this.taskModel
       .find({ parentTask: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
       .exec();
-    const subtaskOids = subtasks.map((s) => s._id as Types.ObjectId);
+    const subtaskOids = subtasks.map((s) => s._id);
 
     const allOids = [...oids, ...subtaskOids];
 
     await this.taskModel
-      .deleteMany({ _id: { $in: allOids }, spaceId: new Types.ObjectId(spaceId) })
+      .deleteMany({
+        _id: { $in: allOids },
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
 
     await this.taskModel.updateMany(
@@ -421,14 +536,18 @@ export class TasksService {
     );
   }
 
-  async bulkMove(spaceId: string, taskIds: string[], dto: BulkMoveDto): Promise<void> {
+  async bulkMove(
+    spaceId: string,
+    taskIds: string[],
+    dto: BulkMoveDto,
+  ): Promise<void> {
     const oids = taskIds.map((id) => new Types.ObjectId(id));
 
     // Find subtasks of these tasks so we move them too
     const subtasks = await this.taskModel
       .find({ parentTask: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
       .exec();
-    const subtaskOids = subtasks.map((s) => s._id as Types.ObjectId);
+    const subtaskOids = subtasks.map((s) => s._id);
 
     const allOids = [...oids, ...subtaskOids];
 
@@ -503,54 +622,78 @@ export class TasksService {
     }
   }
 
-  async convertToSubtask(spaceId: string, taskIds: string[], parentTaskId: string): Promise<void> {
+  async convertToSubtask(
+    spaceId: string,
+    taskIds: string[],
+    parentTaskId: string,
+  ): Promise<void> {
     const parent = await this.taskModel
-      .findOne({ _id: new Types.ObjectId(parentTaskId), spaceId: new Types.ObjectId(spaceId) })
+      .findOne({
+        _id: new Types.ObjectId(parentTaskId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!parent) throw new NotFoundException('Parent task not found');
 
     const oids = taskIds.map((id) => new Types.ObjectId(id));
 
-    await this.taskModel.updateMany(
-      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
-      {
-        parentTask: new Types.ObjectId(parentTaskId),
-        listId: parent.listId,
-        sprintId: parent.sprintId,
-      },
-    ).exec();
+    await this.taskModel
+      .updateMany(
+        { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+        {
+          parentTask: new Types.ObjectId(parentTaskId),
+          listId: parent.listId,
+          sprintId: parent.sprintId,
+        },
+      )
+      .exec();
   }
 
-  async promoteToMainTask(spaceId: string, taskIds: string[], dto: PromoteToMainTaskDto): Promise<void> {
+  async promoteToMainTask(
+    spaceId: string,
+    taskIds: string[],
+    dto: PromoteToMainTaskDto,
+  ): Promise<void> {
     const oids = taskIds.map((id) => new Types.ObjectId(id));
 
-    await this.taskModel.updateMany(
-      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
-      {
-        $unset: { parentTask: 1 },
-        $set: {
-          listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
-          sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+    await this.taskModel
+      .updateMany(
+        { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+        {
+          $unset: { parentTask: 1 },
+          $set: {
+            listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+            sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+          },
         },
-      },
-    ).exec();
+      )
+      .exec();
   }
 
-  async moveSubtask(spaceId: string, taskIds: string[], newParentTaskId: string): Promise<void> {
+  async moveSubtask(
+    spaceId: string,
+    taskIds: string[],
+    newParentTaskId: string,
+  ): Promise<void> {
     const newParent = await this.taskModel
-      .findOne({ _id: new Types.ObjectId(newParentTaskId), spaceId: new Types.ObjectId(spaceId) })
+      .findOne({
+        _id: new Types.ObjectId(newParentTaskId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!newParent) throw new NotFoundException('New parent task not found');
 
     const oids = taskIds.map((id) => new Types.ObjectId(id));
 
-    await this.taskModel.updateMany(
-      { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
-      {
-        parentTask: new Types.ObjectId(newParentTaskId),
-        listId: newParent.listId,
-        sprintId: newParent.sprintId,
-      },
-    ).exec();
+    await this.taskModel
+      .updateMany(
+        { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) },
+        {
+          parentTask: new Types.ObjectId(newParentTaskId),
+          listId: newParent.listId,
+          sprintId: newParent.sprintId,
+        },
+      )
+      .exec();
   }
 }

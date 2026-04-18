@@ -29,10 +29,17 @@ export class ListsService {
     });
   }
 
-  async update(spaceId: string, listId: string, dto: UpdateListDto): Promise<ListDocument> {
+  async update(
+    spaceId: string,
+    listId: string,
+    dto: UpdateListDto,
+  ): Promise<ListDocument> {
     const list = await this.listModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(listId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(listId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         dto,
         { returnDocument: 'after' },
       )

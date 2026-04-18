@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Notification, NotificationDocument, NotificationType } from './schemas/notification.schema';
+import {
+  Notification,
+  NotificationDocument,
+  NotificationType,
+} from './schemas/notification.schema';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -41,10 +45,13 @@ export class NotificationsService {
       .exec();
   }
 
-  async markAsRead(notifId: string, userId: string): Promise<NotificationDocument | null> {
+  async markAsRead(
+    notifId: string,
+    userId: string,
+  ): Promise<NotificationDocument | null> {
     const notif = await this.notificationModel.findById(notifId).exec();
     if (!notif) return null;
-    if ((notif.userId as Types.ObjectId).toString() !== userId) return null;
+    if (notif.userId.toString() !== userId) return null;
 
     notif.read = true;
     await notif.save();
@@ -55,6 +62,11 @@ export class NotificationsService {
     const notifs = await this.notificationModel
       .find({ userId: new Types.ObjectId(userId), read: false })
       .exec();
-    await Promise.all(notifs.map((n) => { n.read = true; return n.save(); }));
+    await Promise.all(
+      notifs.map((n) => {
+        n.read = true;
+        return n.save();
+      }),
+    );
   }
 }

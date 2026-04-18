@@ -9,10 +9,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 const mockNotificationsService = { create: jest.fn() };
 
-const userId   = new Types.ObjectId().toString();
-const spaceId  = new Types.ObjectId().toString();
+const userId = new Types.ObjectId().toString();
+const spaceId = new Types.ObjectId().toString();
 const sprintId = new Types.ObjectId().toString();
-const noteId   = new Types.ObjectId().toString();
+const noteId = new Types.ObjectId().toString();
 
 const mockNote = {
   _id: new Types.ObjectId(noteId),
@@ -35,8 +35,12 @@ function makeMockModel(findResult: unknown, findByIdResult: unknown) {
   return {
     find: jest.fn().mockReturnValue(populateChain(findResult)),
     findById: jest.fn().mockReturnValue(populateChain(findByIdResult)),
-    findByIdAndDelete: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
-    deleteMany: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    findByIdAndDelete: jest
+      .fn()
+      .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+    deleteMany: jest
+      .fn()
+      .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
     exists: jest.fn().mockResolvedValue({ _id: 'some-id' }),
     create: jest.fn(),
   };
@@ -48,16 +52,16 @@ describe('NotesService', () => {
   let commentModel: ReturnType<typeof makeMockModel>;
 
   beforeEach(async () => {
-    noteModel    = makeMockModel([mockNote], mockNote);
+    noteModel = makeMockModel([mockNote], mockNote);
     commentModel = makeMockModel([], null);
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotesService,
-        { provide: getModelToken(Note.name),        useValue: noteModel },
+        { provide: getModelToken(Note.name), useValue: noteModel },
         { provide: getModelToken(NoteComment.name), useValue: commentModel },
-        { provide: NotificationsService,             useValue: mockNotificationsService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -67,7 +71,9 @@ describe('NotesService', () => {
   describe('findBySprint', () => {
     it('returns notes for a sprint', async () => {
       const result = await service.findBySprint(sprintId);
-      expect(noteModel.find).toHaveBeenCalledWith({ sprintId: new Types.ObjectId(sprintId) });
+      expect(noteModel.find).toHaveBeenCalledWith({
+        sprintId: new Types.ObjectId(sprintId),
+      });
       expect(result).toEqual([mockNote]);
     });
   });
@@ -89,14 +95,18 @@ describe('NotesService', () => {
       noteModel.create = jest.fn().mockResolvedValue(mockNote);
       const dto = { title: 'Test Note', content: '# Hello', label: 'ideia' };
       const result = await service.create(spaceId, sprintId, userId, dto);
-      expect(noteModel.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Test Note' }));
+      expect(noteModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Test Note' }),
+      );
       expect(result).toEqual(mockNote);
     });
   });
 
   describe('update', () => {
     beforeEach(() => {
-      noteModel.findByIdAndUpdate = jest.fn().mockReturnValue(populateChain(mockNote));
+      noteModel.findByIdAndUpdate = jest
+        .fn()
+        .mockReturnValue(populateChain(mockNote));
     });
 
     it('updates a note when user is the author', async () => {
@@ -121,12 +131,16 @@ describe('NotesService', () => {
     it('throws ForbiddenException when user is not the author', async () => {
       noteModel.findById.mockReturnValue(populateChain(mockNote));
       const otherId = new Types.ObjectId().toString();
-      await expect(service.update(noteId, otherId, { title: 'X' })).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.update(noteId, otherId, { title: 'X' }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws NotFoundException when note does not exist', async () => {
       noteModel.findById.mockReturnValue(populateChain(null));
-      await expect(service.update(noteId, userId, {})).rejects.toThrow(NotFoundException);
+      await expect(service.update(noteId, userId, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -148,7 +162,9 @@ describe('NotesService', () => {
     it('throws ForbiddenException when user is neither author nor editor', async () => {
       noteModel.findById.mockReturnValue(populateChain(mockNote));
       const otherId = new Types.ObjectId().toString();
-      await expect(service.remove(noteId, otherId, false)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(noteId, otherId, false)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -165,20 +181,31 @@ describe('NotesService', () => {
       noteModel.exists = jest.fn().mockResolvedValue({ _id: noteId });
       commentModel.create = jest.fn().mockResolvedValue(mockComment);
       commentModel.findById.mockReturnValue(populateChain(mockComment));
-      const result = await service.createComment(noteId, userId, { content: 'Great note!' });
-      expect(commentModel.create).toHaveBeenCalledWith(expect.objectContaining({ content: 'Great note!' }));
+      const result = await service.createComment(noteId, userId, {
+        content: 'Great note!',
+      });
+      expect(commentModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ content: 'Great note!' }),
+      );
       expect(result).toEqual(mockComment);
     });
 
     it('throws NotFoundException when note does not exist', async () => {
       noteModel.exists = jest.fn().mockResolvedValue(null);
-      await expect(service.createComment(noteId, userId, { content: 'x' })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.createComment(noteId, userId, { content: 'x' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('sends Mention notification to mentioned users (excluding commenter)', async () => {
       const mentionedId = new Types.ObjectId().toString();
       noteModel.exists = jest.fn().mockResolvedValue({ _id: noteId });
-      commentModel.create = jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), noteId, author: userId, content: 'hi' });
+      commentModel.create = jest.fn().mockResolvedValue({
+        _id: new Types.ObjectId(),
+        noteId,
+        author: userId,
+        content: 'hi',
+      });
       commentModel.findById.mockReturnValue(populateChain({ content: 'hi' }));
 
       await service.createComment(noteId, userId, {
@@ -193,7 +220,12 @@ describe('NotesService', () => {
 
     it('does not notify commenter when they mention themselves', async () => {
       noteModel.exists = jest.fn().mockResolvedValue({ _id: noteId });
-      commentModel.create = jest.fn().mockResolvedValue({ _id: new Types.ObjectId(), noteId, author: userId, content: 'hi' });
+      commentModel.create = jest.fn().mockResolvedValue({
+        _id: new Types.ObjectId(),
+        noteId,
+        author: userId,
+        content: 'hi',
+      });
       commentModel.findById.mockReturnValue(populateChain({ content: 'hi' }));
 
       await service.createComment(noteId, userId, {

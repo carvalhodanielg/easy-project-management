@@ -22,13 +22,13 @@ export class NotificationsController {
 
   @Get()
   findAll(@CurrentUser() user: UserDocument) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     return this.notificationsService.findByUser(userId);
   }
 
   @Get('unread-count')
   async unreadCount(@CurrentUser() user: UserDocument) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     const count = await this.notificationsService.countUnread(userId);
     return { count };
   }
@@ -39,7 +39,7 @@ export class NotificationsController {
     @Param('id', ObjectIdValidationPipe) id: string,
     @CurrentUser() user: UserDocument,
   ) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     const notif = await this.notificationsService.markAsRead(id, userId);
     if (!notif) throw new NotFoundException('Notification not found');
     return notif;
@@ -48,7 +48,7 @@ export class NotificationsController {
   @Patch('read-all')
   @HttpCode(HttpStatus.NO_CONTENT)
   markAllAsRead(@CurrentUser() user: UserDocument) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     return this.notificationsService.markAllAsRead(userId);
   }
 }

@@ -1,4 +1,10 @@
-import { IsOptional, IsEnum, IsMongoId, IsString, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsMongoId,
+  IsString,
+  IsBoolean,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { TaskStatus, TaskPriority } from '../schemas/task.schema';
 

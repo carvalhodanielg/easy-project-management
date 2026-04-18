@@ -19,7 +19,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
 import { SpaceRole } from '../spaces/schemas/space-member.schema';
 import { Task } from '../tasks/schemas/task.schema';
-import { IsString, IsOptional, MaxLength, MinLength, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  MinLength,
+  Matches,
+} from 'class-validator';
 
 class CreateTagBodyDto implements CreateTagDto {
   @IsString()

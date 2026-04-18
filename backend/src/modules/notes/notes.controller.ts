@@ -12,7 +12,10 @@ import {
 } from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { CreateNoteDto, UpdateNoteDto } from './dto/create-note.dto';
-import { CreateNoteCommentDto, UpdateNoteCommentDto } from './dto/create-note-comment.dto';
+import {
+  CreateNoteCommentDto,
+  UpdateNoteCommentDto,
+} from './dto/create-note-comment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -46,7 +49,7 @@ export class SprintNotesController {
     return this.notesService.create(
       spaceId,
       sprintId,
-      (user._id as Types.ObjectId).toString(),
+      user._id.toString(),
       dto,
     );
   }
@@ -71,11 +74,7 @@ export class NoteDetailController {
     @Body() dto: UpdateNoteDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.notesService.update(
-      noteId,
-      (user._id as Types.ObjectId).toString(),
-      dto,
-    );
+    return this.notesService.update(noteId, user._id.toString(), dto);
   }
 
   @Delete()
@@ -85,7 +84,7 @@ export class NoteDetailController {
     @Param('noteId', ObjectIdValidationPipe) noteId: string,
     @CurrentUser() user: UserDocument,
   ) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     const role = await this.spacesService.getUserRole(spaceId, userId);
     return this.notesService.remove(noteId, userId, role === SpaceRole.Editor);
   }
@@ -101,11 +100,7 @@ export class NoteDetailController {
     @Body() dto: CreateNoteCommentDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.notesService.createComment(
-      noteId,
-      (user._id as Types.ObjectId).toString(),
-      dto,
-    );
+    return this.notesService.createComment(noteId, user._id.toString(), dto);
   }
 
   @Patch('comments/:commentId')
@@ -114,11 +109,7 @@ export class NoteDetailController {
     @Body() dto: UpdateNoteCommentDto,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.notesService.updateComment(
-      commentId,
-      (user._id as Types.ObjectId).toString(),
-      dto,
-    );
+    return this.notesService.updateComment(commentId, user._id.toString(), dto);
   }
 
   @Delete('comments/:commentId')
@@ -128,8 +119,12 @@ export class NoteDetailController {
     @Param('commentId', ObjectIdValidationPipe) commentId: string,
     @CurrentUser() user: UserDocument,
   ) {
-    const userId = (user._id as Types.ObjectId).toString();
+    const userId = user._id.toString();
     const role = await this.spacesService.getUserRole(spaceId, userId);
-    return this.notesService.removeComment(commentId, userId, role === SpaceRole.Editor);
+    return this.notesService.removeComment(
+      commentId,
+      userId,
+      role === SpaceRole.Editor,
+    );
   }
 }

@@ -60,7 +60,10 @@ describe('SpacesService', () => {
       providers: [
         SpacesService,
         { provide: getModelToken(Space.name), useValue: mockSpaceModel },
-        { provide: getModelToken(SpaceMember.name), useValue: mockSpaceMemberModel },
+        {
+          provide: getModelToken(SpaceMember.name),
+          useValue: mockSpaceMemberModel,
+        },
       ],
     }).compile();
 
@@ -90,7 +93,9 @@ describe('SpacesService', () => {
 
     it('throws NotFoundException when not found', async () => {
       mockSpaceModel.findById.mockReturnValue(execMock(null));
-      await expect(service.findById(spaceId)).rejects.toThrow(NotFoundException);
+      await expect(service.findById(spaceId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -104,7 +109,9 @@ describe('SpacesService', () => {
 
     it('throws NotFoundException when space not found', async () => {
       mockSpaceModel.findByIdAndUpdate.mockReturnValue(execMock(null));
-      await expect(service.update(spaceId, { name: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(service.update(spaceId, { name: 'X' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -130,13 +137,19 @@ describe('SpacesService', () => {
     it('throws ConflictException if user already a member', async () => {
       mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
       await expect(
-        service.addMember(spaceId, { userId: memberId, role: SpaceRole.Viewer }),
+        service.addMember(spaceId, {
+          userId: memberId,
+          role: SpaceRole.Viewer,
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
     it('creates membership when user is not yet a member', async () => {
       mockSpaceMemberModel.findOne.mockReturnValue(execMock(null));
-      mockSpaceMemberModel.create.mockResolvedValue({ ...mockMember, role: SpaceRole.Viewer });
+      mockSpaceMemberModel.create.mockResolvedValue({
+        ...mockMember,
+        role: SpaceRole.Viewer,
+      });
 
       const result = await service.addMember(spaceId, {
         userId: memberId,
@@ -161,8 +174,12 @@ describe('SpacesService', () => {
     });
 
     it('removes member successfully', async () => {
-      mockSpaceMemberModel.findOneAndDelete.mockReturnValue(execMock(mockMember));
-      await expect(service.removeMember(spaceId, memberId, userId)).resolves.not.toThrow();
+      mockSpaceMemberModel.findOneAndDelete.mockReturnValue(
+        execMock(mockMember),
+      );
+      await expect(
+        service.removeMember(spaceId, memberId, userId),
+      ).resolves.not.toThrow();
     });
   });
 
@@ -193,7 +210,9 @@ describe('SpacesService', () => {
     it('updates role and returns updated member', async () => {
       const updated = { ...mockMember, role: SpaceRole.Viewer };
       mockSpaceMemberModel.findOneAndUpdate.mockReturnValue(execMock(updated));
-      const result = await service.updateMemberRole(spaceId, userId, { role: SpaceRole.Viewer });
+      const result = await service.updateMemberRole(spaceId, userId, {
+        role: SpaceRole.Viewer,
+      });
       expect(result.role).toBe(SpaceRole.Viewer);
     });
 

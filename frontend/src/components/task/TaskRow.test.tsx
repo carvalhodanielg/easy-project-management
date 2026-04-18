@@ -14,6 +14,13 @@ vi.mock('../../api/tasks.api', () => ({
   updateTask: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock('../../api/spaces.api', () => ({
+  getSpaceMembers: vi.fn().mockResolvedValue([
+    { _id: 'm1', userId: { _id: 'u2', displayName: 'Bob', email: 'bob@b.com', avatarUrl: null }, role: 'editor' },
+    { _id: 'm2', userId: { _id: 'u1', displayName: 'Alice', email: 'a@b.com', avatarUrl: null }, role: 'editor' },
+  ]),
+}));
+
 import * as tasksApi from '../../api/tasks.api';
 
 const TASK: Task = {
@@ -32,6 +39,10 @@ const TASK: Task = {
   parentTask: null,
   listId: 'l1',
   sprintId: null,
+  spaceId: 'sp1',
+  position: 0,
+  createdBy: 'u1',
+  startDate: null,
   createdAt: '',
   updatedAt: '',
 };
@@ -57,9 +68,20 @@ describe('TaskRow', () => {
     expect(screen.getByText('Implementar autenticação')).toBeInTheDocument();
   });
 
-  it('renders assignee avatar initial', () => {
+  it('renders assignee avatar initial when avatarUrl is null', () => {
     renderRow();
     expect(screen.getByText('A')).toBeInTheDocument();
+  });
+
+  it('renders assignee avatar photo when avatarUrl is set', () => {
+    const taskWithPhoto = {
+      ...TASK,
+      assignees: [{ _id: 'u1', email: 'a@b.com', displayName: 'Alice', avatarUrl: 'https://example.com/alice.jpg' }],
+    };
+    renderRow(taskWithPhoto);
+    const img = screen.getByAltText('Alice');
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'https://example.com/alice.jpg');
   });
 
   it('renders tag', () => {
@@ -69,7 +91,7 @@ describe('TaskRow', () => {
 
   it('renders story points', () => {
     renderRow();
-    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pontos: 5/i })).toBeInTheDocument();
   });
 
   it('shows expand button when onToggleExpand is provided', () => {
@@ -143,6 +165,139 @@ describe('TaskRow', () => {
     it('does not show status button in selection mode', () => {
       renderRow(TASK, { onSelect: vi.fn(), isSelected: false });
       expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('inline name edit', () => {
+    it('shows edit name button', () => {
+      renderRow();
+      expect(screen.getByRole('button', { name: /editar nome/i })).toBeInTheDocument();
+    });
+
+    it('clicking edit name button shows an input with the current name', () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveValue('Implementar autenticação');
+    });
+
+    it('pressing Enter in the input calls updateTask with the new name', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...TASK, name: 'Novo nome' } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      fireEvent.change(input, { target: { value: 'Novo nome' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { name: 'Novo nome' });
+      });
+    });
+
+    it('pressing Escape in the input cancels without calling updateTask', () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      fireEvent.change(input, { target: { value: 'Outro nome' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(tasksApi.updateTask).not.toHaveBeenCalled();
+      expect(screen.queryByRole('textbox', { name: /nome da tarefa/i })).not.toBeInTheDocument();
+    });
+
+    it('blur on the input confirms the name', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...TASK, name: 'Nome blur' } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      fireEvent.change(input, { target: { value: 'Nome blur' } });
+      fireEvent.blur(input);
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { name: 'Nome blur' });
+      });
+    });
+
+    it('does not call updateTask when name is unchanged', async () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(tasksApi.updateTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('inline story points edit', () => {
+    it('clicking story points button opens fibonacci popover', () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /pontos: 5/i }));
+      expect(screen.getByRole('button', { name: /^8 pts$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^13 pts$/i })).toBeInTheDocument();
+    });
+
+    it('selecting a new value calls updateTask with storyPoints', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...TASK, storyPoints: 8 } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /pontos: 5/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^8 pts$/i }));
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { storyPoints: 8 });
+      });
+    });
+
+    it('selecting the current value calls updateTask with null', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...TASK, storyPoints: null } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /pontos: 5/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^5 pts$/i }));
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { storyPoints: null });
+      });
+    });
+
+    it('shows add points button when task has no story points', () => {
+      renderRow({ ...TASK, storyPoints: null });
+      expect(screen.getByRole('button', { name: /adicionar pontos/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('inline assignee edit', () => {
+    it('shows add assignee button', () => {
+      renderRow();
+      expect(screen.getByRole('button', { name: /adicionar responsável/i })).toBeInTheDocument();
+    });
+
+    it('clicking add assignee button opens member popover', async () => {
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /adicionar responsável/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Bob')).toBeInTheDocument();
+      });
+    });
+
+    it('selecting a member calls updateTask with assignees', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({
+        ...TASK,
+        assignees: [...TASK.assignees, { _id: 'u2', displayName: 'Bob', email: 'bob@b.com', avatarUrl: null }],
+      } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /adicionar responsável/i }));
+      await waitFor(() => screen.getByText('Bob'));
+      fireEvent.click(screen.getByRole('button', { name: /^Bob$/i }));
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', {
+          assignees: ['u1', 'u2'],
+        });
+      });
+    });
+
+    it('clicking an already-assigned member removes them', async () => {
+      vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...TASK, assignees: [] } as Task);
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /adicionar responsável/i }));
+      await waitFor(() => screen.getByText('Alice'));
+      fireEvent.click(screen.getByRole('button', { name: /^Alice$/i }));
+      await waitFor(() => {
+        expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { assignees: [] });
+      });
     });
   });
 });

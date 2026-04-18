@@ -35,9 +35,7 @@ describe('UsersController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [
-        { provide: UsersService, useValue: mockUsersService },
-      ],
+      providers: [{ provide: UsersService, useValue: mockUsersService }],
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
@@ -47,10 +45,9 @@ describe('UsersController', () => {
     it('returns updated public user', async () => {
       mockUsersService.update.mockResolvedValue(mockUser);
 
-      const result = await controller.updateMe(
-        mockUser as never,
-        { displayName: 'Alice Updated' },
-      );
+      const result = await controller.updateMe(mockUser as never, {
+        displayName: 'Alice Updated',
+      });
 
       expect(result).toEqual(publicUser);
       expect(mockUsersService.toPublic).toHaveBeenCalledWith(mockUser);
@@ -59,7 +56,9 @@ describe('UsersController', () => {
     it('passes only displayName to usersService.update', async () => {
       mockUsersService.update.mockResolvedValue(mockUser);
 
-      await controller.updateMe(mockUser as never, { displayName: 'Alice Updated' });
+      await controller.updateMe(mockUser as never, {
+        displayName: 'Alice Updated',
+      });
 
       expect(mockUsersService.update).toHaveBeenCalledWith(
         mockUser._id.toString(),
@@ -82,9 +81,15 @@ describe('UsersController', () => {
     });
 
     it('returns updated public user after upload', async () => {
-      const updatedUser = { ...mockUser, avatarUrl: 'https://pub.r2.dev/avatars/uuid.jpg' };
+      const updatedUser = {
+        ...mockUser,
+        avatarUrl: 'https://pub.r2.dev/avatars/uuid.jpg',
+      };
       mockUsersService.uploadAvatar.mockResolvedValue(updatedUser);
-      mockUsersService.toPublic.mockReturnValue({ ...publicUser, avatarUrl: updatedUser.avatarUrl });
+      mockUsersService.toPublic.mockReturnValue({
+        ...publicUser,
+        avatarUrl: updatedUser.avatarUrl,
+      });
 
       const result = await controller.uploadAvatar(mockUser as never, mockFile);
 

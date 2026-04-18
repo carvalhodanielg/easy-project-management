@@ -18,6 +18,31 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 
 ## Alta prioridade
 
+### Edição inline na lista (responsável e pontos)
+Permitir alterar o responsável e a quantidade de story points diretamente na linha da tarefa, sem precisar abrir o painel de detalhes.
+
+**Responsável:** clique no avatar/ícone na coluna abre um popover com busca de membros do espaço (reutilizando `AssigneeSelector`). Ao selecionar, chama `PATCH /tasks/:id` com o novo `assigneeId`.
+
+**Pontos:** clique no valor de pontos (ou `—` quando vazio) abre um pequeno dropdown com os valores Fibonacci disponíveis. Ao selecionar, chama `PATCH /tasks/:id` com os novos `storyPoints`.
+
+Ambos devem otimisticamente atualizar a UI e reverter em caso de erro.
+
+---
+
+### Menu de ações por tarefa na lista
+Cada linha da lista deve ter uma coluna de ações (ícone `⋯`) que abre um popover com as opções:
+
+- **Mover tarefa** — selecionar destino (outra lista ou sprint do mesmo espaço)
+- **Converter para subtarefa** — associar a uma tarefa pai (transforma `parentTaskId`)
+- **Converter para tarefa** — remove `parentTaskId`, promovendo a tarefa ao nível raiz
+- **Duplicar** — cria uma cópia com o mesmo título, status e campos (sem histórico/comentários)
+- **Arquivar** — marca a tarefa como arquivada (campo `archivedAt`); tarefas arquivadas ficam ocultas por padrão
+- **Excluir** — confirmação antes de deletar permanentemente
+
+O popover deve fechar ao clicar fora ou pressionar `Esc`. As opções "Converter para subtarefa" e "Converter para tarefa" são mutuamente exclusivas (exibir apenas a aplicável).
+
+---
+
 ### Lembretes de prazo
 Notificação automática quando uma tarefa está vencendo (ex.: 1 dia antes do `dueDate`). Requer um job agendado no backend (cron NestJS) que consulta tarefas com `dueDate` próximo e cria notificações `due_soon`. Baixo custo, alto impacto para adoção.
 

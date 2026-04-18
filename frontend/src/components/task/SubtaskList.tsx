@@ -1,20 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import * as tasksApi from '../../api/tasks.api';
 import { TaskRow } from './TaskRow';
+import { SortableSubtaskRow } from './SortableSubtaskRow';
 
 interface Props {
   spaceId: string;
   taskId: string;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   isSelectedFn?: (id: string) => boolean;
+  autoFocusAdd?: boolean;
+  onAddDone?: () => void;
+  /** Depth passed to each TaskRow. Default 1 (task detail view). Pass 0 when
+   *  the list is already inside an indented container (e.g. ml-9 in the list view). */
+  rowDepth?: number;
+  /** When true, renders subtasks inside a SortableContext with drag handles. */
+  sortable?: boolean;
 }
 
-export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn }: Props) {
+export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, autoFocusAdd, onAddDone, rowDepth = 1, sortable = false }: Props) {
   const queryClient = useQueryClient();
-  const [showInput, setShowInput] = useState(false);
+  const [showInput, setShowInput] = useState(autoFocusAdd ?? false);
   const [name, setName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocusAdd) setShowInput(true);
+  }, [autoFocusAdd]);
+
+  useEffect(() => {
+    if (showInput) {
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [showInput]);
 
   const { data: subtasks = [] } = useQuery({
     queryKey: ['subtasks', taskId],
@@ -22,38 +42,70 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn }: Props) 
   });
 
   const createMutation = useMutation({
-    mutationFn: () => tasksApi.createTask(spaceId, { name: name.trim(), parentTask: taskId }),
+    mutationFn: (taskName: string) => tasksApi.createTask(spaceId, { name: taskName, parentTask: taskId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['subtasks', taskId] });
-      setName('');
-      setShowInput(false);
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
     },
   });
 
-  const submit = () => { if (name.trim()) createMutation.mutate(); };
+  function cancel() {
+    setShowInput(false);
+    setName('');
+    onAddDone?.();
+  }
 
-  return (
-    <div>
+  const submit = () => {
+    const trimmed = name.trim();
+    if (!trimmed || createMutation.isPending) return;
+    setName('');
+    setShowInput(false);
+    onAddDone?.();
+    createMutation.mutate(trimmed);
+  };
+
+  const subtaskRows = sortable ? (
+    <SortableContext items={subtasks.map((s) => s._id)} strategy={verticalListSortingStrategy}>
       {subtasks.map((sub) => (
-        <TaskRow
+        <SortableSubtaskRow
           key={sub._id}
           task={sub}
-          depth={1}
+          parentId={taskId}
+          depth={rowDepth}
           isSelected={isSelectedFn?.(sub._id)}
           onSelect={onSelect}
         />
       ))}
+    </SortableContext>
+  ) : (
+    <>
+      {subtasks.map((sub) => (
+        <TaskRow
+          key={sub._id}
+          task={sub}
+          depth={rowDepth}
+          isSelected={isSelectedFn?.(sub._id)}
+          onSelect={onSelect}
+        />
+      ))}
+    </>
+  );
+
+  return (
+    <div>
+      {subtaskRows}
 
       {showInput ? (
         <div className="flex items-center gap-2 px-3 py-2.5 border-t border-line-dim bg-lift/30">
           <input
-            autoFocus
+            ref={inputRef}
             placeholder="Nome da subtarefa…"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
+              e.stopPropagation();
               if (e.key === 'Enter') submit();
-              if (e.key === 'Escape') { setShowInput(false); setName(''); }
+              if (e.key === 'Escape') cancel();
             }}
             className="flex-1 bg-transparent border-b border-brand text-sm text-ink placeholder:text-ink-muted focus:outline-none py-0.5"
           />
@@ -65,7 +117,7 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn }: Props) 
             Add
           </button>
           <button
-            onClick={() => { setShowInput(false); setName(''); }}
+            onClick={cancel}
             className="p-1 text-ink-muted hover:text-ink transition-colors"
           >
             <X size={13} />

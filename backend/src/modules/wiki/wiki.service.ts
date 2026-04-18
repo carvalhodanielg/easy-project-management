@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { WikiFolder, WikiFolderDocument } from './schemas/wiki-folder.schema';
-import { WikiDocument, WikiDocumentDocument } from './schemas/wiki-document.schema';
+import {
+  WikiDocument,
+  WikiDocumentDocument,
+} from './schemas/wiki-document.schema';
 import { CreateWikiFolderDto } from './dto/create-wiki-folder.dto';
 import { CreateWikiDocumentDto } from './dto/create-wiki-document.dto';
 import { UpdateWikiDocumentDto } from './dto/update-wiki-document.dto';
@@ -18,8 +25,15 @@ export class WikiService {
 
   // ─── Folders ────────────────────────────────────────────────────────────────
 
-  async createFolder(spaceId: string, dto: CreateWikiFolderDto): Promise<WikiFolderDocument> {
-    const position = dto.position ?? (await this.folderModel.countDocuments({ spaceId: new Types.ObjectId(spaceId) }).exec());
+  async createFolder(
+    spaceId: string,
+    dto: CreateWikiFolderDto,
+  ): Promise<WikiFolderDocument> {
+    const position =
+      dto.position ??
+      (await this.folderModel
+        .countDocuments({ spaceId: new Types.ObjectId(spaceId) })
+        .exec());
     return this.folderModel.create({
       spaceId: new Types.ObjectId(spaceId),
       name: dto.name,
@@ -41,7 +55,10 @@ export class WikiService {
   ): Promise<WikiFolderDocument> {
     const folder = await this.folderModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(folderId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         dto,
         { returnDocument: 'after' },
       )
@@ -52,11 +69,16 @@ export class WikiService {
 
   async deleteFolder(folderId: string, spaceId: string): Promise<void> {
     const folder = await this.folderModel
-      .findOneAndDelete({ _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) })
+      .findOneAndDelete({
+        _id: new Types.ObjectId(folderId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!folder) throw new NotFoundException('Wiki folder not found');
     // Cascade delete all documents in this folder
-    await this.documentModel.deleteMany({ folderId: new Types.ObjectId(folderId) }).exec();
+    await this.documentModel
+      .deleteMany({ folderId: new Types.ObjectId(folderId) })
+      .exec();
   }
 
   // ─── Documents ──────────────────────────────────────────────────────────────
@@ -69,7 +91,10 @@ export class WikiService {
   ): Promise<WikiDocumentDocument> {
     // Verify folder belongs to space
     const folder = await this.folderModel
-      .findOne({ _id: new Types.ObjectId(folderId), spaceId: new Types.ObjectId(spaceId) })
+      .findOne({
+        _id: new Types.ObjectId(folderId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!folder) throw new NotFoundException('Wiki folder not found');
 
@@ -83,7 +108,10 @@ export class WikiService {
     });
   }
 
-  async getDocumentsByFolder(spaceId: string, folderId: string): Promise<WikiDocumentDocument[]> {
+  async getDocumentsByFolder(
+    spaceId: string,
+    folderId: string,
+  ): Promise<WikiDocumentDocument[]> {
     return this.documentModel
       .find({
         folderId: new Types.ObjectId(folderId),
@@ -93,9 +121,15 @@ export class WikiService {
       .exec();
   }
 
-  async getDocument(spaceId: string, documentId: string): Promise<WikiDocumentDocument> {
+  async getDocument(
+    spaceId: string,
+    documentId: string,
+  ): Promise<WikiDocumentDocument> {
     const doc = await this.documentModel
-      .findOne({ _id: new Types.ObjectId(documentId), spaceId: new Types.ObjectId(spaceId) })
+      .findOne({
+        _id: new Types.ObjectId(documentId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!doc) throw new NotFoundException('Wiki document not found');
     return doc;
@@ -109,7 +143,10 @@ export class WikiService {
   ): Promise<WikiDocumentDocument> {
     const doc = await this.documentModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(documentId), spaceId: new Types.ObjectId(spaceId) },
+        {
+          _id: new Types.ObjectId(documentId),
+          spaceId: new Types.ObjectId(spaceId),
+        },
         { ...dto, lastEditedBy: new Types.ObjectId(userId) },
         { returnDocument: 'after' },
       )
@@ -120,7 +157,10 @@ export class WikiService {
 
   async deleteDocument(spaceId: string, documentId: string): Promise<void> {
     const doc = await this.documentModel
-      .findOneAndDelete({ _id: new Types.ObjectId(documentId), spaceId: new Types.ObjectId(spaceId) })
+      .findOneAndDelete({
+        _id: new Types.ObjectId(documentId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .exec();
     if (!doc) throw new NotFoundException('Wiki document not found');
   }

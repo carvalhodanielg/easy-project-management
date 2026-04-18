@@ -35,7 +35,9 @@ export class CommentsService {
     userId: string,
     dto: CreateCommentDto,
   ): Promise<CommentDocument> {
-    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter((id) => id !== userId);
+    const uniqueMentions = [...new Set(dto.mentionIds ?? [])].filter(
+      (id) => id !== userId,
+    );
 
     const comment = await this.commentModel.create({
       taskId: new Types.ObjectId(taskId),
@@ -45,16 +47,16 @@ export class CommentsService {
       mentions: uniqueMentions.map((id) => new Types.ObjectId(id)),
     });
 
-    const populated = await this.commentModel
+    const populated = (await this.commentModel
       .findById(comment._id)
       .populate('author', 'email displayName avatarUrl')
       .populate('attachments')
-      .exec() as CommentDocument;
+      .exec()) as CommentDocument;
 
     // Notify task assignees about the new comment (excluding commenter)
     const task = await this.taskModel.findById(taskId).exec();
     if (task) {
-      const assigneeRecipients = (task.assignees as Types.ObjectId[])
+      const assigneeRecipients = task.assignees
         .map((id) => id.toString())
         .filter((id) => id !== userId);
 
@@ -95,7 +97,7 @@ export class CommentsService {
     const comment = await this.commentModel.findById(commentId).exec();
     if (!comment) throw new NotFoundException('Comment not found');
 
-    if ((comment.author as Types.ObjectId).toString() !== userId) {
+    if (comment.author.toString() !== userId) {
       throw new ForbiddenException('Only the author can edit this comment');
     }
 
@@ -115,11 +117,15 @@ export class CommentsService {
       .exec() as Promise<CommentDocument>;
   }
 
-  async remove(commentId: string, userId: string, isEditor: boolean): Promise<void> {
+  async remove(
+    commentId: string,
+    userId: string,
+    isEditor: boolean,
+  ): Promise<void> {
     const comment = await this.commentModel.findById(commentId).exec();
     if (!comment) throw new NotFoundException('Comment not found');
 
-    const isAuthor = (comment.author as Types.ObjectId).toString() === userId;
+    const isAuthor = comment.author.toString() === userId;
     if (!isAuthor && !isEditor) {
       throw new ForbiddenException('Cannot delete this comment');
     }

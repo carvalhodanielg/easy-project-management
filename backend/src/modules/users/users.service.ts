@@ -50,7 +50,10 @@ export class UsersService {
       .exec();
   }
 
-  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<UserDocument> {
+  async uploadAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<UserDocument> {
     const existing = await this.userModel.findById(userId).exec();
     if (!existing) throw new NotFoundException('User not found');
     const oldAvatarUrl = existing.avatarUrl;
@@ -76,7 +79,7 @@ export class UsersService {
 
   toPublic(user: UserDocument) {
     return {
-      _id: (user._id as Types.ObjectId).toString(),
+      _id: user._id.toString(),
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,

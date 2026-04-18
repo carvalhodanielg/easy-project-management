@@ -50,8 +50,8 @@ describe('SearchService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SearchService,
-        { provide: getModelToken(Task.name),         useValue: taskModel },
-        { provide: getModelToken(Note.name),         useValue: noteModel },
+        { provide: getModelToken(Task.name), useValue: taskModel },
+        { provide: getModelToken(Note.name), useValue: noteModel },
         { provide: getModelToken(WikiDocument.name), useValue: wikiModel },
       ],
     }).compile();

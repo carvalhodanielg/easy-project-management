@@ -11,6 +11,7 @@ interface Props {
   taskId: string;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   isSelectedFn?: (id: string) => boolean;
+  selectionMode?: boolean;
   autoFocusAdd?: boolean;
   onAddDone?: () => void;
   /** Depth passed to each TaskRow. Default 1 (task detail view). Pass 0 when
@@ -20,7 +21,7 @@ interface Props {
   sortable?: boolean;
 }
 
-export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, autoFocusAdd, onAddDone, rowDepth = 1, sortable = false }: Props) {
+export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, selectionMode, autoFocusAdd, onAddDone, rowDepth = 1, sortable = false }: Props) {
   const queryClient = useQueryClient();
   const [showInput, setShowInput] = useState(autoFocusAdd ?? false);
   const [name, setName] = useState('');
@@ -73,6 +74,7 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, autoFocus
           parentId={taskId}
           depth={rowDepth}
           isSelected={isSelectedFn?.(sub._id)}
+          selectionMode={selectionMode}
           onSelect={onSelect}
         />
       ))}
@@ -85,6 +87,7 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, autoFocus
           task={sub}
           depth={rowDepth}
           isSelected={isSelectedFn?.(sub._id)}
+          selectionMode={selectionMode}
           onSelect={onSelect}
         />
       ))}

@@ -1,24 +1,26 @@
 import React, { useState } from 'react';
 import { TaskRow } from './TaskRow';
 import { SubtaskList } from './SubtaskList';
-import type { Task } from '../../types/task.types';
+import type { Task, SubtaskMode } from '../../types/task.types';
 
 interface Props {
   task: Task;
   spaceId: string;
+  subtaskMode?: SubtaskMode;
   isSelected?: boolean;
+  selectionMode?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   isSelectedFn?: (id: string) => boolean;
   subtaskSortable?: boolean;
   dragHandle?: React.ReactNode;
 }
 
-export function TaskRowWithSubtasks({ task, spaceId, isSelected, onSelect, isSelectedFn, subtaskSortable, dragHandle }: Props) {
-  const [expanded, setExpanded] = useState(task.subtaskCount > 0);
+export function TaskRowWithSubtasks({ task, spaceId, subtaskMode = 'collapsed', isSelected, selectionMode, onSelect, isSelectedFn, subtaskSortable, dragHandle }: Props) {
+  const forceExpanded = subtaskMode === 'expanded';
+  const [expanded, setExpanded] = useState(subtaskMode === 'expanded' || task.subtaskCount > 0);
   const [adding, setAdding] = useState(false);
   const hasSubtasks = task.subtaskCount > 0;
-  const inSelectionMode = !!onSelect;
-  const showSubtaskSection = expanded || adding;
+  const showSubtaskSection = subtaskMode !== 'separated' && (expanded || forceExpanded || adding);
 
   function handleAddSubtask() {
     setExpanded(true);
@@ -29,20 +31,22 @@ export function TaskRowWithSubtasks({ task, spaceId, isSelected, onSelect, isSel
     <div>
       <TaskRow
         task={task}
-        onToggleExpand={!inSelectionMode && hasSubtasks ? () => setExpanded((e) => !e) : undefined}
-        isExpanded={expanded}
+        onToggleExpand={!selectionMode && hasSubtasks && !forceExpanded ? () => setExpanded((e) => !e) : undefined}
+        isExpanded={forceExpanded || expanded}
         isSelected={isSelected}
+        selectionMode={selectionMode}
         onSelect={onSelect}
-        onAddSubtask={!inSelectionMode ? handleAddSubtask : undefined}
+        onAddSubtask={!selectionMode ? handleAddSubtask : undefined}
         dragHandle={dragHandle}
       />
       {showSubtaskSection && (
-        <div className="border-l-2 border-line ml-9">
+        <div className="border-l-[3px] border-brand/25 ml-10 bg-lift/30">
           <SubtaskList
             spaceId={spaceId}
             taskId={task._id}
             onSelect={onSelect}
             isSelectedFn={isSelectedFn}
+            selectionMode={selectionMode}
             autoFocusAdd={adding}
             onAddDone={() => setAdding(false)}
             rowDepth={0}

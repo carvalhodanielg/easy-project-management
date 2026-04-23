@@ -20,6 +20,7 @@ import {
 import * as tasksApi from '../../api/tasks.api';
 import * as listsApi from '../../api/lists.api';
 import * as savedFiltersApi from '../../api/saved-filters.api';
+import * as spacesApi from '../../api/spaces.api';
 import { SortableTaskRow } from '../../components/task/SortableTaskRow';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { SelectionBar } from '../../components/task/SelectionBar';
@@ -52,6 +53,12 @@ export function ListPage() {
 
   const taskFilter = useTaskFilter({ listId });
   const selection = useTaskSelection();
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['space-members', spaceId],
+    queryFn: () => spacesApi.getSpaceMembers(spaceId!),
+    enabled: !!spaceId,
+  });
 
   const { data: savedFilters = [] } = useQuery({
     queryKey: ['saved-filters', spaceId],
@@ -238,7 +245,7 @@ export function ListPage() {
             onToggleTag={taskFilter.toggleTag}
             onSetGroupBy={taskFilter.setGroupBy}
             onSetSearch={taskFilter.setSearch}
-            onToggleSubtasks={taskFilter.toggleSubtasks}
+            onSetSubtaskMode={taskFilter.setSubtaskMode}
             onReset={taskFilter.reset}
             isActive={taskFilter.isActive}
             savedFilters={savedFilters}
@@ -292,8 +299,10 @@ export function ListPage() {
                       key={task._id}
                       task={task}
                       spaceId={spaceId!}
+                      subtaskMode={taskFilter.filters.subtaskMode}
                       isSelected={selection.isSelected(task._id)}
-                      onSelect={selection.count > 0 ? selection.toggle : undefined}
+                      selectionMode={selection.count > 0}
+                      onSelect={selection.toggle}
                       isSelectedFn={selection.isSelected}
                     />
                   ))}
@@ -311,8 +320,10 @@ export function ListPage() {
                         key={task._id}
                         task={task}
                         spaceId={spaceId!}
+                        subtaskMode={taskFilter.filters.subtaskMode}
                         isSelected={selection.isSelected(task._id)}
-                        onSelect={selection.count > 0 ? selection.toggle : undefined}
+                        selectionMode={selection.count > 0}
+                        onSelect={selection.toggle}
                         isSelectedFn={selection.isSelected}
                       />
                     ))}
@@ -387,6 +398,7 @@ export function ListPage() {
           mainTaskIds={selection.mainTaskIds}
           subtaskIds={selection.subtaskIds}
           allTasks={flatTasks}
+          members={members}
           onClear={selection.clear}
         />
       )}

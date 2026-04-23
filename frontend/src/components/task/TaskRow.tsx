@@ -37,12 +37,13 @@ interface Props {
   onToggleExpand?: () => void;
   isExpanded?: boolean;
   isSelected?: boolean;
+  selectionMode?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   onAddSubtask?: () => void;
   dragHandle?: React.ReactNode;
 }
 
-export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect, onAddSubtask, dragHandle }: Props) {
+export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, selectionMode, onSelect, onAddSubtask, dragHandle }: Props) {
   const navigate  = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
@@ -219,76 +220,80 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       role="row"
       onClick={() => !editingName && navigate(`/spaces/${spaceId}/tasks/${task._id}`)}
       className={`group cursor-pointer border-b border-line-dim hover:bg-lift/60 transition-colors ${isSelected ? 'bg-brand/8' : ''}`}
-      style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: '38px' }}
+      style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: kind === 'subtask' ? '34px' : '42px' }}
     >
-      {/* Col 1 — checkbox (selection mode) OR drag handle + toggle + status (normal mode) */}
+      {/* Col 1 — normal content (drag + toggle + status) with checkbox overlay on hover */}
       <div
-        className="flex items-center justify-center gap-0.5"
+        className="relative flex items-center justify-center gap-0.5"
         style={{ paddingLeft: depth > 0 ? `${depth * 16 + 4}px` : '4px' }}
       >
-        {onSelect ? (
+        {/* Normal content — hidden only when in selection mode */}
+        <div className={`flex items-center gap-0.5 ${selectionMode ? 'invisible pointer-events-none' : ''}`}>
+          {dragHandle ?? <span className="w-3" />}
+          {onToggleExpand ? (
+            <button
+              aria-label={isExpanded ? 'Recolher' : 'Expandir'}
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+              className="w-4 h-4 flex items-center justify-center text-ink-muted hover:text-ink transition-colors shrink-0 opacity-50 group-hover:opacity-100"
+            >
+              {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            </button>
+          ) : (
+            <span className="w-4" />
+          )}
+
+          {/* Status picker */}
+          <div ref={statusRef} className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
+            <Tooltip content={STATUS_LABELS[localStatus]} disabled={statusOpen}>
+              <button
+                aria-label={`Status: ${STATUS_LABELS[localStatus]}`}
+                onClick={() => setStatusOpen((v) => !v)}
+                className={`rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[localStatus]} hover:scale-125 transition-transform ${kind === 'subtask' ? 'w-2.5 h-2.5' : 'w-3 h-3'}`}
+              />
+            </Tooltip>
+
+            {statusOpen && (
+              <div className="absolute top-full left-0 mt-1.5 z-50 min-w-[140px] bg-modal border border-line rounded-xl shadow-2xl py-1 flex flex-col">
+                {STATUSES.map((s) => {
+                  const isCurrent = s === localStatus;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => changeStatus(s)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-lift transition-colors"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[s]}`} />
+                      <span style={isCurrent ? { color: T.status[s] } : {}} className={isCurrent ? 'font-semibold' : 'text-ink'}>
+                        {STATUS_LABELS[s]}
+                      </span>
+                      {isCurrent && <span className="ml-auto text-[10px] text-ink-muted">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Checkbox overlay — only visible in selection mode */}
+        {onSelect && selectionMode && (
           <button
             aria-label={isSelected ? 'Desmarcar' : 'Selecionar'}
             onClick={(e) => { e.stopPropagation(); onSelect(task._id, kind); }}
-            className={`w-4 h-4 flex items-center justify-center rounded shrink-0 transition-all border ${
+            className="absolute inset-0 flex items-center justify-center z-10"
+          >
+            <span className={`w-4 h-4 flex items-center justify-center rounded shrink-0 transition-all border ${
               isSelected
                 ? 'border-brand bg-brand text-white'
-                : 'border-ink-muted/40 bg-transparent text-transparent hover:border-brand/60 hover:bg-brand/8'
-            }`}
-          >
-            {isSelected && (
-              <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className="shrink-0">
-                <path d="M1 3L3 5L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            )}
-          </button>
-        ) : (
-          <>
-            {dragHandle ?? <span className="w-3" />}
-            {onToggleExpand ? (
-              <button
-                aria-label={isExpanded ? 'Recolher' : 'Expandir'}
-                onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-                className="w-4 h-4 flex items-center justify-center text-ink-muted hover:text-ink transition-colors shrink-0 opacity-50 group-hover:opacity-100"
-              >
-                {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-              </button>
-            ) : (
-              <span className="w-4" />
-            )}
-
-            {/* Status picker */}
-            <div ref={statusRef} className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
-              <Tooltip content={STATUS_LABELS[localStatus]} disabled={statusOpen}>
-                <button
-                  aria-label={`Status: ${STATUS_LABELS[localStatus]}`}
-                  onClick={() => setStatusOpen((v) => !v)}
-                  className={`w-3 h-3 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[localStatus]} hover:scale-125 transition-transform`}
-                />
-              </Tooltip>
-
-              {statusOpen && (
-                <div className="absolute top-full left-0 mt-1.5 z-50 min-w-[140px] bg-modal border border-line rounded-xl shadow-2xl py-1 flex flex-col">
-                  {STATUSES.map((s) => {
-                    const isCurrent = s === localStatus;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => changeStatus(s)}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-lift transition-colors"
-                      >
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[s]}`} />
-                        <span style={isCurrent ? { color: T.status[s] } : {}} className={isCurrent ? 'font-semibold' : 'text-ink'}>
-                          {STATUS_LABELS[s]}
-                        </span>
-                        {isCurrent && <span className="ml-auto text-[10px] text-ink-muted">✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                : 'border-ink-muted/40 bg-transparent hover:border-brand/60 hover:bg-brand/8'
+            }`}>
+              {isSelected && (
+                <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className="shrink-0">
+                  <path d="M1 3L3 5L7 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               )}
-            </div>
-          </>
+            </span>
+          </button>
         )}
       </div>
 
@@ -333,7 +338,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           />
         ) : (
           <>
-            <span className="text-sm text-ink truncate leading-tight flex-1 min-w-0">
+            <span className={`truncate leading-tight flex-1 min-w-0 ${kind === 'subtask' ? 'text-xs text-ink-dim' : 'text-sm text-ink font-medium'}`}>
               {task.name}
             </span>
             <button
@@ -501,6 +506,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             task={task}
             spaceId={spaceId}
             onDone={() => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] })}
+            onSelect={onSelect ? () => onSelect(task._id, kind) : undefined}
           />
         )}
       </div>

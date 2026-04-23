@@ -25,6 +25,9 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 ### Layout da tela de tarefa estilo ClickUp
 Redesenhar o painel de detalhes da tarefa com layout de três colunas: subtarefas à esquerda, campos e descrição no centro, atividade + comentários à direita. Atualmente tudo é exibido em coluna única em um drawer lateral. A mudança aproxima a experiência do ClickUp e melhora a densidade de informação sem sacrificar usabilidade.
 
+### Persistência de navegação ao recarregar
+Se o usuário estiver com uma tarefa aberta e recarregar a página, deve voltar direto para ela. A rota `/spaces/:spaceId/tasks/:taskId` já existe — basta garantir que o deep link funcione sem redirecionar para a lista raiz.
+
 ### Seletor de pontos: posicionamento e margem
 O popover do seletor de story points deve exibir acima quando não há espaço abaixo na tela (detecção de viewport). Adicionar margem inferior para evitar que fique colado à borda da janela.
 

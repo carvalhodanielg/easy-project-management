@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, Check, Loader2 } from 'lucide-react';
-import MDEditor from '@uiw/react-md-editor';
+import { MarkdownLiveEditor } from '../../components/editor/MarkdownLiveEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
@@ -28,7 +28,6 @@ export function TaskDetailPage() {
   const { spaceId, taskId } = useParams<{ spaceId: string; taskId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [editingDesc,  setEditingDesc]  = useState(false);
   const [description,  setDescription]  = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [title,        setTitle]        = useState('');
@@ -221,50 +220,14 @@ export function TaskDetailPage() {
 
             {/* Description */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className={FIELD_LABEL}>Descrição</label>
-                {!editingDesc && (
-                  <button
-                    onClick={() => setEditingDesc(true)}
-                    className="text-xs text-ink-muted hover:text-ink transition-colors flex items-center gap-1"
-                  >
-                    <Pencil size={10} /> Editar
-                  </button>
-                )}
-              </div>
-              {editingDesc ? (
-                <div data-color-mode="dark">
-                  <MDEditor
-                    value={description}
-                    onChange={(v) => setDescription(v ?? '')}
-                    height={220}
-                  />
-                  <div className="flex gap-2 mt-2.5">
-                    <button
-                      onClick={() => { updateMutation.mutate({ description }); setEditingDesc(false); }}
-                      className="px-3 py-1.5 bg-brand text-white text-xs font-medium rounded-lg transition-all"
-                    >
-                      Salvar
-                    </button>
-                    <button
-                      onClick={() => { setEditingDesc(false); setDescription(task.description); }}
-                      className="px-3 py-1.5 text-xs text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => setEditingDesc(true)}
-                  className="min-h-14 px-4 py-3 bg-lift border border-line rounded-xl text-sm cursor-pointer hover:border-brand/25 transition-colors"
-                >
-                  {task.description
-                    ? <span className="text-ink whitespace-pre-wrap leading-relaxed">{task.description}</span>
-                    : <span className="text-ink-muted text-xs">Clique para adicionar uma descrição…</span>
-                  }
-                </div>
-              )}
+              <label className={FIELD_LABEL}>Descrição</label>
+              <MarkdownLiveEditor
+                value={description}
+                onChange={setDescription}
+                onBlur={() => updateMutation.mutate({ description })}
+                placeholder="Adicionar uma descrição…"
+                minHeight={160}
+              />
             </div>
 
             {/* Subtasks */}

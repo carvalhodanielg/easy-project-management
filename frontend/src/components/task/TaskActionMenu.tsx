@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, Trash2, MoveRight, Copy, ChevronRight, ArrowUpFromLine, MoveUpRight } from 'lucide-react';
+import { MoreHorizontal, Trash2, MoveRight, Copy, ChevronRight, ArrowUpFromLine, MoveUpRight, CheckSquare } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
@@ -14,9 +14,10 @@ interface Props {
   task: Task;
   spaceId: string;
   onDone: () => void;
+  onSelect?: () => void;
 }
 
-export function TaskActionMenu({ task, spaceId, onDone }: Props) {
+export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
   const queryClient = useQueryClient();
   const isSubtask = !!task.parentTask;
 
@@ -145,6 +146,15 @@ export function TaskActionMenu({ task, spaceId, onDone }: Props) {
         >
           {view === 'main' && (
             <>
+              {onSelect && (
+                <button
+                  onClick={() => { setOpen(false); onSelect(); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-ink hover:bg-lift transition-colors"
+                >
+                  <CheckSquare size={13} />
+                  Selecionar
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"

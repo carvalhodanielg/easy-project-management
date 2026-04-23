@@ -21,6 +21,7 @@ import {
   BulkDeleteDto,
   BulkMoveDto,
   BulkDuplicateDto,
+  BulkUpdateTaskDto,
   ConvertToSubtaskDto,
   PromoteToMainTaskDto,
   MoveSubtaskDto,
@@ -101,6 +102,16 @@ export class TasksController {
       user._id.toString(),
       dto,
     );
+  }
+
+  @Post('bulk-update')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bulkUpdate(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: BulkUpdateTaskDto,
+  ) {
+    return this.tasksService.bulkUpdate(spaceId, dto);
   }
 
   @Post('convert-to-subtask')

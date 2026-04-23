@@ -724,6 +724,49 @@ describe('TasksService', () => {
     });
   });
 
+  describe('bulkUpdate', () => {
+    it('calls updateMany with status field', async () => {
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.bulkUpdate(spaceId, { taskIds: [taskId], status: TaskStatus.EmProgresso });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
+        { $set: { status: TaskStatus.EmProgresso } },
+      );
+    });
+
+    it('calls updateMany with priority field', async () => {
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.bulkUpdate(spaceId, { taskIds: [taskId], priority: TaskPriority.Alta });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
+        { $set: { priority: TaskPriority.Alta } },
+      );
+    });
+
+    it('converts assignee strings to ObjectIds', async () => {
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.bulkUpdate(spaceId, { taskIds: [taskId], assignees: [userId] });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.anything(),
+        { $set: { assignees: expect.arrayContaining([expect.any(Types.ObjectId)]) } },
+      );
+    });
+
+    it('does not call updateMany when no fields provided', async () => {
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      await service.bulkUpdate(spaceId, { taskIds: [taskId] });
+
+      expect(mockTaskModel.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('duplicateSubtask', () => {
     it('creates a copy of the subtask under the new parent with inherited listId/sprintId', async () => {
       const newParentId = new Types.ObjectId().toString();

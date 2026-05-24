@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Pencil, Check, Loader2 } from 'lucide-react';
+import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
 import { MarkdownLiveEditor } from '../../components/editor/MarkdownLiveEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
@@ -36,6 +36,12 @@ export function TaskDetailPage() {
     queryKey: ['task', taskId],
     queryFn: () => tasksApi.getTask(spaceId!, taskId!),
     enabled: !!spaceId && !!taskId,
+  });
+
+  const { data: parentTask } = useQuery({
+    queryKey: ['task', task?.parentTask],
+    queryFn: () => tasksApi.getTask(spaceId!, task!.parentTask!),
+    enabled: !!spaceId && !!task?.parentTask,
   });
 
   useEffect(() => {
@@ -73,14 +79,14 @@ export function TaskDetailPage() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end"
+      className="fixed inset-0 z-50 flex items-stretch justify-center"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
       onClick={() => navigate(-1)}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[700px] max-w-full h-full bg-modal flex flex-col overflow-hidden"
-        style={{ boxShadow: '-16px 0 60px rgba(0,0,0,0.5)' }}
+        className="w-full max-w-[1280px] h-full bg-modal flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 0 80px rgba(0,0,0,0.6)' }}
       >
         {/* Status accent line */}
         <div className="h-0.5 shrink-0" style={{ background: statusColor }} />
@@ -88,6 +94,16 @@ export function TaskDetailPage() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-start gap-3 shrink-0">
           <div className="flex-1 min-w-0 pt-0.5">
+            {task.parentTask && parentTask && (
+              <button
+                data-testid="parent-task-breadcrumb"
+                onClick={() => navigate(`/spaces/${spaceId}/tasks/${parentTask._id}`)}
+                className="flex items-center gap-1.5 mb-2 text-xs text-ink-muted hover:text-brand transition-colors max-w-full"
+              >
+                <CornerLeftUp size={11} className="shrink-0" />
+                <span className="truncate">{parentTask.name}</span>
+              </button>
+            )}
             {editingTitle ? (
               <div className="flex items-center gap-2">
                 <input
@@ -125,129 +141,178 @@ export function TaskDetailPage() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 flex flex-col gap-6">
+        {/* Three-column body */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
 
-            {/* Quick-edit chips */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Status */}
-              <select
-                value={task.status}
-                onChange={(e) => updateMutation.mutate({ status: e.target.value as TaskStatus })}
-                title={blocked ? 'Tarefa bloqueada — conclua as dependências primeiro' : undefined}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none border transition-colors"
-                style={{
-                  background: statusColor + '15',
-                  color: statusColor,
-                  borderColor: statusColor + '40',
-                }}
-              >
-                {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                  <option
-                    key={v}
-                    value={v}
-                    disabled={blocked && (v === 'feito' || v === 'fechado')}
-                  >
-                    {l}{blocked && (v === 'feito' || v === 'fechado') ? ' (bloqueada)' : ''}
-                  </option>
-                ))}
-              </select>
-
-              {/* Priority */}
-              <select
-                value={task.priority}
-                onChange={(e) => updateMutation.mutate({ priority: e.target.value as TaskPriority })}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              >
-                {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-
-              {/* Story points */}
-              <select
-                value={task.storyPoints ?? ''}
-                onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              >
-                <option value="">— pts</option>
-                {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
-              </select>
-
-              {/* Due date */}
-              <input
-                type="date"
-                value={task.dueDate ? task.dueDate.substring(0, 10) : ''}
-                onChange={(e) => updateMutation.mutate({ dueDate: e.target.value || null })}
-                className="px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              />
-            </div>
-
-            {/* Assignees */}
-            <div>
-              <label className={FIELD_LABEL}>Responsáveis</label>
-              <AssigneeSelector
-                spaceId={spaceId!}
-                assignees={task.assignees}
-                onChange={(ids) => updateMutation.mutate({ assignees: ids })}
-              />
-            </div>
-
-            {/* Tags */}
-            {task.tags.length > 0 && (
-              <div>
-                <label className={FIELD_LABEL}>Tags</label>
-                <div className="flex flex-wrap gap-2">
-                  {task.tags.map((tag) => (
-                    <span
-                      key={tag._id}
-                      style={{
-                        background: tag.color + '18',
-                        color: tag.color,
-                        border: `1px solid ${tag.color}30`,
-                      }}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
+          {/* Left column — Parent task + Subtasks */}
+          <div
+            data-testid="task-detail-col-subtasks"
+            className="w-[280px] shrink-0 border-r border-line flex flex-col overflow-hidden"
+          >
+            {task.parentTask && (
+              <>
+                <div className="px-4 py-3 border-b border-line shrink-0">
+                  <span className={FIELD_LABEL} style={{ marginBottom: 0 }}>Tarefa mãe</span>
                 </div>
-              </div>
+                <div className="border-b border-line shrink-0">
+                  {parentTask ? (
+                    <button
+                      data-testid="parent-task-link"
+                      onClick={() => navigate(`/spaces/${spaceId}/tasks/${parentTask._id}`)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-lift/60 transition-colors group"
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 border-[1.5px]"
+                        style={{
+                          borderColor: STATUS_COLORS[parentTask.status],
+                          background: parentTask.status !== 'pendente' ? STATUS_COLORS[parentTask.status] + '50' : 'transparent',
+                        }}
+                      />
+                      <span className="flex-1 min-w-0 truncate text-xs text-ink-dim group-hover:text-ink transition-colors">
+                        {parentTask.name}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="px-3 py-2 flex items-center gap-2">
+                      <Loader2 size={12} className="animate-spin text-ink-muted" />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-
-            {/* Dependencies */}
-            <DependenciesSection spaceId={spaceId!} task={task} />
-
-            {/* Description */}
-            <div>
-              <label className={FIELD_LABEL}>Descrição</label>
-              <MarkdownLiveEditor
-                value={description}
-                onChange={setDescription}
-                onBlur={() => updateMutation.mutate({ description })}
-                placeholder="Adicionar uma descrição…"
-                minHeight={160}
-              />
+            <div className="px-4 py-3 border-b border-line shrink-0">
+              <span className={FIELD_LABEL} style={{ marginBottom: 0 }}>Subtarefas</span>
             </div>
-
-            {/* Subtasks */}
-            <div>
-              <label className={FIELD_LABEL}>Subtarefas</label>
-              <div className="border border-line rounded-xl overflow-hidden">
-                <SubtaskList spaceId={spaceId!} taskId={taskId!} />
-              </div>
-            </div>
-
-            {/* Activity log */}
-            <div className="border-t border-line pt-6">
-              <ActivityLog spaceId={spaceId!} taskId={taskId!} />
-            </div>
-
-            {/* Comments */}
-            <div className="border-t border-line pt-6">
-              <CommentThread spaceId={spaceId!} taskId={taskId!} />
+            <div className="flex-1 overflow-y-auto">
+              <SubtaskList spaceId={spaceId!} taskId={taskId!} compact />
             </div>
           </div>
+
+          {/* Center column — Fields + Description */}
+          <div
+            data-testid="task-detail-col-main"
+            className="flex-1 flex flex-col overflow-hidden min-w-0"
+          >
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 flex flex-col gap-6">
+
+                {/* Quick-edit chips */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={task.status}
+                    onChange={(e) => updateMutation.mutate({ status: e.target.value as TaskStatus })}
+                    title={blocked ? 'Tarefa bloqueada — conclua as dependências primeiro' : undefined}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none border transition-colors"
+                    style={{
+                      background: statusColor + '15',
+                      color: statusColor,
+                      borderColor: statusColor + '40',
+                    }}
+                  >
+                    {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                      <option
+                        key={v}
+                        value={v}
+                        disabled={blocked && (v === 'feito' || v === 'fechado')}
+                      >
+                        {l}{blocked && (v === 'feito' || v === 'fechado') ? ' (bloqueada)' : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={task.priority}
+                    onChange={(e) => updateMutation.mutate({ priority: e.target.value as TaskPriority })}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  >
+                    {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={task.storyPoints ?? ''}
+                    onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  >
+                    <option value="">— pts</option>
+                    {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={task.dueDate ? task.dueDate.substring(0, 10) : ''}
+                    onChange={(e) => updateMutation.mutate({ dueDate: e.target.value || null })}
+                    className="px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  />
+                </div>
+
+                {/* Assignees */}
+                <div>
+                  <label className={FIELD_LABEL}>Responsáveis</label>
+                  <AssigneeSelector
+                    spaceId={spaceId!}
+                    assignees={task.assignees}
+                    onChange={(ids) => updateMutation.mutate({ assignees: ids })}
+                  />
+                </div>
+
+                {/* Tags */}
+                {task.tags.length > 0 && (
+                  <div>
+                    <label className={FIELD_LABEL}>Tags</label>
+                    <div className="flex flex-wrap gap-2">
+                      {task.tags.map((tag) => (
+                        <span
+                          key={tag._id}
+                          style={{
+                            background: tag.color + '18',
+                            color: tag.color,
+                            border: `1px solid ${tag.color}30`,
+                          }}
+                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dependencies */}
+                <DependenciesSection spaceId={spaceId!} task={task} />
+
+                {/* Description */}
+                <div>
+                  <label className={FIELD_LABEL}>Descrição</label>
+                  <MarkdownLiveEditor
+                    value={description}
+                    onChange={setDescription}
+                    onBlur={() => updateMutation.mutate({ description })}
+                    placeholder="Adicionar uma descrição…"
+                    minHeight={160}
+                  />
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Right column — Activity + Comments */}
+          <div
+            data-testid="task-detail-col-activity"
+            className="w-[340px] shrink-0 border-l border-line flex flex-col overflow-hidden"
+          >
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 flex flex-col gap-6">
+                <ActivityLog spaceId={spaceId!} taskId={taskId!} />
+                <div className="border-t border-line pt-4">
+                  <CommentThread spaceId={spaceId!} taskId={taskId!} />
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

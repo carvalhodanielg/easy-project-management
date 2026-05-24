@@ -48,7 +48,7 @@ const PARENT_TASK = {
   startDate: null,
   assignees: [],
   tags: [],
-  subtaskCount: 1,
+  subtaskCount: 2,
   blockedBy: [],
   blocks: [],
   listId: 'l1',
@@ -58,12 +58,12 @@ const PARENT_TASK = {
   updatedAt: '',
 };
 
-const SUBTASK = {
-  ...TASK,
-  _id: 't1',
-  name: 'Subtarefa Teste',
-  parentTask: 'parent1',
-};
+const SUBTASK = { ...TASK, _id: 't1', name: 'Subtarefa Atual', parentTask: 'parent1' };
+
+const SIBLINGS = [
+  { ...TASK, _id: 't1', name: 'Subtarefa Atual', parentTask: 'parent1' },
+  { ...TASK, _id: 't2', name: 'Outra Subtarefa',  parentTask: 'parent1' },
+];
 
 function renderPage() {
   vi.mocked(tasksApi.getTask).mockResolvedValue(TASK as never);
@@ -84,6 +84,7 @@ function renderSubtaskPage() {
     if (taskId === 'parent1') return Promise.resolve(PARENT_TASK as never);
     return Promise.resolve(SUBTASK as never);
   });
+  vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SIBLINGS as never);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
@@ -109,7 +110,7 @@ describe('TaskDetailPage', () => {
     });
   });
 
-  it('subtasks column contains SubtaskList', async () => {
+  it('subtasks column contains SubtaskList for a top-level task', async () => {
     renderPage();
     await waitFor(() => {
       const col = screen.getByTestId('task-detail-col-subtasks');
@@ -141,16 +142,16 @@ describe('TaskDetailPage', () => {
     });
   });
 
+  it('does not show parent task link for a top-level task', async () => {
+    renderPage();
+    await waitFor(() => screen.getByText('Tarefa Teste'));
+    expect(screen.queryByTestId('parent-task-link')).not.toBeInTheDocument();
+  });
+
   it('does not show parent task breadcrumb for a top-level task', async () => {
     renderPage();
     await waitFor(() => screen.getByText('Tarefa Teste'));
     expect(screen.queryByTestId('parent-task-breadcrumb')).not.toBeInTheDocument();
-  });
-
-  it('does not show tarefa mãe section for a top-level task', async () => {
-    renderPage();
-    await waitFor(() => screen.getByText('Tarefa Teste'));
-    expect(screen.queryByTestId('parent-task-link')).not.toBeInTheDocument();
   });
 });
 
@@ -165,7 +166,7 @@ describe('TaskDetailPage — subtask navigation', () => {
     expect(screen.getByTestId('parent-task-breadcrumb')).toHaveTextContent('Tarefa Pai');
   });
 
-  it('shows parent task link in left column under "Tarefa mãe"', async () => {
+  it('shows parent task link in left column', async () => {
     renderSubtaskPage();
     await waitFor(() => {
       expect(screen.getByTestId('parent-task-link')).toBeInTheDocument();
@@ -173,12 +174,32 @@ describe('TaskDetailPage — subtask navigation', () => {
     expect(screen.getByTestId('parent-task-link')).toHaveTextContent('Tarefa Pai');
   });
 
-  it('left column shows "Subtarefas" section alongside "Tarefa mãe"', async () => {
+  it('shows all sibling subtasks in the left column', async () => {
     renderSubtaskPage();
     await waitFor(() => {
-      expect(screen.getByTestId('parent-task-link')).toBeInTheDocument();
-      expect(screen.getByTestId('subtask-list')).toBeInTheDocument();
+      expect(screen.getAllByText('Subtarefa Atual').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Outra Subtarefa')).toBeInTheDocument();
     });
+  });
+
+  it('marks the current task with a visual indicator', async () => {
+    renderSubtaskPage();
+    await waitFor(() => {
+      expect(screen.getByTestId('current-subtask-row')).toBeInTheDocument();
+    });
+  });
+
+  it('does not mark other siblings as current', async () => {
+    renderSubtaskPage();
+    await waitFor(() => screen.getByText('Outra Subtarefa'));
+    const all = screen.queryAllByTestId('current-subtask-row');
+    expect(all).toHaveLength(1);
+  });
+
+  it('does not render SubtaskList when viewing a subtask', async () => {
+    renderSubtaskPage();
+    await waitFor(() => screen.getByTestId('parent-task-link'));
+    expect(screen.queryByTestId('subtask-list')).not.toBeInTheDocument();
   });
 
   it('clicking parent task breadcrumb navigates to parent', async () => {

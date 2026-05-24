@@ -44,6 +44,12 @@ export function TaskDetailPage() {
     enabled: !!spaceId && !!task?.parentTask,
   });
 
+  const { data: siblings = [] } = useQuery({
+    queryKey: ['subtasks', task?.parentTask],
+    queryFn: () => tasksApi.getSubtasks(spaceId!, task!.parentTask!),
+    enabled: !!spaceId && !!task?.parentTask,
+  });
+
   useEffect(() => {
     if (task) {
       setDescription(task.description);
@@ -144,22 +150,19 @@ export function TaskDetailPage() {
         {/* Three-column body */}
         <div className="flex-1 flex overflow-hidden min-h-0">
 
-          {/* Left column — Parent task + Subtasks */}
+          {/* Left column — context tree */}
           <div
             data-testid="task-detail-col-subtasks"
             className="w-[280px] shrink-0 border-r border-line flex flex-col overflow-hidden"
           >
-            {task.parentTask && (
-              <>
-                <div className="px-4 py-3 border-b border-line shrink-0">
-                  <span className={FIELD_LABEL} style={{ marginBottom: 0 }}>Tarefa mãe</span>
-                </div>
-                <div className="border-b border-line shrink-0">
-                  {parentTask ? (
+            <div className="flex-1 overflow-y-auto">
+              {task.parentTask ? (
+                <>
+                  {parentTask && (
                     <button
                       data-testid="parent-task-link"
                       onClick={() => navigate(`/spaces/${spaceId}/tasks/${parentTask._id}`)}
-                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-lift/60 transition-colors group"
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-lift/60 border-b border-line transition-colors group"
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0 border-[1.5px]"
@@ -168,23 +171,41 @@ export function TaskDetailPage() {
                           background: parentTask.status !== 'pendente' ? STATUS_COLORS[parentTask.status] + '50' : 'transparent',
                         }}
                       />
-                      <span className="flex-1 min-w-0 truncate text-xs text-ink-dim group-hover:text-ink transition-colors">
+                      <span className="flex-1 min-w-0 truncate text-xs font-medium text-ink-dim group-hover:text-ink transition-colors">
                         {parentTask.name}
                       </span>
                     </button>
-                  ) : (
-                    <div className="px-3 py-2 flex items-center gap-2">
-                      <Loader2 size={12} className="animate-spin text-ink-muted" />
-                    </div>
                   )}
-                </div>
-              </>
-            )}
-            <div className="px-4 py-3 border-b border-line shrink-0">
-              <span className={FIELD_LABEL} style={{ marginBottom: 0 }}>Subtarefas</span>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <SubtaskList spaceId={spaceId!} taskId={taskId!} compact />
+                  {siblings.map((sub) => {
+                    const isCurrent = sub._id === taskId;
+                    return (
+                      <button
+                        key={sub._id}
+                        data-testid={isCurrent ? 'current-subtask-row' : undefined}
+                        onClick={() => navigate(`/spaces/${spaceId}/tasks/${sub._id}`)}
+                        className={`flex items-center gap-2.5 w-full px-3 py-2 pl-6 text-left border-b border-line-dim transition-colors group ${
+                          isCurrent ? 'bg-lift/40 border-l-2 border-brand' : 'hover:bg-lift/60'
+                        }`}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0 border-[1.5px]"
+                          style={{
+                            borderColor: STATUS_COLORS[sub.status],
+                            background: sub.status !== 'pendente' ? STATUS_COLORS[sub.status] + '50' : 'transparent',
+                          }}
+                        />
+                        <span className={`flex-1 min-w-0 truncate text-xs transition-colors ${
+                          isCurrent ? 'text-ink' : 'text-ink-dim group-hover:text-ink'
+                        }`}>
+                          {sub.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                <SubtaskList spaceId={spaceId!} taskId={taskId!} compact />
+              )}
             </div>
           </div>
 

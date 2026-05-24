@@ -17,13 +17,11 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 - [x] Menu de ações por tarefa — botão `⋯` em cada linha de tarefa e subtarefa com **Apagar** (cascade delete de subtarefas + aviso), **Mover** e **Duplicar**; subtarefas têm sub-ações "Mudar pai" e "Promover para tarefa principal"
 - [x] Pastas de sprints configuráveis — schema `SprintFolder`, cron de encerramento automático e geração de sprints futuras, integração no MCP (`create_sprint_folder`, `list_sprint_folders`, `update_sprint`)
 - [x] Bloqueio de conclusão por dependências — impede marcar tarefa como concluída enquanto dependências estão pendentes
+- [x] Layout da tela de tarefa estilo ClickUp — três colunas: subtarefas à esquerda, campos/descrição no centro, atividade+comentários à direita; modal centralizado de 1280px substituindo drawer de 700px
 
 ---
 
 ## Alta prioridade
-
-### Layout da tela de tarefa estilo ClickUp
-Redesenhar o painel de detalhes da tarefa com layout de três colunas: subtarefas à esquerda, campos e descrição no centro, atividade + comentários à direita. Atualmente tudo é exibido em coluna única em um drawer lateral. A mudança aproxima a experiência do ClickUp e melhora a densidade de informação sem sacrificar usabilidade.
 
 ### Persistência de navegação ao recarregar
 Se o usuário estiver com uma tarefa aberta e recarregar a página, deve voltar direto para ela. A rota `/spaces/:spaceId/tasks/:taskId` já existe — basta garantir que o deep link funcione sem redirecionar para a lista raiz.

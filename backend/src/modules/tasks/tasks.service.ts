@@ -18,6 +18,7 @@ import {
   AddDependencyDto,
   BulkMoveDto,
   PromoteToMainTaskDto,
+  BulkUpdateTaskDto,
 } from './dto/create-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
@@ -622,6 +623,21 @@ export class TasksService {
           createdBy: new Types.ObjectId(userId),
         });
       }
+    }
+  }
+
+  async bulkUpdate(spaceId: string, dto: BulkUpdateTaskDto): Promise<void> {
+    const { taskIds, assignees, ...fields } = dto;
+    const oids = taskIds.map((id) => new Types.ObjectId(id));
+    const filter = { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) };
+
+    const set: Record<string, unknown> = { ...fields };
+    if (assignees !== undefined) {
+      set.assignees = assignees.map((id) => new Types.ObjectId(id));
+    }
+
+    if (Object.keys(set).length > 0) {
+      await this.taskModel.updateMany(filter, { $set: set }).exec();
     }
   }
 

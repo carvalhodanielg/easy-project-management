@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Pencil, Check, Loader2 } from 'lucide-react';
-import MDEditor from '@uiw/react-md-editor';
+import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
+import { MarkdownLiveEditor } from '../../components/editor/MarkdownLiveEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
@@ -28,7 +28,6 @@ export function TaskDetailPage() {
   const { spaceId, taskId } = useParams<{ spaceId: string; taskId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [editingDesc,  setEditingDesc]  = useState(false);
   const [description,  setDescription]  = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [title,        setTitle]        = useState('');
@@ -37,6 +36,18 @@ export function TaskDetailPage() {
     queryKey: ['task', taskId],
     queryFn: () => tasksApi.getTask(spaceId!, taskId!),
     enabled: !!spaceId && !!taskId,
+  });
+
+  const { data: parentTask } = useQuery({
+    queryKey: ['task', task?.parentTask],
+    queryFn: () => tasksApi.getTask(spaceId!, task!.parentTask!),
+    enabled: !!spaceId && !!task?.parentTask,
+  });
+
+  const { data: siblings = [] } = useQuery({
+    queryKey: ['subtasks', task?.parentTask],
+    queryFn: () => tasksApi.getSubtasks(spaceId!, task!.parentTask!),
+    enabled: !!spaceId && !!task?.parentTask,
   });
 
   useEffect(() => {
@@ -72,16 +83,25 @@ export function TaskDetailPage() {
   const statusColor = STATUS_COLORS[task.status];
   const blocked = isTaskBlocked(task);
 
+  function handleClose() {
+    const listId = task.listId ?? parentTask?.listId ?? null;
+    const sprintId = task.sprintId ?? parentTask?.sprintId ?? null;
+    if (listId) navigate(`/spaces/${spaceId}/lists/${listId}`);
+    else if (sprintId) navigate(`/spaces/${spaceId}/sprints/${sprintId}`);
+    else navigate(`/spaces/${spaceId}`);
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end"
+      data-testid="task-detail-backdrop"
+      className="fixed inset-0 z-50 flex items-stretch justify-center"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-      onClick={() => navigate(-1)}
+      onClick={handleClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[700px] max-w-full h-full bg-modal flex flex-col overflow-hidden"
-        style={{ boxShadow: '-16px 0 60px rgba(0,0,0,0.5)' }}
+        className="w-full max-w-[1280px] h-full bg-modal flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 0 80px rgba(0,0,0,0.6)' }}
       >
         {/* Status accent line */}
         <div className="h-0.5 shrink-0" style={{ background: statusColor }} />
@@ -89,6 +109,16 @@ export function TaskDetailPage() {
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-start gap-3 shrink-0">
           <div className="flex-1 min-w-0 pt-0.5">
+            {task.parentTask && parentTask && (
+              <button
+                data-testid="parent-task-breadcrumb"
+                onClick={() => navigate(`/spaces/${spaceId}/tasks/${parentTask._id}`)}
+                className="flex items-center gap-1.5 mb-2 text-xs text-ink-muted hover:text-brand transition-colors max-w-full"
+              >
+                <CornerLeftUp size={11} className="shrink-0" />
+                <span className="truncate">{parentTask.name}</span>
+              </button>
+            )}
             {editingTitle ? (
               <div className="flex items-center gap-2">
                 <input
@@ -119,172 +149,201 @@ export function TaskDetailPage() {
             )}
           </div>
           <button
-            onClick={() => navigate(-1)}
+            data-testid="close-button"
+            onClick={handleClose}
             className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-lift transition-colors shrink-0 mt-0.5"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 flex flex-col gap-6">
+        {/* Three-column body */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
 
-            {/* Quick-edit chips */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Status */}
-              <select
-                value={task.status}
-                onChange={(e) => updateMutation.mutate({ status: e.target.value as TaskStatus })}
-                title={blocked ? 'Tarefa bloqueada — conclua as dependências primeiro' : undefined}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none border transition-colors"
-                style={{
-                  background: statusColor + '15',
-                  color: statusColor,
-                  borderColor: statusColor + '40',
-                }}
-              >
-                {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                  <option
-                    key={v}
-                    value={v}
-                    disabled={blocked && (v === 'feito' || v === 'fechado')}
-                  >
-                    {l}{blocked && (v === 'feito' || v === 'fechado') ? ' (bloqueada)' : ''}
-                  </option>
-                ))}
-              </select>
-
-              {/* Priority */}
-              <select
-                value={task.priority}
-                onChange={(e) => updateMutation.mutate({ priority: e.target.value as TaskPriority })}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              >
-                {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-
-              {/* Story points */}
-              <select
-                value={task.storyPoints ?? ''}
-                onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
-                className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              >
-                <option value="">— pts</option>
-                {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
-              </select>
-
-              {/* Due date */}
-              <input
-                type="date"
-                value={task.dueDate ? task.dueDate.substring(0, 10) : ''}
-                onChange={(e) => updateMutation.mutate({ dueDate: e.target.value || null })}
-                className="px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-              />
-            </div>
-
-            {/* Assignees */}
-            <div>
-              <label className={FIELD_LABEL}>Responsáveis</label>
-              <AssigneeSelector
-                spaceId={spaceId!}
-                assignees={task.assignees}
-                onChange={(ids) => updateMutation.mutate({ assignees: ids })}
-              />
-            </div>
-
-            {/* Tags */}
-            {task.tags.length > 0 && (
-              <div>
-                <label className={FIELD_LABEL}>Tags</label>
-                <div className="flex flex-wrap gap-2">
-                  {task.tags.map((tag) => (
-                    <span
-                      key={tag._id}
-                      style={{
-                        background: tag.color + '18',
-                        color: tag.color,
-                        border: `1px solid ${tag.color}30`,
-                      }}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Dependencies */}
-            <DependenciesSection spaceId={spaceId!} task={task} />
-
-            {/* Description */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className={FIELD_LABEL}>Descrição</label>
-                {!editingDesc && (
-                  <button
-                    onClick={() => setEditingDesc(true)}
-                    className="text-xs text-ink-muted hover:text-ink transition-colors flex items-center gap-1"
-                  >
-                    <Pencil size={10} /> Editar
-                  </button>
-                )}
-              </div>
-              {editingDesc ? (
-                <div data-color-mode="dark">
-                  <MDEditor
-                    value={description}
-                    onChange={(v) => setDescription(v ?? '')}
-                    height={220}
-                  />
-                  <div className="flex gap-2 mt-2.5">
+          {/* Left column — context tree */}
+          <div
+            data-testid="task-detail-col-subtasks"
+            className="w-[280px] shrink-0 border-r border-line flex flex-col overflow-hidden"
+          >
+            <div className="flex-1 overflow-y-auto">
+              {task.parentTask ? (
+                <>
+                  {parentTask && (
                     <button
-                      onClick={() => { updateMutation.mutate({ description }); setEditingDesc(false); }}
-                      className="px-3 py-1.5 bg-brand text-white text-xs font-medium rounded-lg transition-all"
+                      data-testid="parent-task-link"
+                      onClick={() => navigate(`/spaces/${spaceId}/tasks/${parentTask._id}`)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-lift/60 border-b border-line transition-colors group"
                     >
-                      Salvar
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 border-[1.5px]"
+                        style={{
+                          borderColor: STATUS_COLORS[parentTask.status],
+                          background: parentTask.status !== 'pendente' ? STATUS_COLORS[parentTask.status] + '50' : 'transparent',
+                        }}
+                      />
+                      <span className="flex-1 min-w-0 truncate text-xs font-medium text-ink-dim group-hover:text-ink transition-colors">
+                        {parentTask.name}
+                      </span>
                     </button>
-                    <button
-                      onClick={() => { setEditingDesc(false); setDescription(task.description); }}
-                      className="px-3 py-1.5 text-xs text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
+                  )}
+                  {siblings.map((sub) => {
+                    const isCurrent = sub._id === taskId;
+                    return (
+                      <button
+                        key={sub._id}
+                        data-testid={isCurrent ? 'current-subtask-row' : undefined}
+                        onClick={() => navigate(`/spaces/${spaceId}/tasks/${sub._id}`)}
+                        className={`flex items-center gap-2.5 w-full px-3 py-2 pl-6 text-left border-b border-line-dim transition-colors group ${
+                          isCurrent ? 'bg-lift/40 border-l-2 border-brand' : 'hover:bg-lift/60'
+                        }`}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0 border-[1.5px]"
+                          style={{
+                            borderColor: STATUS_COLORS[sub.status],
+                            background: sub.status !== 'pendente' ? STATUS_COLORS[sub.status] + '50' : 'transparent',
+                          }}
+                        />
+                        <span className={`flex-1 min-w-0 truncate text-xs transition-colors ${
+                          isCurrent ? 'text-ink' : 'text-ink-dim group-hover:text-ink'
+                        }`}>
+                          {sub.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
               ) : (
-                <div
-                  onClick={() => setEditingDesc(true)}
-                  className="min-h-14 px-4 py-3 bg-lift border border-line rounded-xl text-sm cursor-pointer hover:border-brand/25 transition-colors"
-                >
-                  {task.description
-                    ? <span className="text-ink whitespace-pre-wrap leading-relaxed">{task.description}</span>
-                    : <span className="text-ink-muted text-xs">Clique para adicionar uma descrição…</span>
-                  }
-                </div>
+                <SubtaskList spaceId={spaceId!} taskId={taskId!} compact />
               )}
             </div>
+          </div>
 
-            {/* Subtasks */}
-            <div>
-              <label className={FIELD_LABEL}>Subtarefas</label>
-              <div className="border border-line rounded-xl overflow-hidden">
-                <SubtaskList spaceId={spaceId!} taskId={taskId!} />
+          {/* Center column — Fields + Description */}
+          <div
+            data-testid="task-detail-col-main"
+            className="flex-1 flex flex-col overflow-hidden min-w-0"
+          >
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 flex flex-col gap-6">
+
+                {/* Quick-edit chips */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={task.status}
+                    onChange={(e) => updateMutation.mutate({ status: e.target.value as TaskStatus })}
+                    title={blocked ? 'Tarefa bloqueada — conclua as dependências primeiro' : undefined}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none border transition-colors"
+                    style={{
+                      background: statusColor + '15',
+                      color: statusColor,
+                      borderColor: statusColor + '40',
+                    }}
+                  >
+                    {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                      <option
+                        key={v}
+                        value={v}
+                        disabled={blocked && (v === 'feito' || v === 'fechado')}
+                      >
+                        {l}{blocked && (v === 'feito' || v === 'fechado') ? ' (bloqueada)' : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={task.priority}
+                    onChange={(e) => updateMutation.mutate({ priority: e.target.value as TaskPriority })}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  >
+                    {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={task.storyPoints ?? ''}
+                    onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
+                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  >
+                    <option value="">— pts</option>
+                    {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={task.dueDate ? task.dueDate.substring(0, 10) : ''}
+                    onChange={(e) => updateMutation.mutate({ dueDate: e.target.value || null })}
+                    className="px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                  />
+                </div>
+
+                {/* Assignees */}
+                <div>
+                  <label className={FIELD_LABEL}>Responsáveis</label>
+                  <AssigneeSelector
+                    spaceId={spaceId!}
+                    assignees={task.assignees}
+                    onChange={(ids) => updateMutation.mutate({ assignees: ids })}
+                  />
+                </div>
+
+                {/* Tags */}
+                {task.tags.length > 0 && (
+                  <div>
+                    <label className={FIELD_LABEL}>Tags</label>
+                    <div className="flex flex-wrap gap-2">
+                      {task.tags.map((tag) => (
+                        <span
+                          key={tag._id}
+                          style={{
+                            background: tag.color + '18',
+                            color: tag.color,
+                            border: `1px solid ${tag.color}30`,
+                          }}
+                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dependencies */}
+                <DependenciesSection spaceId={spaceId!} task={task} />
+
+                {/* Description */}
+                <div>
+                  <label className={FIELD_LABEL}>Descrição</label>
+                  <MarkdownLiveEditor
+                    value={description}
+                    onChange={setDescription}
+                    onBlur={() => updateMutation.mutate({ description })}
+                    placeholder="Adicionar uma descrição…"
+                    minHeight={160}
+                  />
+                </div>
+
               </div>
             </div>
+          </div>
 
-            {/* Activity log */}
-            <div className="border-t border-line pt-6">
-              <ActivityLog spaceId={spaceId!} taskId={taskId!} />
-            </div>
-
-            {/* Comments */}
-            <div className="border-t border-line pt-6">
-              <CommentThread spaceId={spaceId!} taskId={taskId!} />
+          {/* Right column — Activity + Comments */}
+          <div
+            data-testid="task-detail-col-activity"
+            className="w-[340px] shrink-0 border-l border-line flex flex-col overflow-hidden"
+          >
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4 flex flex-col gap-6">
+                <ActivityLog spaceId={spaceId!} taskId={taskId!} />
+                <div className="border-t border-line pt-4">
+                  <CommentThread spaceId={spaceId!} taskId={taskId!} />
+                </div>
+              </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

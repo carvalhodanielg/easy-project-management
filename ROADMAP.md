@@ -15,10 +15,26 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 - [x] Filtros salvos — salvar combinações de filtros por espaço com nome, carregar e excluir; disponível em listas e sprints via botão "Salvos" na FilterBar
 - [x] Edição inline na lista — responsável, story points e status editáveis diretamente na linha da tarefa com popovers otimistas
 - [x] Menu de ações por tarefa — botão `⋯` em cada linha de tarefa e subtarefa com **Apagar** (cascade delete de subtarefas + aviso), **Mover** e **Duplicar**; subtarefas têm sub-ações "Mudar pai" e "Promover para tarefa principal"
+- [x] Pastas de sprints configuráveis — schema `SprintFolder`, cron de encerramento automático e geração de sprints futuras, integração no MCP (`create_sprint_folder`, `list_sprint_folders`, `update_sprint`)
+- [x] Bloqueio de conclusão por dependências — impede marcar tarefa como concluída enquanto dependências estão pendentes
+- [x] Layout da tela de tarefa estilo ClickUp — três colunas: subtarefas à esquerda, campos/descrição no centro, atividade+comentários à direita; modal centralizado de 1280px substituindo drawer de 700px
 
 ---
 
 ## Alta prioridade
+
+### Persistência de navegação ao recarregar
+Se o usuário estiver com uma tarefa aberta e recarregar a página, deve voltar direto para ela. A rota `/spaces/:spaceId/tasks/:taskId` já existe — basta garantir que o deep link funcione sem redirecionar para a lista raiz.
+
+### Seletor de pontos: posicionamento e margem
+O popover do seletor de story points deve exibir acima quando não há espaço abaixo na tela (detecção de viewport). Adicionar margem inferior para evitar que fique colado à borda da janela.
+
+### Melhorias de header (redução de altura e espaço)
+O header atual ocupa espaço demais. Quatro ajustes planejados:
+1. **Notificações integradas ao nome** — remover a barra superior dedicada e mover o sino de notificações para junto do nome/avatar do usuário.
+2. **Título do sprint menor** — reduzir fonte/padding do título da sprint no header.
+3. **Barra de navegação (Tarefas / Lista / Dashboard)** — repensar o visual para algo mais compacto (ex.: tabs pequenas, pills ou ícones com tooltip).
+4. **Persistência de agrupamento e ordenação** — definir estratégia de salvamento: automático por usuário (salvo no perfil/localStorage) ou compartilhado com o espaço. Levantar requisito antes de implementar.
 
 ### Lembretes de prazo
 Notificação automática quando uma tarefa está vencendo (ex.: 1 dia antes do `dueDate`). Requer um job agendado no backend (cron NestJS) que consulta tarefas com `dueDate` próximo e cria notificações `due_soon`. Baixo custo, alto impacto para adoção.
@@ -34,39 +50,36 @@ Quick win — já existe infraestrutura de modais, é só adicionar event listen
 ### Perfil e upload de avatar
 Página de perfil do usuário com upload de foto. O campo `avatarUrl` já existe no schema de User mas nunca é preenchido. O módulo de attachments já tem lógica de upload que pode ser reaproveitada.
 
+### Operações em lote (bulk actions)
+Selecionar múltiplas tarefas via checkbox e aplicar ação em todas: mudar status, prioridade, responsável, mover para outro sprint/lista, ou apagar. Requer endpoint `PATCH /spaces/:spaceId/tasks/bulk` (recebe array de `taskId` + payload) e UI de seleção na lista. Alta alavancagem para times que gerenciam muitas tarefas.
+
 ---
 
 ## Média prioridade
 
-### Pastas de sprints configuráveis
-Dentro de um espaço, permitir criar **pastas de sprints** — um contêiner que gera e gerencia sprints automaticamente com base em uma cadência definida.
-
-**Configurações da pasta:**
-- **Nome** — identificador da pasta de sprints
-- **Dia de início do sprint** — dia da semana (segunda, terça, …, domingo) em que cada sprint começa
-- **Duração** — número de semanas de cada sprint
-- **Encerramento automático** — opção para marcar a sprint como concluída automaticamente quando a data de término chegar (cron NestJS)
-- **Sprints futuras abertas** — quantas sprints futuras devem existir abertas ao mesmo tempo; ao finalizar uma sprint, se o total de abertas cair abaixo desse número, uma nova é criada automaticamente
-- **Data limite da pasta** *(opcional)* — data de encerramento da pasta; após essa data nenhuma nova sprint é criada e a pasta é arquivada
-
-**Requisitos técnicos:**
-- Novo schema `SprintFolder` com os campos acima, vinculado ao `spaceId`
-- Cron job que, a cada dia, verifica sprints vencidas para encerrar e pastas que precisam gerar novas sprints
-- UI de criação/edição da pasta nas settings do espaço e acesso às sprints da pasta na sidebar
-
-
-
 ### Timeline / Gantt view
 Terceira visualização além de Lista e Board. Mostra tarefas numa linha do tempo com base em `startDate`/`dueDate`. Especialmente útil na tela de sprint.
 
-### Relatórios por espaço
-Além do dashboard de sprint, uma visão de produtividade do espaço inteiro: velocity histórica por sprint, tarefas abertas vs fechadas por semana, distribuição de carga por membro. Requer apenas agregações MongoDB sobre dados já existentes.
+### Notificações por e-mail
+Complemento às notificações in-app: enviar e-mail quando o usuário não estiver ativo (tarefa atribuída, menção, prazo próximo). Requer `@nestjs/mailer` + SMTP configurável por espaço. O flag `read` da notificação já existe, pode ser usado para decidir se envia o e-mail.
+
+### Rastreamento de tempo (time tracking)
+Registrar horas trabalhadas por tarefa — início/pausa/fim manual ou timer automático. Gera relatório de horas por sprint e por membro. Campos: `timeEntries[]` com `userId`, `startedAt`, `stoppedAt`, `durationMin`. Essencial para times que faturam por hora ou precisam de controle de capacidade.
+
+### Workload view
+Visualização de carga por membro: quantas tarefas e story points cada pessoa tem atribuídos na semana/sprint. Ajuda a identificar gargalos antes que o sprint seja comprometido. Dados já existem, é uma agregação + UI de calendário por membro.
 
 ### Import / Export
 - Exportar tarefas de uma lista ou sprint como CSV
 - Importar tarefas via CSV (com mapeamento de colunas)
 
 Importante para onboarding de times que vêm de outras ferramentas (Trello, Jira, ClickUp).
+
+### Relatórios por espaço
+Além do dashboard de sprint, uma visão de produtividade do espaço inteiro: velocity histórica por sprint, tarefas abertas vs fechadas por semana, distribuição de carga por membro. Requer apenas agregações MongoDB sobre dados já existentes.
+
+### Templates de tarefa
+Salvar uma tarefa (com subtarefas, checklist, campos pré-preenchidos) como template reutilizável por espaço. Útil para fluxos repetitivos como onboarding, release checklist, bug report. Schema `TaskTemplate` vinculado ao `spaceId`; ao criar tarefa, opção "usar template".
 
 ---
 
@@ -75,18 +88,29 @@ Importante para onboarding de times que vêm de outras ferramentas (Trello, Jira
 ### Campos customizados nas tarefas
 Permitir que cada espaço defina campos extras (dropdown, texto, número, checkbox) que aparecem nas tarefas. Feature avançada e diferenciadora, requer mudança no schema de Task para suportar campos dinâmicos e UI de configuração nas settings do espaço.
 
+### Tarefas recorrentes
+Tarefa que se recria automaticamente após ser concluída (diária, semanal, mensal). Campo `recurrence` no schema de Task com regra RRULE; cron NestJS cria a próxima ocorrência quando a atual é marcada como concluída. Bom para cerimônias de time (daily, weekly review).
+
+### Compartilhamento público (read-only)
+Gerar link público de um sprint ou lista para visualização sem login. Útil para stakeholders externos. Requer token de acesso sem autenticação e rota pública no backend com dados limitados.
+
 ### Integração com GitHub / GitLab
 Linkar commits e PRs a tarefas pelo número ou hash. Exibe status do PR diretamente no card da tarefa. Requer webhook ou polling na API do GitHub/GitLab.
 
 ### Real-time com WebSockets
 Substituir o polling de notificações por WebSockets (`socket.io`). O NestJS suporta nativamente. Benefício: colaboração em tempo real (ver quando alguém edita uma tarefa, receber notificações sem delay).
 
+### PWA / Mobile
+Tornar o frontend instalável como Progressive Web App com service worker e cache offline. Prioridade baixa enquanto o core da experiência é desktop-first.
+
 ---
 
 ## Notas técnicas
 
 - Drag-and-drop: `@dnd-kit/core` + `@dnd-kit/sortable` (já instalado)
-- Charts: `recharts` ou `chart.js` para dashboard
-- Cron jobs: `@nestjs/schedule` para lembretes de prazo
+- Charts: `recharts` (já instalado para o dashboard de sprint)
+- Cron jobs: `@nestjs/schedule` para lembretes de prazo e tarefas recorrentes
 - Real-time: `@nestjs/websockets` + `socket.io`
+- E-mail: `@nestjs/mailer` + Nodemailer
 - Busca: o módulo atual usa `$regex`; para escala considerar índices `$text` ou Atlas Search
+- Time tracking: duração em minutos no MongoDB, aggregation pipeline para relatórios

@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Trash2, MoveRight, Copy, ArrowUpFromLine, MoveUpRight, CornerDownRight } from 'lucide-react';
+import { X, Trash2, MoveRight, Copy, ArrowUpFromLine, MoveUpRight, CornerDownRight, ChevronDown } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
+import type { BulkUpdatePayload } from '../../api/tasks.api';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
 import { ParentTaskPickerModal } from './ParentTaskPickerModal';
-import type { Task } from '../../types/task.types';
+import type { Task, TaskStatus, TaskPriority } from '../../types/task.types';
 import type { SelectionType } from '../../hooks/useTaskSelection';
+import type { SpaceMember } from '../../types/space.types';
+import type { User } from '../../types/user.types';
 
 type ModalType =
   | 'move'
@@ -15,6 +18,8 @@ type ModalType =
   | 'move-subtask'
   | null;
 
+type PickerType = 'status' | 'priority' | 'assignee' | null;
+
 interface Props {
   spaceId: string;
   count: number;
@@ -22,7 +27,38 @@ interface Props {
   mainTaskIds: string[];
   subtaskIds: string[];
   allTasks: Task[];
+  members?: SpaceMember[];
   onClear: () => void;
+}
+
+const STATUS_OPTIONS: { value: TaskStatus; label: string; color: string }[] = [
+  { value: 'pendente', label: 'Pendente', color: 'bg-ink-muted' },
+  { value: 'em_progresso', label: 'Em progresso', color: 'bg-brand' },
+  { value: 'em_review', label: 'Em review', color: 'bg-warning' },
+  { value: 'feito', label: 'Feito', color: 'bg-success' },
+  { value: 'fechado', label: 'Fechado', color: 'bg-ink-muted/40' },
+];
+
+const PRIORITY_OPTIONS: { value: TaskPriority; label: string; color: string }[] = [
+  { value: 'urgente', label: 'Urgente', color: 'text-danger' },
+  { value: 'alta', label: 'Alta', color: 'text-warning' },
+  { value: 'normal', label: 'Normal', color: 'text-ink-dim' },
+  { value: 'baixa', label: 'Baixa', color: 'text-ink-muted' },
+];
+
+function memberUser(m: SpaceMember): User | null {
+  if (typeof m.userId === 'object' && m.userId !== null) return m.userId as User;
+  return null;
+}
+
+function useOutsideClick(ref: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [ref, onClose]);
 }
 
 export function SelectionBar({
@@ -32,10 +68,14 @@ export function SelectionBar({
   mainTaskIds,
   subtaskIds,
   allTasks,
+  members = [],
   onClear,
 }: Props) {
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<ModalType>(null);
+  const [picker, setPicker] = useState<PickerType>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(pickerRef, () => setPicker(null));
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
@@ -80,19 +120,24 @@ export function SelectionBar({
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
   });
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (updates: BulkUpdatePayload) =>
+      tasksApi.bulkUpdateTasks(spaceId, [...mainTaskIds, ...subtaskIds], updates),
+    onSuccess: () => { invalidate(); setPicker(null); },
+  });
+
   const isPending =
     deleteMutation.isPending ||
     moveMutation.isPending ||
     duplicateMutation.isPending ||
     convertMutation.isPending ||
     promoteMutation.isPending ||
-    moveSubtaskMutation.isPending;
+    moveSubtaskMutation.isPending ||
+    bulkUpdateMutation.isPending;
 
-  // Available actions depend on selection type
   const showMain = selectionType === 'main' || selectionType === 'mixed';
   const showSub  = selectionType === 'subtask' || selectionType === 'mixed';
 
-  // For convert-to-subtask, exclude the selected tasks themselves from picker
   const selectedIds = [...mainTaskIds, ...subtaskIds];
   const mainTasksOnly = allTasks.filter((t) => !t.parentTask);
 
@@ -116,6 +161,105 @@ export function SelectionBar({
           <Trash2 size={13} />
           <span className="hidden sm:inline">Excluir</span>
         </button>
+
+        <div className="w-px h-4 bg-line shrink-0" />
+
+        {/* Status picker */}
+        <div className="relative" ref={picker === 'status' ? pickerRef : undefined}>
+          <button
+            onClick={() => setPicker(picker === 'status' ? null : 'status')}
+            disabled={isPending}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-ink-dim hover:bg-lift hover:text-ink transition-colors disabled:opacity-50"
+          >
+            Status
+            <ChevronDown size={11} />
+          </button>
+          {picker === 'status' && (
+            <div className="absolute bottom-full mb-2 left-0 bg-surface border border-line rounded-xl shadow-xl py-1 min-w-[148px] z-50">
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => bulkUpdateMutation.mutate({ status: opt.value })}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink hover:bg-lift transition-colors"
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${opt.color}`} />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Priority picker */}
+        <div className="relative" ref={picker === 'priority' ? pickerRef : undefined}>
+          <button
+            onClick={() => setPicker(picker === 'priority' ? null : 'priority')}
+            disabled={isPending}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-ink-dim hover:bg-lift hover:text-ink transition-colors disabled:opacity-50"
+          >
+            Prioridade
+            <ChevronDown size={11} />
+          </button>
+          {picker === 'priority' && (
+            <div className="absolute bottom-full mb-2 left-0 bg-surface border border-line rounded-xl shadow-xl py-1 min-w-[132px] z-50">
+              {PRIORITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => bulkUpdateMutation.mutate({ priority: opt.value })}
+                  className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-lift transition-colors ${opt.color}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Assignee picker */}
+        {members.length > 0 && (
+          <div className="relative" ref={picker === 'assignee' ? pickerRef : undefined}>
+            <button
+              onClick={() => setPicker(picker === 'assignee' ? null : 'assignee')}
+              disabled={isPending}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-ink-dim hover:bg-lift hover:text-ink transition-colors disabled:opacity-50"
+            >
+              Responsável
+              <ChevronDown size={11} />
+            </button>
+            {picker === 'assignee' && (
+              <div className="absolute bottom-full mb-2 left-0 bg-surface border border-line rounded-xl shadow-xl py-1 min-w-[168px] z-50 max-h-48 overflow-y-auto">
+                <button
+                  onClick={() => bulkUpdateMutation.mutate({ assignees: [] })}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink-muted hover:bg-lift transition-colors"
+                >
+                  Sem responsável
+                </button>
+                {members.map((m) => {
+                  const u = memberUser(m);
+                  if (!u) return null;
+                  return (
+                    <button
+                      key={m._id}
+                      onClick={() => bulkUpdateMutation.mutate({ assignees: [u._id] })}
+                      className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink hover:bg-lift transition-colors"
+                    >
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span className="w-5 h-5 rounded-full bg-brand/20 text-brand text-[10px] font-semibold flex items-center justify-center shrink-0">
+                          {u.name?.[0]?.toUpperCase() ?? '?'}
+                        </span>
+                      )}
+                      {u.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="w-px h-4 bg-line shrink-0" />
 
         {/* Move — only for main tasks */}
         {showMain && (

@@ -2,17 +2,19 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { TaskRowWithSubtasks } from './TaskRowWithSubtasks';
-import type { Task } from '../../types/task.types';
+import type { Task, SubtaskMode } from '../../types/task.types';
 
 interface Props {
   task: Task;
   spaceId: string;
+  subtaskMode?: SubtaskMode;
   isSelected?: boolean;
+  selectionMode?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   isSelectedFn?: (id: string) => boolean;
 }
 
-export function SortableTaskRow({ task, ...rest }: Props) {
+export function SortableTaskRow({ task, selectionMode, ...rest }: Props) {
   const {
     attributes,
     listeners,
@@ -23,7 +25,7 @@ export function SortableTaskRow({ task, ...rest }: Props) {
     isDragging,
   } = useSortable({ id: task._id, data: { type: 'task' } });
 
-  const dragEnabled = !rest.onSelect;
+  const dragEnabled = !selectionMode;
 
   const dragHandle = dragEnabled ? (
     <button

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2 } from 'lucide-react';
 import type { FilterState } from '../../hooks/useTaskFilter';
-import { type TaskStatus, type TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
+import { type TaskStatus, type TaskPriority, type SubtaskMode, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
 import type { SavedFilter } from '../../api/saved-filters.api';
 import { T } from '../../theme';
 import { cn } from '../../lib/utils';
@@ -19,7 +19,7 @@ interface Props {
   onToggleTag: (id: string) => void;
   onSetGroupBy: (g: FilterState['groupBy']) => void;
   onSetSearch: (q: string) => void;
-  onToggleSubtasks: () => void;
+  onSetSubtaskMode: (m: SubtaskMode) => void;
   onReset: () => void;
   isActive: boolean;
   // Saved filters
@@ -33,11 +33,15 @@ const STATUSES   = Object.keys(STATUS_LABELS)   as TaskStatus[];
 const PRIORITIES = Object.keys(PRIORITY_LABELS) as TaskPriority[];
 
 const GROUP_OPTIONS: { value: FilterState['groupBy']; label: string }[] = [
-  { value: undefined,    label: 'Sem agrupamento' },
-  { value: 'status',     label: 'Por status' },
-  { value: 'priority',   label: 'Por prioridade' },
-  { value: 'assignee',   label: 'Por responsável' },
-  { value: 'sprint',     label: 'Por sprint' },
+  { value: undefined,  label: 'Sem agrupamento' },
+  { value: 'status',   label: 'Por status' },
+  { value: 'assignee', label: 'Por responsável' },
+];
+
+const SUBTASK_MODES: { value: SubtaskMode; label: string }[] = [
+  { value: 'collapsed',  label: 'Recolhidas' },
+  { value: 'expanded',   label: 'Expandidas' },
+  { value: 'separated',  label: 'Separar' },
 ];
 
 function useDropdown() {
@@ -61,7 +65,7 @@ function useDropdown() {
 export function FilterBar({
   filters, members = [], tags = [],
   onToggleStatus, onTogglePriority, onToggleAssignee, onToggleTag,
-  onSetGroupBy, onSetSearch, onToggleSubtasks, onReset, isActive,
+  onSetGroupBy, onSetSearch, onSetSubtaskMode, onReset, isActive,
   savedFilters = [], onSaveFilter, onLoadFilter, onDeleteFilter,
 }: Props) {
   const filterDropdown = useDropdown();
@@ -243,16 +247,19 @@ export function FilterBar({
         <ChevronDown size={11} className="absolute right-2 text-ink-muted pointer-events-none" />
       </div>
 
-      {/* Subtasks toggle */}
-      <label className="flex items-center gap-1.5 text-sm text-ink-dim cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={filters.includeSubtasks}
-          onChange={onToggleSubtasks}
-          className="accent-brand w-3.5 h-3.5"
-        />
-        Subtarefas
-      </label>
+      {/* Subtask mode */}
+      <div className="relative flex items-center">
+        <select
+          value={filters.subtaskMode}
+          onChange={(e) => onSetSubtaskMode(e.target.value as SubtaskMode)}
+          className="appearance-none pl-3 pr-7 py-1.5 bg-lift border border-line rounded-lg text-sm text-ink-dim focus:outline-none focus:border-brand transition-colors cursor-pointer"
+        >
+          {SUBTASK_MODES.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <ChevronDown size={11} className="absolute right-2 text-ink-muted pointer-events-none" />
+      </div>
 
       {/* Saved filters dropdown — last control */}
       {(savedFilters.length > 0 || onSaveFilter) && (

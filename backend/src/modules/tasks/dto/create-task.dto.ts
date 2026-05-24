@@ -205,6 +205,30 @@ export class MoveSubtaskDto {
   newParentTaskId: string;
 }
 
+export class BulkUpdateTaskDto {
+  @IsArray()
+  @IsMongoId({ each: true })
+  taskIds: string[];
+
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  status?: TaskStatus;
+
+  @IsOptional()
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  assignees?: string[];
+
+  @IsOptional()
+  @IsNumber()
+  @IsIn([...FIBONACCI_POINTS])
+  storyPoints?: number;
+}
+
 export class DuplicateSubtaskDto {
   @IsMongoId()
   taskId: string;

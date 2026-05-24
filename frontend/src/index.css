@@ -136,3 +136,77 @@ input, select, textarea, button { font-family: var(--font-sans); }
   padding: 0.5em 1em !important;
 }
 .obsidian-editor .wmde-markdown a { color: var(--color-brand-hi) !important; }
+
+/* MarkdownLiveEditor */
+.live-editor-body {
+  padding: 0.5rem 0.75rem;
+  font-size: 14px;
+  line-height: 1.7;
+  cursor: text;
+}
+
+/* Active line: a visible textarea that matches surrounding text */
+.line-active-textarea {
+  display: block;
+  width: 100%;
+  min-height: 1.7em;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--color-brand);
+  border-radius: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  padding: 0 0 0 0.5rem;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-ink);
+  caret-color: var(--color-ink);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Rendered lines */
+.live-editor-body .line-rendered {
+  cursor: text;
+  min-height: 1.7em;
+  padding: 0 0.25rem 0 calc(0.5rem + 2px); /* match active line indent */
+  border-radius: 3px;
+}
+.live-editor-body .line-rendered:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Empty lines — preserve height for click target */
+.live-editor-body .line-blank {
+  min-height: 1.7em;
+  cursor: text;
+  padding-left: calc(0.5rem + 2px);
+}
+
+/* ReactMarkdown element resets */
+.live-editor-body .line-rendered p,
+.live-editor-body .line-rendered h1,
+.live-editor-body .line-rendered h2,
+.live-editor-body .line-rendered h3,
+.live-editor-body .line-rendered ul,
+.live-editor-body .line-rendered ol,
+.live-editor-body .line-rendered blockquote {
+  margin: 0;
+  padding: 0;
+}
+
+.live-editor-body .line-rendered h1 { font-size: 1.3em; font-weight: 700; }
+.live-editor-body .line-rendered h2 { font-size: 1.15em; font-weight: 600; }
+.live-editor-body .line-rendered h3 { font-size: 1em; font-weight: 600; }
+.live-editor-body .line-rendered strong { font-weight: 700; }
+.live-editor-body .line-rendered em { font-style: italic; }
+.live-editor-body .line-rendered code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+.live-editor-body .line-rendered a { color: var(--color-brand-hi); text-decoration: underline; }

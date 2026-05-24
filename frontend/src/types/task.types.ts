@@ -1,6 +1,7 @@
 import type { User } from './user.types';
 
 export type TaskStatus = 'pendente' | 'em_progresso' | 'em_review' | 'feito' | 'fechado';
+export type SubtaskMode = 'collapsed' | 'expanded' | 'separated';
 export type TaskPriority = 'urgente' | 'alta' | 'normal' | 'baixa';
 export type FibonacciPoint = 1 | 2 | 3 | 5 | 8 | 13 | 21 | 34 | 55 | 89;
 
@@ -87,8 +88,8 @@ export interface TaskFilterParams {
   priority?: TaskPriority[];
   assignees?: string[];
   tags?: string[];
-  groupBy?: 'status' | 'assignee' | 'sprint' | 'priority';
-  includeSubtasks?: boolean;
+  groupBy?: 'status' | 'assignee';
+  subtaskMode?: SubtaskMode;
   q?: string;
 }
 

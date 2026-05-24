@@ -9,10 +9,11 @@ interface Props {
   parentId: string;
   depth?: number;
   isSelected?: boolean;
+  selectionMode?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
 }
 
-export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, onSelect }: Props) {
+export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, selectionMode, onSelect }: Props) {
   const {
     attributes,
     listeners,
@@ -23,7 +24,7 @@ export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, onSe
     isDragging,
   } = useSortable({ id: task._id, data: { type: 'subtask', parentId } });
 
-  const dragHandle = (
+  const dragHandle = !selectionMode ? (
     <button
       ref={setActivatorNodeRef}
       {...listeners}
@@ -32,7 +33,7 @@ export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, onSe
     >
       <GripVertical size={12} aria-hidden />
     </button>
-  );
+  ) : undefined;
 
   return (
     <div
@@ -46,6 +47,7 @@ export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, onSe
           task={task}
           depth={depth}
           isSelected={isSelected}
+          selectionMode={selectionMode}
           onSelect={onSelect}
           dragHandle={dragHandle}
         />

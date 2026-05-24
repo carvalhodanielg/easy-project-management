@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { TaskFilterParams, TaskStatus, TaskPriority } from '../types/task.types';
+import { TaskFilterParams, TaskStatus, TaskPriority, SubtaskMode } from '../types/task.types';
 
 export interface FilterState {
   status: TaskStatus[];
@@ -7,7 +7,7 @@ export interface FilterState {
   assignees: string[];
   tags: string[];
   groupBy: TaskFilterParams['groupBy'];
-  includeSubtasks: boolean;
+  subtaskMode: SubtaskMode;
   q: string;
 }
 
@@ -17,7 +17,7 @@ const INITIAL: FilterState = {
   assignees: [],
   tags: [],
   groupBy: undefined,
-  includeSubtasks: false,
+  subtaskMode: 'collapsed',
   q: '',
 };
 
@@ -68,8 +68,8 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     setFilters((prev) => ({ ...prev, q }));
   }, []);
 
-  const toggleSubtasks = useCallback(() => {
-    setFilters((prev) => ({ ...prev, includeSubtasks: !prev.includeSubtasks }));
+  const setSubtaskMode = useCallback((mode: SubtaskMode) => {
+    setFilters((prev) => ({ ...prev, subtaskMode: mode }));
   }, []);
 
   const reset = useCallback(() => setFilters(INITIAL), []);
@@ -85,7 +85,7 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     filters.tags.length > 0 ||
     filters.q.length > 0 ||
     filters.groupBy !== undefined ||
-    filters.includeSubtasks;
+    filters.subtaskMode !== 'collapsed';
 
   const toQueryParams = (): TaskFilterParams => ({
     ...baseParams,
@@ -94,7 +94,7 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     ...(filters.assignees.length > 0 && { assignees: filters.assignees }),
     ...(filters.tags.length > 0 && { tags: filters.tags }),
     ...(filters.groupBy && { groupBy: filters.groupBy }),
-    ...(filters.includeSubtasks && { includeSubtasks: true }),
+    ...(filters.subtaskMode === 'separated' && { subtaskMode: 'separated' }),
     ...(filters.q && { q: filters.q }),
   });
 
@@ -107,7 +107,7 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     toggleTag,
     setGroupBy,
     setSearch,
-    toggleSubtasks,
+    setSubtaskMode,
     reset,
     loadFilter,
     toQueryParams,

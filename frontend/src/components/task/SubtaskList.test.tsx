@@ -78,6 +78,24 @@ describe('SubtaskList', () => {
     expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
   });
 
+  it('compact mode shows subtask name and no full grid row', async () => {
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId" element={<SubtaskList spaceId="sp1" taskId="t1" compact />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Subtarefa A')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('row')).not.toBeInTheDocument();
+  });
+
   it('calls onAddDone when Escape is pressed on auto-focused input', () => {
     const onAddDone = vi.fn();
     vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);

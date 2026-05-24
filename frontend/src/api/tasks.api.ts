@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult } from '../types/task.types';
+import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult, TaskStatus, TaskPriority, FibonacciPoint } from '../types/task.types';
 
 interface ApiResponse<T> { data: T; }
 
@@ -12,7 +12,7 @@ function buildParams(filters: TaskFilterParams): URLSearchParams {
   filters.assignees?.forEach((a) => p.append('assignees', a));
   filters.tags?.forEach((t) => p.append('tags', t));
   if (filters.groupBy) p.set('groupBy', filters.groupBy);
-  if (filters.includeSubtasks) p.set('includeSubtasks', 'true');
+  if (filters.subtaskMode === 'separated') p.set('includeSubtasks', 'true');
   if (filters.q) p.set('q', filters.q);
   return p;
 }
@@ -119,4 +119,19 @@ export async function moveSubtask(spaceId: string, taskIds: string[], newParentT
 
 export async function duplicateSubtask(spaceId: string, taskId: string, newParentTaskId: string): Promise<void> {
   await apiClient.post(`/spaces/${spaceId}/tasks/duplicate-subtask`, { taskId, newParentTaskId });
+}
+
+export interface BulkUpdatePayload {
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  assignees?: string[];
+  storyPoints?: FibonacciPoint;
+}
+
+export async function bulkUpdateTasks(
+  spaceId: string,
+  taskIds: string[],
+  updates: BulkUpdatePayload,
+): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-update`, { taskIds, ...updates });
 }

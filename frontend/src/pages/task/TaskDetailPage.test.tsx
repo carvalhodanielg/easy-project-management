@@ -59,6 +59,7 @@ const PARENT_TASK = {
 };
 
 const SUBTASK = { ...TASK, _id: 't1', name: 'Subtarefa Atual', parentTask: 'parent1' };
+const SUBTASK_NO_LIST = { ...SUBTASK, listId: null };
 
 const SIBLINGS = [
   { ...TASK, _id: 't1', name: 'Subtarefa Atual', parentTask: 'parent1' },
@@ -73,6 +74,8 @@ function renderPage() {
       <MemoryRouter initialEntries={['/spaces/sp1/tasks/t1']}>
         <Routes>
           <Route path="/spaces/:spaceId/tasks/:taskId" element={<TaskDetailPage />} />
+          <Route path="/spaces/:spaceId/lists/:listId" element={<div data-testid="list-page" />} />
+          <Route path="/spaces/:spaceId" element={<div data-testid="space-page" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -153,6 +156,24 @@ describe('TaskDetailPage', () => {
     await waitFor(() => screen.getByText('Tarefa Teste'));
     expect(screen.queryByTestId('parent-task-breadcrumb')).not.toBeInTheDocument();
   });
+
+  it('close button navigates to the task list page, not back in history', async () => {
+    renderPage();
+    await waitFor(() => screen.getByText('Tarefa Teste'));
+    fireEvent.click(screen.getByTestId('close-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('list-page')).toBeInTheDocument();
+    });
+  });
+
+  it('clicking the backdrop navigates to the task list page', async () => {
+    renderPage();
+    await waitFor(() => screen.getByText('Tarefa Teste'));
+    fireEvent.click(screen.getByTestId('task-detail-backdrop'));
+    await waitFor(() => {
+      expect(screen.getByTestId('list-page')).toBeInTheDocument();
+    });
+  });
 });
 
 describe('TaskDetailPage — subtask navigation', () => {
@@ -208,6 +229,30 @@ describe('TaskDetailPage — subtask navigation', () => {
     fireEvent.click(screen.getByTestId('parent-task-breadcrumb'));
     await waitFor(() => {
       expect(screen.getByTestId('parent-page')).toBeInTheDocument();
+    });
+  });
+
+  it('close button on subtask with no listId falls back to parent task listId', async () => {
+    vi.mocked(tasksApi.getTask).mockImplementation((_spaceId, taskId) => {
+      if (taskId === 'parent1') return Promise.resolve(PARENT_TASK as never);
+      return Promise.resolve(SUBTASK_NO_LIST as never);
+    });
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SIBLINGS as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1/tasks/t1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId/tasks/:taskId" element={<TaskDetailPage />} />
+            <Route path="/spaces/:spaceId/lists/:listId" element={<div data-testid="list-page" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => screen.getByTestId('close-button'));
+    fireEvent.click(screen.getByTestId('close-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('list-page')).toBeInTheDocument();
     });
   });
 });

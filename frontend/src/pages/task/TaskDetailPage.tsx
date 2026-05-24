@@ -83,11 +83,20 @@ export function TaskDetailPage() {
   const statusColor = STATUS_COLORS[task.status];
   const blocked = isTaskBlocked(task);
 
+  function handleClose() {
+    const listId = task.listId ?? parentTask?.listId ?? null;
+    const sprintId = task.sprintId ?? parentTask?.sprintId ?? null;
+    if (listId) navigate(`/spaces/${spaceId}/lists/${listId}`);
+    else if (sprintId) navigate(`/spaces/${spaceId}/sprints/${sprintId}`);
+    else navigate(`/spaces/${spaceId}`);
+  }
+
   return (
     <div
+      data-testid="task-detail-backdrop"
       className="fixed inset-0 z-50 flex items-stretch justify-center"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-      onClick={() => navigate(-1)}
+      onClick={handleClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -140,7 +149,8 @@ export function TaskDetailPage() {
             )}
           </div>
           <button
-            onClick={() => navigate(-1)}
+            data-testid="close-button"
+            onClick={handleClose}
             className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-lift transition-colors shrink-0 mt-0.5"
           >
             <X size={16} />

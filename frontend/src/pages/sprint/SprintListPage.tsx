@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Zap, Plus, Calendar, X, ArrowRight, CheckCircle2, Clock, CircleDot,
-  Loader2, Folder, Trash2, ChevronDown, ChevronRight,
+  Loader2, Folder, Trash2, ChevronDown, ChevronRight, MoreHorizontal, Pencil,
 } from 'lucide-react';
 import * as sprintsApi from '../../api/sprints.api';
 import * as sprintFoldersApi from '../../api/sprint-folders.api';
@@ -34,16 +34,27 @@ function durationDays(start: string, end: string) {
 }
 
 /* ── Sprint card ── */
-function SprintCard({ sprint, spaceId }: { sprint: Sprint; spaceId: string }) {
+function SprintCard({ sprint, spaceId, onDelete }: { sprint: Sprint; spaceId: string; onDelete: (id: string) => void }) {
   const navigate  = useNavigate();
   const meta      = STATUS_META[sprint.status];
   const StatusIcon = meta.icon;
   const days      = durationDays(sprint.startDate, sprint.endDate);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
 
   return (
-    <button
+    <div
       onClick={() => navigate(`/spaces/${spaceId}/sprints/${sprint._id}`)}
-      className="group flex flex-col gap-3.5 p-4 bg-surface border border-line rounded-xl hover:border-brand/30 hover:bg-lift/40 transition-all text-left w-full"
+      className="group relative flex flex-col gap-3.5 p-4 bg-surface border border-line rounded-xl hover:border-brand/30 hover:bg-lift/40 transition-all text-left w-full cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -59,10 +70,36 @@ function SprintCard({ sprint, spaceId }: { sprint: Sprint; spaceId: string }) {
             )}
           </div>
         </div>
-        <ArrowRight
-          size={14}
-          className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity mt-1 shrink-0"
-        />
+        <div className="flex items-center gap-1 shrink-0">
+          <ArrowRight
+            size={14}
+            className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity mt-1"
+          />
+          <div className="relative" ref={menuRef}>
+            <button
+              aria-label="Opções do sprint"
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+              className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-1 z-10 min-w-[130px] bg-modal border border-line rounded-lg shadow-xl py-1"
+              >
+                <button
+                  role="menuitem"
+                  onClick={(e) => { e.stopPropagation(); onDelete(sprint._id); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"
+                >
+                  <Trash2 size={12} />
+                  Apagar sprint
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <span className={cn('self-start flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold', meta.color, meta.bg)}>
@@ -76,7 +113,7 @@ function SprintCard({ sprint, spaceId }: { sprint: Sprint; spaceId: string }) {
         <span className="text-ink-muted/40">·</span>
         <span>{days} dias</span>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -86,13 +123,26 @@ function FolderSection({
   sprints,
   spaceId,
   onDelete,
+  onRename,
 }: {
   folder: sprintFoldersApi.SprintFolder;
   sprints: Sprint[];
   spaceId: string;
   onDelete: (id: string) => void;
+  onRename: (folder: sprintFoldersApi.SprintFolder) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
 
   const grouped = STATUS_ORDER
     .map((status) => ({ status, items: sprints.filter((s) => s.status === status) }))
@@ -132,13 +182,38 @@ function FolderSection({
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={() => onDelete(folder._id)}
-            className="p-1.5 rounded text-ink-muted hover:text-danger hover:bg-danger/10 transition-colors"
-            title="Excluir pasta"
-          >
-            <Trash2 size={12} />
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button
+              aria-label="Opções da pasta"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-1 z-10 min-w-[150px] bg-modal border border-line rounded-lg shadow-xl py-1"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { onRename(folder); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-lift transition-colors"
+                >
+                  <Pencil size={12} />
+                  Renomear
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { onDelete(folder._id); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"
+                >
+                  <Trash2 size={12} />
+                  Apagar pasta
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -158,7 +233,7 @@ function FolderSection({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {items.map((sprint) => (
-                <SprintCard key={sprint._id} sprint={sprint} spaceId={spaceId} />
+                <SprintCard key={sprint._id} sprint={sprint} spaceId={spaceId} onDelete={() => {}} />
               ))}
             </div>
           </div>
@@ -436,12 +511,90 @@ function CreateSprintFolderModal({ spaceId, onClose }: { spaceId: string; onClos
   );
 }
 
+/* ── Rename Folder Modal ── */
+function RenameFolderModal({
+  folder,
+  spaceId,
+  onClose,
+}: {
+  folder: sprintFoldersApi.SprintFolder;
+  spaceId: string;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(folder.name);
+  const [error, setError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => sprintFoldersApi.updateSprintFolder(spaceId, folder._id, { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
+      onClose();
+    },
+    onError: () => setError('Falha ao renomear pasta.'),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold text-ink">Renomear pasta</h3>
+          <button onClick={onClose} className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors">
+            <X size={15} />
+          </button>
+        </div>
+        <form
+          onSubmit={(e: FormEvent) => { e.preventDefault(); setError(''); mutation.mutate(); }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-xs font-medium text-ink-dim mb-1.5">Nome</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+              className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors"
+            />
+          </div>
+          {error && <p className="text-xs text-danger">{error}</p>}
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-2 text-sm text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60"
+            >
+              {mutation.isPending && <Loader2 size={13} className="animate-spin" />}
+              {mutation.isPending ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ── */
 export function SprintListPage() {
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [renamingFolder, setRenamingFolder] = useState<sprintFoldersApi.SprintFolder | null>(null);
 
   const { data: sprints = [], isLoading: loadingSprints } = useQuery({
     queryKey: ['sprints', spaceId],
@@ -463,9 +616,15 @@ export function SprintListPage() {
     },
   });
 
+  const deleteSprintMutation = useMutation({
+    mutationFn: (sprintId: string) => sprintsApi.deleteSprint(spaceId!, sprintId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
+    },
+  });
+
   const isLoading = loadingSprints || loadingFolders;
 
-  // Sprints not in any folder
   const unfiledSprints = sprints.filter((s) => !s.folderId);
 
   const unfiledGrouped = STATUS_ORDER
@@ -553,6 +712,7 @@ export function SprintListPage() {
             sprints={sprints.filter((s) => s.folderId === folder._id)}
             spaceId={spaceId!}
             onDelete={(id) => deleteFolderMutation.mutate(id)}
+            onRename={(f) => setRenamingFolder(f)}
           />
         ))}
 
@@ -583,7 +743,12 @@ export function SprintListPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {items.map((sprint) => (
-                      <SprintCard key={sprint._id} sprint={sprint} spaceId={spaceId!} />
+                      <SprintCard
+                        key={sprint._id}
+                        sprint={sprint}
+                        spaceId={spaceId!}
+                        onDelete={(id) => deleteSprintMutation.mutate(id)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -599,6 +764,14 @@ export function SprintListPage() {
 
       {showCreateFolder && (
         <CreateSprintFolderModal spaceId={spaceId!} onClose={() => setShowCreateFolder(false)} />
+      )}
+
+      {renamingFolder && (
+        <RenameFolderModal
+          folder={renamingFolder}
+          spaceId={spaceId!}
+          onClose={() => setRenamingFolder(null)}
+        />
       )}
     </div>
   );

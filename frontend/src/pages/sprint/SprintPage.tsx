@@ -325,24 +325,25 @@ export function SprintPage() {
           ))}
 
           {tab === 'tarefas' && (
-            <>
-              <div className="w-px h-4 bg-line mx-1" />
-              {(['list', 'kanban'] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
-                    view === v
-                      ? 'border-brand text-brand font-medium'
-                      : 'border-transparent text-ink-muted hover:text-ink-dim',
-                  )}
-                >
-                  {v === 'list' ? <LayoutList size={13} /> : <Kanban size={13} />}
-                  {v === 'list' ? 'Lista' : 'Board'}
-                </button>
-              ))}
-            </>
+            <div className="ml-auto flex items-center py-1.5" aria-label="Modo de visualização">
+              <div className="bg-lift rounded-lg p-0.5 flex items-center gap-0.5">
+                {(['list', 'kanban'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md transition-colors',
+                      view === v
+                        ? 'bg-surface text-ink font-medium shadow-sm'
+                        : 'text-ink-muted hover:text-ink',
+                    )}
+                  >
+                    {v === 'list' ? <LayoutList size={12} /> : <Kanban size={12} />}
+                    {v === 'list' ? 'Lista' : 'Board'}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

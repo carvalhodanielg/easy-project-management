@@ -1,8 +1,10 @@
 import { useRef, useState, useCallback, useLayoutEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Code, Eye } from 'lucide-react';
+import { Code, Eye, Paperclip, Loader2 } from 'lucide-react';
 import { splitLines, joinLines } from './markdownLineUtils';
+import { buildMarkdownEmbed, ACCEPT_ATTACHMENTS } from '../../api/attachments.api';
+import { useAttachmentUpload, filesFromPaste, filesFromDrop } from '../../hooks/useAttachmentUpload';
 
 export type EditorMode = 'raw' | 'live';
 
@@ -23,11 +25,15 @@ export function MarkdownLiveEditor({
 }: MarkdownLiveEditorProps) {
   const [mode, setMode] = useState<EditorMode>('live');
   const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const activeTextareaRef = useRef<HTMLTextAreaElement>(null);
   const rawTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Cursor column to apply after the next render
   const pendingCursorRef = useRef<{ line: number; col: number } | null>(null);
+
+  const { uploading, error: uploadError, uploadFiles } = useAttachmentUpload();
 
   const lines = splitLines(value);
 
@@ -190,8 +196,56 @@ export function MarkdownLiveEditor({
     });
   }, []);
 
+  const insertEmbeds = useCallback(
+    (markdowns: string[]) => {
+      const current = splitLines(value);
+      if (!value.trim()) {
+        onChange(markdowns.join('\n'));
+      } else {
+        const at = activeLine !== null ? activeLine + 1 : current.length;
+        const next = [...current.slice(0, at), ...markdowns, ...current.slice(at)];
+        onChange(joinLines(next));
+      }
+      onBlur?.();
+    },
+    [value, onChange, onBlur, activeLine],
+  );
+
+  const handleFiles = useCallback(
+    async (files: File[] | FileList) => {
+      const uploaded = await uploadFiles(files);
+      if (uploaded.length > 0) insertEmbeds(uploaded.map(buildMarkdownEmbed));
+    },
+    [uploadFiles, insertEmbeds],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const files = filesFromPaste(e);
+      if (files.length > 0) { e.preventDefault(); void handleFiles(files); }
+    },
+    [handleFiles],
+  );
+
   const toolbar = (
-    <div className="flex justify-end px-3 py-1.5 border-b border-line">
+    <div className="flex justify-end items-center gap-1 px-3 py-1.5 border-b border-line">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={ACCEPT_ATTACHMENTS}
+        className="hidden"
+        onChange={(e) => { if (e.target.files) void handleFiles(e.target.files); e.target.value = ''; }}
+      />
+      <button
+        type="button"
+        aria-label="Anexar arquivo"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors px-2 py-1 rounded hover:bg-lift disabled:opacity-50"
+      >
+        {uploading ? <Loader2 size={11} className="animate-spin" /> : <Paperclip size={11} />}
+      </button>
       <button
         type="button"
         onClick={toggleMode}
@@ -202,25 +256,35 @@ export function MarkdownLiveEditor({
     </div>
   );
 
+  const dropHandlers = {
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragging(true); },
+    onDragLeave: () => setDragging(false),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); setDragging(false); void handleFiles(filesFromDrop(e)); },
+  };
+
+  const dragClass = dragging ? 'border-brand ring-1 ring-brand/40' : '';
+
   if (mode === 'raw') {
     return (
-      <div className="markdown-live-editor rounded-xl border border-line bg-lift overflow-hidden hover:border-brand/25 transition-colors focus-within:border-brand/40">
+      <div className={`markdown-live-editor rounded-xl border border-line bg-lift overflow-hidden hover:border-brand/25 transition-colors focus-within:border-brand/40 ${dragClass}`} {...dropHandlers}>
         {toolbar}
         <textarea
           ref={rawTextareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
+          onPaste={handlePaste}
           placeholder={placeholder}
           className="w-full bg-transparent text-ink text-sm resize-none outline-none p-3"
           style={{ minHeight, lineHeight: 1.7, fontFamily: 'inherit' }}
         />
+        {uploadError && <p className="text-xs text-danger px-3 pb-2">{uploadError}</p>}
       </div>
     );
   }
 
   return (
-    <div className="markdown-live-editor rounded-xl border border-line bg-lift overflow-hidden hover:border-brand/25 transition-colors focus-within:border-brand/40">
+    <div className={`markdown-live-editor rounded-xl border border-line bg-lift overflow-hidden hover:border-brand/25 transition-colors focus-within:border-brand/40 ${dragClass}`} {...dropHandlers}>
       {toolbar}
       <div
         className="live-editor-body"
@@ -248,6 +312,7 @@ export function MarkdownLiveEditor({
                 onChange={(e) => updateLine(i, e.target.value)}
                 onKeyDown={(e) => handleLineKeyDown(e, i)}
                 onBlur={handleLineBlur}
+                onPaste={handlePaste}
                 rows={1}
                 className="line-active-textarea"
                 style={{ overflow: 'hidden', resize: 'none' }}
@@ -276,6 +341,7 @@ export function MarkdownLiveEditor({
           );
         })}
       </div>
+      {uploadError && <p className="text-xs text-danger px-3 pb-2">{uploadError}</p>}
     </div>
   );
 }

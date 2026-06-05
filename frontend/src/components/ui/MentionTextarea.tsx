@@ -18,6 +18,7 @@ interface Props {
   rows?: number;
   className?: string;
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   autoFocus?: boolean;
 }
 
@@ -36,6 +37,7 @@ export function MentionTextarea({
   rows = 3,
   className,
   onKeyDown,
+  onPaste,
   autoFocus,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -142,6 +144,7 @@ export function MentionTextarea({
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onPaste={onPaste}
         placeholder={placeholder}
         rows={rows}
         className={className}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
@@ -31,6 +31,9 @@ export function TaskDetailPage() {
   const [description,  setDescription]  = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [title,        setTitle]        = useState('');
+  // Mirrors `description` synchronously so onBlur saves the latest value even when
+  // the editor inserts an attachment via onChange + onBlur in the same tick.
+  const descriptionRef = useRef('');
 
   const { data: task, isLoading } = useQuery({
     queryKey: ['task', taskId],
@@ -53,6 +56,7 @@ export function TaskDetailPage() {
   useEffect(() => {
     if (task) {
       setDescription(task.description);
+      descriptionRef.current = task.description;
       setTitle(task.name);
     }
   }, [task]);
@@ -318,8 +322,8 @@ export function TaskDetailPage() {
                   <label className={FIELD_LABEL}>Descrição</label>
                   <MarkdownLiveEditor
                     value={description}
-                    onChange={setDescription}
-                    onBlur={() => updateMutation.mutate({ description })}
+                    onChange={(v) => { setDescription(v); descriptionRef.current = v; }}
+                    onBlur={() => updateMutation.mutate({ description: descriptionRef.current })}
                     placeholder="Adicionar uma descrição…"
                     minHeight={160}
                   />

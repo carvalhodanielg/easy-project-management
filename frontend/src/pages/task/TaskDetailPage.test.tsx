@@ -14,7 +14,27 @@ vi.mock('../../components/task/DependenciesSection', () => ({
   isTaskBlocked: () => false,
 }));
 vi.mock('../../components/task/AssigneeSelector', () => ({ AssigneeSelector: () => <div data-testid="assignee-selector" /> }));
-vi.mock('../../components/editor/MarkdownLiveEditor', () => ({ MarkdownLiveEditor: () => <div data-testid="markdown-editor" /> }));
+vi.mock('../../components/editor/MarkdownLiveEditor', () => ({
+  // Forwards onChange/onBlur so tests can simulate an attachment insert, which the
+  // real editor performs as `onChange(newValue)` immediately followed by `onBlur()`.
+  MarkdownLiveEditor: ({
+    onChange,
+    onBlur,
+  }: {
+    onChange: (v: string) => void;
+    onBlur?: () => void;
+  }) => (
+    <div data-testid="markdown-editor">
+      <button
+        data-testid="simulate-attach-insert"
+        onClick={() => {
+          onChange('![img](http://api/uploads/x.png)');
+          onBlur?.();
+        }}
+      />
+    </div>
+  ),
+}));
 
 const TASK = {
   _id: 't1',
@@ -126,6 +146,18 @@ describe('TaskDetailPage', () => {
     await waitFor(() => {
       const col = screen.getByTestId('task-detail-col-main');
       expect(col).toContainElement(screen.getByTestId('markdown-editor'));
+    });
+  });
+
+  it('saves the freshly inserted attachment markdown, not the stale description', async () => {
+    vi.mocked(tasksApi.updateTask).mockResolvedValue(TASK as never);
+    renderPage();
+    const btn = await screen.findByTestId('simulate-attach-insert');
+    fireEvent.click(btn);
+    await waitFor(() => {
+      expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', {
+        description: '![img](http://api/uploads/x.png)',
+      });
     });
   });
 

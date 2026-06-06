@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MDEditor from '@uiw/react-md-editor';
 import {
-  ArrowLeft, Check, Loader2, AlertCircle, Tag, X, Send,
+  ArrowLeft, Check, Loader2, AlertCircle, Tag, X, Send, Paperclip,
   Pencil, Trash2, MessageSquare, ChevronDown, ChevronUp, Eye, BookOpen, Save,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import * as notesApi from '../../api/notes.api';
+import { buildMarkdownEmbed, ACCEPT_ATTACHMENTS } from '../../api/attachments.api';
+import { useAttachmentUpload, filesFromPaste, filesFromDrop } from '../../hooks/useAttachmentUpload';
 import type { NoteComment } from '../../types/note.types';
 import { cn } from '../../lib/utils';
 import { MentionTextarea } from '../../components/ui/MentionTextarea';
@@ -206,6 +208,37 @@ export function NoteDetailPage() {
     setSaveStatus('saved'); // will flip to error only on explicit save
   };
 
+  // ── Attachments ─────────────────────────────────────────────────────────────
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const { uploading, error: uploadError, uploadFiles } = useAttachmentUpload();
+
+  const insertAtCursor = useCallback((snippet: string) => {
+    const ta = editorWrapRef.current?.querySelector('textarea');
+    const cur = contentRef.current;
+    if (ta) {
+      const start = ta.selectionStart ?? cur.length;
+      const end = ta.selectionEnd ?? start;
+      handleContentChange(cur.slice(0, start) + snippet + cur.slice(end));
+      setTimeout(() => {
+        ta.focus();
+        const pos = start + snippet.length;
+        ta.setSelectionRange(pos, pos);
+      }, 0);
+    } else {
+      handleContentChange(cur ? `${cur}\n${snippet}` : snippet);
+    }
+  }, []);
+
+  const handleNoteFiles = useCallback(
+    async (files: File[] | FileList) => {
+      const uploaded = await uploadFiles(files);
+      if (uploaded.length > 0) insertAtCursor(uploaded.map(buildMarkdownEmbed).join('\n'));
+    },
+    [uploadFiles, insertAtCursor],
+  );
+
   // Ctrl+S / Cmd+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -324,6 +357,26 @@ export function NoteDetailPage() {
           </button>
         </div>
 
+        {/* Attach file */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={ACCEPT_ATTACHMENTS}
+          className="hidden"
+          onChange={(e) => { if (e.target.files) void handleNoteFiles(e.target.files); e.target.value = ''; }}
+        />
+        <button
+          type="button"
+          aria-label="Anexar arquivo"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:bg-lift transition-colors shrink-0 disabled:opacity-50"
+          title="Anexar imagem, PDF ou Markdown"
+        >
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
+        </button>
+
         {/* Save button */}
         {saveStatus === 'error' ? (
           <div className="flex items-center gap-1.5 text-xs text-danger shrink-0">
@@ -419,7 +472,18 @@ export function NoteDetailPage() {
           )}
 
           {/* ── Editor ── */}
-          <div data-color-mode="dark" className="obsidian-editor">
+          <div
+            ref={editorWrapRef}
+            data-color-mode="dark"
+            className={cn('obsidian-editor rounded-lg transition-shadow', dragging && 'ring-2 ring-brand')}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); void handleNoteFiles(filesFromDrop(e)); }}
+            onPaste={(e) => {
+              const files = filesFromPaste(e);
+              if (files.length > 0) { e.preventDefault(); void handleNoteFiles(files); }
+            }}
+          >
             {editorMode === 'edit' ? (
               <MDEditor
                 value={content}
@@ -436,6 +500,7 @@ export function NoteDetailPage() {
                 />
               </div>
             )}
+            {uploadError && <p className="text-xs text-danger mt-2">{uploadError}</p>}
           </div>
 
           {/* ── Comments ── */}

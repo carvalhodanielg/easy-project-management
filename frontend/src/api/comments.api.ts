@@ -1,16 +1,11 @@
 import { apiClient } from './client';
 import type { User } from '../types/user.types';
 import type { Tag } from '../types/task.types';
+import type { Attachment } from './attachments.api';
 
 interface ApiResponse<T> { data: T; }
 
-export interface CommentAttachment {
-  _id: string;
-  originalName: string;
-  url: string;
-  mimeType: string;
-  sizeBytes: number;
-}
+export type CommentAttachment = Attachment;
 
 export interface Comment {
   _id: string;
@@ -66,16 +61,8 @@ export async function deleteComment(
   await apiClient.delete(`/spaces/${spaceId}/tasks/${taskId}/comments/${commentId}`);
 }
 
-export async function uploadAttachment(file: File): Promise<{ _id: string; url: string; originalName: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await apiClient.post<ApiResponse<{ _id: string; url: string; originalName: string }>>(
-    '/attachments/upload',
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
-  );
-  return res.data.data;
-}
+// Re-export the shared uploader so existing import sites keep working
+export { uploadAttachment } from './attachments.api';
 
 // Re-export Tag so consumers can use it from here
 export type { Tag };

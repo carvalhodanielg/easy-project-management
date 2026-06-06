@@ -144,7 +144,9 @@ describe('UsersService', () => {
       const updated = { ...mockUser, preferences: { theme: 'light' } };
       mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
 
-      const result = await service.updatePreferences(userId, { theme: 'light' });
+      const result = await service.updatePreferences(userId, {
+        theme: 'light',
+      });
 
       expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
         userId,
@@ -152,6 +154,34 @@ describe('UsersService', () => {
         { returnDocument: 'after' },
       );
       expect(result.preferences.theme).toBe('light');
+    });
+
+    it('persists task grouping/subtask preferences via dot-notation $set', async () => {
+      const updated = {
+        ...mockUser,
+        preferences: {
+          theme: 'dark',
+          taskGroupBy: 'status',
+          taskSubtaskMode: 'expanded',
+        },
+      };
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
+
+      await service.updatePreferences(userId, {
+        taskGroupBy: 'status',
+        taskSubtaskMode: 'expanded',
+      });
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        userId,
+        {
+          $set: {
+            'preferences.taskGroupBy': 'status',
+            'preferences.taskSubtaskMode': 'expanded',
+          },
+        },
+        { returnDocument: 'after' },
+      );
     });
 
     it('ignores undefined fields when building $set', async () => {

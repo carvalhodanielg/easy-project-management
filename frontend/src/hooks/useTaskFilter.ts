@@ -1,5 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { TaskFilterParams, TaskStatus, TaskPriority, SubtaskMode } from '../types/task.types';
+import { useAuthStore } from '../store/auth.store';
+import { updatePreferences } from '../api/users.api';
+import type { UserPreferences } from '../types/user.types';
 
 export interface FilterState {
   status: TaskStatus[];
@@ -21,8 +24,49 @@ const INITIAL: FilterState = {
   q: '',
 };
 
+// Build the initial filter state, seeding grouping/subtask mode from the
+// current user's persisted preferences ('none' means no grouping).
+function initialFromPreferences(): FilterState {
+  const prefs = useAuthStore.getState().user?.preferences;
+  return {
+    ...INITIAL,
+    groupBy:
+      prefs?.taskGroupBy && prefs.taskGroupBy !== 'none'
+        ? prefs.taskGroupBy
+        : undefined,
+    subtaskMode: prefs?.taskSubtaskMode ?? INITIAL.subtaskMode,
+  };
+}
+
 export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'sprintId'> = {}) {
-  const [filters, setFilters] = useState<FilterState>(INITIAL);
+  const [filters, setFilters] = useState<FilterState>(initialFromPreferences);
+
+  // Keep a ref to the latest filters so persistence can revert on failure
+  // without re-creating the memoized setters on every render.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  // Optimistically sync a preference patch to the auth store + backend,
+  // reverting both the store and local filter state if the request fails.
+  const persistPref = useCallback(
+    async (patch: Partial<UserPreferences>, revert: () => void) => {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      const previousPrefs = user.preferences;
+      useAuthStore.getState().setUser({
+        ...user,
+        preferences: { theme: 'dark', ...previousPrefs, ...patch },
+      });
+      try {
+        const updated = await updatePreferences(patch);
+        useAuthStore.getState().setUser(updated);
+      } catch {
+        revert();
+        useAuthStore.getState().setUser({ ...user, preferences: previousPrefs });
+      }
+    },
+    [],
+  );
 
   const toggleStatus = useCallback((s: TaskStatus) => {
     setFilters((prev) => ({
@@ -60,17 +104,31 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     }));
   }, []);
 
-  const setGroupBy = useCallback((g: FilterState['groupBy']) => {
-    setFilters((prev) => ({ ...prev, groupBy: g }));
-  }, []);
+  const setGroupBy = useCallback(
+    (g: FilterState['groupBy']) => {
+      const previous = filtersRef.current.groupBy;
+      setFilters((prev) => ({ ...prev, groupBy: g }));
+      void persistPref({ taskGroupBy: g ?? 'none' }, () =>
+        setFilters((prev) => ({ ...prev, groupBy: previous })),
+      );
+    },
+    [persistPref],
+  );
 
   const setSearch = useCallback((q: string) => {
     setFilters((prev) => ({ ...prev, q }));
   }, []);
 
-  const setSubtaskMode = useCallback((mode: SubtaskMode) => {
-    setFilters((prev) => ({ ...prev, subtaskMode: mode }));
-  }, []);
+  const setSubtaskMode = useCallback(
+    (mode: SubtaskMode) => {
+      const previous = filtersRef.current.subtaskMode;
+      setFilters((prev) => ({ ...prev, subtaskMode: mode }));
+      void persistPref({ taskSubtaskMode: mode }, () =>
+        setFilters((prev) => ({ ...prev, subtaskMode: previous })),
+      );
+    },
+    [persistPref],
+  );
 
   const reset = useCallback(() => setFilters(INITIAL), []);
 

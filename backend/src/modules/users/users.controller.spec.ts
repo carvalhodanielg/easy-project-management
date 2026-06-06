@@ -90,6 +90,20 @@ describe('UsersController', () => {
       expect(result).toEqual(publicUser);
       expect(mockUsersService.toPublic).toHaveBeenCalledWith(mockUser);
     });
+
+    it('forwards task grouping/subtask preferences', async () => {
+      mockUsersService.updatePreferences.mockResolvedValue(mockUser);
+
+      await controller.updatePreferences(mockUser as never, {
+        taskGroupBy: 'assignee',
+        taskSubtaskMode: 'separated',
+      });
+
+      expect(mockUsersService.updatePreferences).toHaveBeenCalledWith(
+        mockUser._id.toString(),
+        { taskGroupBy: 'assignee', taskSubtaskMode: 'separated' },
+      );
+    });
   });
 
   describe('POST /users/me/avatar', () => {

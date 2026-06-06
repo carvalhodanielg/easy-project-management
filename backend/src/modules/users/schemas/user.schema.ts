@@ -4,12 +4,25 @@ import { HydratedDocument } from 'mongoose';
 export type UserDocument = HydratedDocument<User>;
 
 export type ThemeMode = 'light' | 'dark';
+export type TaskGroupBy = 'none' | 'status' | 'assignee';
+export type TaskSubtaskMode = 'collapsed' | 'expanded' | 'separated';
 
 // Extensible per-user preferences. Add new keys here as needed.
 @Schema({ _id: false })
 export class UserPreferences {
   @Prop({ type: String, enum: ['light', 'dark'], default: 'dark' })
   theme: ThemeMode;
+
+  // Default grouping for task lists/sprints. 'none' = no grouping.
+  @Prop({ type: String, enum: ['none', 'status', 'assignee'], default: 'none' })
+  taskGroupBy: TaskGroupBy;
+
+  @Prop({
+    type: String,
+    enum: ['collapsed', 'expanded', 'separated'],
+    default: 'collapsed',
+  })
+  taskSubtaskMode: TaskSubtaskMode;
 }
 
 export const UserPreferencesSchema =

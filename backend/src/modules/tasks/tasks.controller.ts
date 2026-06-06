@@ -18,10 +18,9 @@ import {
   UpdateTaskDto,
   MoveTaskDto,
   AddDependencyDto,
-  BulkDeleteDto,
   BulkMoveDto,
   BulkDuplicateDto,
-  BulkUpdateTaskDto,
+  BulkPatchDto,
   ConvertToSubtaskDto,
   PromoteToMainTaskDto,
   MoveSubtaskDto,
@@ -35,7 +34,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
 import { SpaceRole } from '../spaces/schemas/space-member.schema';
 import type { UserDocument } from '../users/schemas/user.schema';
-import { Types } from 'mongoose';
 
 @Controller('spaces/:spaceId/tasks')
 @UseGuards(JwtAuthGuard, SpaceRoleGuard)
@@ -68,16 +66,6 @@ export class TasksController {
     return this.tasksService.create(spaceId, user._id.toString(), dto);
   }
 
-  @Post('bulk-delete')
-  @Roles(SpaceRole.Editor)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  bulkDelete(
-    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
-    @Body() dto: BulkDeleteDto,
-  ) {
-    return this.tasksService.bulkDelete(spaceId, dto.taskIds);
-  }
-
   @Post('bulk-move')
   @Roles(SpaceRole.Editor)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -104,14 +92,15 @@ export class TasksController {
     );
   }
 
-  @Post('bulk-update')
+  // Unified bulk action endpoint (status / priority / assignees / move / delete).
+  // Declared before `@Patch(':taskId')` so the static `bulk` segment wins.
+  @Patch('bulk')
   @Roles(SpaceRole.Editor)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  bulkUpdate(
+  bulkPatch(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
-    @Body() dto: BulkUpdateTaskDto,
+    @Body() dto: BulkPatchDto,
   ) {
-    return this.tasksService.bulkUpdate(spaceId, dto);
+    return this.tasksService.bulkPatch(spaceId, dto);
   }
 
   @Post('convert-to-subtask')

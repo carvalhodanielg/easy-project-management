@@ -182,6 +182,93 @@ describe('Tasks (e2e)', () => {
     });
   });
 
+  describe('PATCH /spaces/:spaceId/tasks/bulk', () => {
+    let bulkA: string;
+    let bulkB: string;
+
+    beforeAll(async () => {
+      const a = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Bulk A', listId, priority: 'baixa' });
+      bulkA = a.body.data._id as string;
+
+      const b = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Bulk B', listId, priority: 'baixa' });
+      bulkB = b.body.data._id as string;
+    });
+
+    it('bulk-updates status and returns affected count', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: [bulkA, bulkB], action: 'status', status: 'em_progresso' })
+        .expect(200);
+
+      expect(res.body.data).toEqual({ affected: 2 });
+
+      const check = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${bulkA}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(check.body.data.status).toBe('em_progresso');
+    });
+
+    it('bulk-moves to a sprint, clearing listId (domain rule)', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: [bulkA], action: 'move', sprintId })
+        .expect(200);
+
+      const check = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${bulkA}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(check.body.data.sprintId).toBe(sprintId);
+      expect(check.body.data.listId).toBeNull();
+    });
+
+    it('rejects a move with both listId and sprintId', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: [bulkA], action: 'move', listId, sprintId })
+        .expect(400);
+    });
+
+    it('rejects an invalid action', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: [bulkA], action: 'frobnicate' })
+        .expect(400);
+    });
+
+    it('rejects non-ObjectId taskIds', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: ['not-an-id'], action: 'status', status: 'feito' })
+        .expect(400);
+    });
+
+    it('bulk-deletes and returns affected count', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/bulk`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ taskIds: [bulkA, bulkB], action: 'delete' })
+        .expect(200);
+
+      expect(res.body.data.affected).toBeGreaterThanOrEqual(2);
+
+      await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${bulkA}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+    });
+  });
+
   describe('Subtasks', () => {
     it('creates a subtask linked to parent', async () => {
       const res = await request(app.getHttpServer())

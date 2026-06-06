@@ -9,9 +9,6 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 ### Reordenar tarefas — bug visual
 O drag-and-drop de reordenação de tarefas/subtarefas ainda apresenta um glitch visual (ex.: posição/placeholder durante o arraste). Funcionalidade persiste corretamente, mas o feedback visual precisa de ajuste. Relacionado ao DnD com `@dnd-kit`.
 
-### Seleção de tarefas
-A seleção de tarefas (checkbox por linha) está incompleta/com bug — pré-requisito para as operações em lote (ver "Operações em lote" em Alta prioridade). Testes de seleção em `TaskRow` atualmente falhando.
-
 ### Responsividade em telas pequenas
 Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas/layout (ex.: modal de tarefa de 1280px, colunas) para se adaptarem a viewports menores.
 
@@ -31,16 +28,15 @@ Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas
 - [x] Pastas de sprints configuráveis — schema `SprintFolder`, cron de encerramento automático e geração de sprints futuras, integração no MCP (`create_sprint_folder`, `list_sprint_folders`, `update_sprint`)
 - [x] Bloqueio de conclusão por dependências — impede marcar tarefa como concluída enquanto dependências estão pendentes
 - [x] Layout da tela de tarefa estilo ClickUp — três colunas: subtarefas à esquerda, campos/descrição no centro, atividade+comentários à direita; modal centralizado de 1280px substituindo drawer de 700px
+- [x] Persistência de navegação ao recarregar — o deep link `/spaces/:spaceId/tasks/:taskId` reabre a tarefa direto ao recarregar; o estado de carregamento navega para uma rota válida do app em vez de `navigate(-1)`, evitando redirecionar para a lista raiz
+- [x] Seletor de pontos: posicionamento e margem — o popover de story points detecta o viewport e exibe acima do gatilho quando não há espaço abaixo, com margem inferior de segurança para nunca ficar colado à borda da janela
+- [x] Atalhos de teclado — listeners globais via hook `useKeyboardShortcuts`: `N` abre nova tarefa (em lista/sprint), `F` abre os filtros, `?` mostra o modal de referência de atalhos e `Esc` fecha modais/painéis; suprimidos enquanto digita em input/textarea/select/contenteditable e quando há modificador (ctrl/meta/alt)
+- [x] Seleção de tarefas — checkbox por linha em `TaskRow`: a presença de `onSelect` ativa o modo de seleção (o checkbox substitui o botão de status); início da seleção via menu de ações da linha; estado marcado/desmarcado e cobertura de testes completa (`TaskRow.test.tsx`)
+- [x] Operações em lote (bulk actions) — endpoint unificado `PATCH /spaces/:spaceId/tasks/bulk` (recebe `taskIds` + `action`: `status`/`priority`/`assignees`/`move`/`delete`), escopado ao `spaceId` e respeitando a regra de domínio lista **ou** sprint no `move`; retorna `{ affected }`. UI via barra de seleção flutuante (`SelectionBar`) com mutation TanStack Query (`useBulkPatchTasks`) que invalida a lista de tarefas
 
 ---
 
 ## Alta prioridade
-
-### Persistência de navegação ao recarregar
-Se o usuário estiver com uma tarefa aberta e recarregar a página, deve voltar direto para ela. A rota `/spaces/:spaceId/tasks/:taskId` já existe — basta garantir que o deep link funcione sem redirecionar para a lista raiz.
-
-### Seletor de pontos: posicionamento e margem
-O popover do seletor de story points deve exibir acima quando não há espaço abaixo na tela (detecção de viewport). Adicionar margem inferior para evitar que fique colado à borda da janela.
 
 ### Melhorias de header (redução de altura e espaço)
 O header atual ocupa espaço demais. Quatro ajustes planejados:
@@ -52,19 +48,8 @@ O header atual ocupa espaço demais. Quatro ajustes planejados:
 ### Lembretes de prazo
 Notificação automática quando uma tarefa está vencendo (ex.: 1 dia antes do `dueDate`). Requer um job agendado no backend (cron NestJS) que consulta tarefas com `dueDate` próximo e cria notificações `due_soon`. Baixo custo, alto impacto para adoção.
 
-### Atalhos de teclado
-- `N` — nova tarefa (quando em lista/sprint)
-- `F` — abrir filtros
-- `?` — modal de referência de atalhos
-- `Esc` — fechar modais/painéis
-
-Quick win — já existe infraestrutura de modais, é só adicionar event listeners globais.
-
 ### Perfil e upload de avatar
 Página de perfil do usuário com upload de foto. O campo `avatarUrl` já existe no schema de User mas nunca é preenchido. O módulo de attachments já tem lógica de upload que pode ser reaproveitada.
-
-### Operações em lote (bulk actions)
-Selecionar múltiplas tarefas via checkbox e aplicar ação em todas: mudar status, prioridade, responsável, mover para outro sprint/lista, ou apagar. Requer endpoint `PATCH /spaces/:spaceId/tasks/bulk` (recebe array de `taskId` + payload) e UI de seleção na lista. Alta alavancagem para times que gerenciam muitas tarefas.
 
 ---
 

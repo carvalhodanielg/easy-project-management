@@ -540,49 +540,6 @@ describe('TasksService', () => {
     });
   });
 
-  describe('bulkDelete', () => {
-    it('deletes all given tasks and their subtasks', async () => {
-      const subtask = {
-        ...mockTask,
-        _id: new Types.ObjectId(),
-        parentTask: new Types.ObjectId(taskId),
-      };
-      mockTaskModel.find.mockReturnValue({
-        exec: jest.fn().mockResolvedValue([subtask]),
-      });
-      mockTaskModel.deleteMany = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-      mockTaskModel.updateMany.mockResolvedValue({});
-
-      await service.bulkDelete(spaceId, [taskId]);
-
-      expect(mockTaskModel.deleteMany).toHaveBeenCalled();
-    });
-
-    it('cleans up dependency arrays after bulk delete', async () => {
-      mockTaskModel.find.mockReturnValue({
-        exec: jest.fn().mockResolvedValue([]),
-      });
-      mockTaskModel.deleteMany = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-      mockTaskModel.updateMany.mockResolvedValue({});
-
-      await service.bulkDelete(spaceId, [taskId]);
-
-      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
-        { spaceId: expect.anything() },
-        {
-          $pull: {
-            blockedBy: { $in: expect.any(Array) },
-            blocks: { $in: expect.any(Array) },
-          },
-        },
-      );
-    });
-  });
-
   describe('bulkMove', () => {
     it('moves all tasks and their subtasks to new destination', async () => {
       const newSprintId = new Types.ObjectId().toString();
@@ -724,49 +681,6 @@ describe('TasksService', () => {
     });
   });
 
-  describe('bulkUpdate', () => {
-    it('calls updateMany with status field', async () => {
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-
-      await service.bulkUpdate(spaceId, { taskIds: [taskId], status: TaskStatus.EmProgresso });
-
-      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
-        { $set: { status: TaskStatus.EmProgresso } },
-      );
-    });
-
-    it('calls updateMany with priority field', async () => {
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-
-      await service.bulkUpdate(spaceId, { taskIds: [taskId], priority: TaskPriority.Alta });
-
-      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ _id: { $in: expect.any(Array) } }),
-        { $set: { priority: TaskPriority.Alta } },
-      );
-    });
-
-    it('converts assignee strings to ObjectIds', async () => {
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-
-      await service.bulkUpdate(spaceId, { taskIds: [taskId], assignees: [userId] });
-
-      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
-        expect.anything(),
-        { $set: { assignees: expect.arrayContaining([expect.any(Types.ObjectId)]) } },
-      );
-    });
-
-    it('does not call updateMany when no fields provided', async () => {
-      mockTaskModel.updateMany = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-
-      await service.bulkUpdate(spaceId, { taskIds: [taskId] });
-
-      expect(mockTaskModel.updateMany).not.toHaveBeenCalled();
-    });
-  });
-
   describe('duplicateSubtask', () => {
     it('creates a copy of the subtask under the new parent with inherited listId/sprintId', async () => {
       const newParentId = new Types.ObjectId().toString();
@@ -818,6 +732,152 @@ describe('TasksService', () => {
       await expect(
         service.duplicateSubtask(spaceId, taskId, targetId),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('bulkPatch', () => {
+    it('updates status for all tasks scoped to the space and returns affected count', async () => {
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
+
+      const result = await service.bulkPatch(spaceId, {
+        taskIds: [taskId],
+        action: 'status',
+        status: TaskStatus.EmProgresso,
+      });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _id: { $in: expect.any(Array) },
+          spaceId: expect.anything(),
+        }),
+        { $set: { status: TaskStatus.EmProgresso } },
+      );
+      expect(result).toEqual({ affected: 1 });
+    });
+
+    it('updates priority for all tasks', async () => {
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 2 }) });
+
+      const result = await service.bulkPatch(spaceId, {
+        taskIds: [taskId, targetId],
+        action: 'priority',
+        priority: TaskPriority.Alta,
+      });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.anything(),
+        { $set: { priority: TaskPriority.Alta } },
+      );
+      expect(result).toEqual({ affected: 2 });
+    });
+
+    it('converts assignee strings to ObjectIds', async () => {
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
+
+      await service.bulkPatch(spaceId, {
+        taskIds: [taskId],
+        action: 'assignees',
+        assignees: [userId],
+      });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          $set: {
+            assignees: expect.arrayContaining([expect.any(Types.ObjectId)]),
+          },
+        },
+      );
+    });
+
+    it('move sets sprintId and clears listId (domain rule)', async () => {
+      const newSprintId = new Types.ObjectId().toString();
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
+
+      await service.bulkPatch(spaceId, {
+        taskIds: [taskId],
+        action: 'move',
+        sprintId: newSprintId,
+      });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ listId: null }),
+      );
+    });
+
+    it('move sets listId and clears sprintId (domain rule)', async () => {
+      const newListId = new Types.ObjectId().toString();
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([]),
+      });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
+
+      await service.bulkPatch(spaceId, {
+        taskIds: [taskId],
+        action: 'move',
+        listId: newListId,
+      });
+
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sprintId: null }),
+      );
+    });
+
+    it('throws BadRequestException when move has neither listId nor sprintId', async () => {
+      await expect(
+        service.bulkPatch(spaceId, { taskIds: [taskId], action: 'move' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when move has both listId and sprintId', async () => {
+      await expect(
+        service.bulkPatch(spaceId, {
+          taskIds: [taskId],
+          action: 'move',
+          listId: new Types.ObjectId().toString(),
+          sprintId: new Types.ObjectId().toString(),
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('delete removes tasks and their subtasks and returns affected count', async () => {
+      const subtask = {
+        ...mockTask,
+        _id: new Types.ObjectId(),
+        parentTask: new Types.ObjectId(taskId),
+      };
+      mockTaskModel.find.mockReturnValue({
+        exec: jest.fn().mockResolvedValue([subtask]),
+      });
+      mockTaskModel.deleteMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 2 }) });
+      mockTaskModel.updateMany = jest
+        .fn()
+        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+
+      const result = await service.bulkPatch(spaceId, {
+        taskIds: [taskId],
+        action: 'delete',
+      });
+
+      expect(mockTaskModel.deleteMany).toHaveBeenCalled();
+      expect(result).toEqual({ affected: 2 });
     });
   });
 });

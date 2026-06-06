@@ -37,18 +37,28 @@ interface Props {
   onToggleExpand?: () => void;
   isExpanded?: boolean;
   isSelected?: boolean;
-  selectionMode?: boolean;
+  /**
+   * When provided the row is in selection mode: the per-row checkbox replaces
+   * the inline status button. Callers should only pass this once a selection is
+   * active (or the row should otherwise be selectable).
+   */
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
+  /**
+   * Entry point used by the row action menu to begin a selection. Available
+   * even when the row is not yet in selection mode.
+   */
+  onStartSelect?: (id: string, kind: 'main' | 'subtask') => void;
   onAddSubtask?: () => void;
   dragHandle?: React.ReactNode;
 }
 
-export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, selectionMode, onSelect, onAddSubtask, dragHandle }: Props) {
+export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect, onStartSelect, onAddSubtask, dragHandle }: Props) {
   const navigate  = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
+  const selectionMode = !!onSelect;
 
   // ── Status ────────────────────────────────────────────────────────────────
   const [statusOpen, setStatusOpen] = useState(false);
@@ -94,13 +104,51 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
 
   // ── Story Points ──────────────────────────────────────────────────────────
   const [pointsOpen, setPointsOpen] = useState(false);
-  const [pointsPos, setPointsPos] = useState({ top: 0, left: 0 });
+  const [pointsPos, setPointsPos] = useState<{
+    left: number;
+    placement: 'below' | 'above';
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+  }>({ left: 0, placement: 'below', top: 0, maxHeight: 192 });
   const [localPoints, setLocalPoints] = useState<FibonacciPoint | null>(task.storyPoints);
   const pointsRef = useRef<HTMLDivElement>(null);
   const pointsPopoverRef = useRef<HTMLDivElement>(null);
   const pointsBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => { setLocalPoints(task.storyPoints); }, [task.storyPoints]);
+
+  // Position the story-points popover relative to its trigger, flipping it above
+  // when there isn't enough room below in the viewport, and always keeping a
+  // bottom margin so it never sits flush against the window edge.
+  const openPointsPopover = (el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    const GAP = 4; // space between trigger and popover
+    const MARGIN = 8; // safeguard from the viewport edge
+    const POPOVER_MAX = 192; // matches max-h-48 / 12rem
+    const left = rect.left + rect.width / 2;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    if (spaceBelow >= POPOVER_MAX + GAP + MARGIN || spaceBelow >= spaceAbove) {
+      // Anchor below the trigger.
+      setPointsPos({
+        left,
+        placement: 'below',
+        top: rect.bottom + GAP,
+        maxHeight: Math.max(80, Math.min(POPOVER_MAX, spaceBelow - GAP - MARGIN)),
+      });
+    } else {
+      // Not enough space below — flip above, anchored by `bottom`.
+      setPointsPos({
+        left,
+        placement: 'above',
+        bottom: window.innerHeight - rect.top + GAP,
+        maxHeight: Math.max(80, Math.min(POPOVER_MAX, spaceAbove - GAP - MARGIN)),
+      });
+    }
+    setPointsOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!pointsOpen) return;
@@ -227,8 +275,10 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
         className="relative flex items-center justify-center gap-0.5"
         style={{ paddingLeft: depth > 0 ? `${depth * 16 + 4}px` : '4px' }}
       >
-        {/* Normal content — hidden only when in selection mode */}
-        <div className={`flex items-center gap-0.5 ${selectionMode ? 'invisible pointer-events-none' : ''}`}>
+        {/* Normal content — removed entirely while in selection mode so the
+            checkbox replaces the inline status button */}
+        {!selectionMode && (
+        <div className="flex items-center gap-0.5">
           {dragHandle ?? <span className="w-3" />}
           {onToggleExpand ? (
             <button
@@ -274,12 +324,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             )}
           </div>
         </div>
+        )}
 
         {/* Checkbox overlay — only visible in selection mode */}
-        {onSelect && selectionMode && (
+        {selectionMode && (
           <button
             aria-label={isSelected ? 'Desmarcar' : 'Selecionar'}
-            onClick={(e) => { e.stopPropagation(); onSelect(task._id, kind); }}
+            onClick={(e) => { e.stopPropagation(); onSelect!(task._id, kind); }}
             className="absolute inset-0 flex items-center justify-center z-10"
           >
             <span className={`w-4 h-4 flex items-center justify-center rounded shrink-0 transition-all border ${
@@ -429,11 +480,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           <button
             ref={pointsBtnRef}
             aria-label={`Pontos: ${localPoints}`}
-            onClick={(e) => {
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setPointsPos({ top: rect.bottom + 4, left: rect.left + rect.width / 2 });
-              setPointsOpen((v) => !v);
-            }}
+            onClick={(e) => openPointsPopover(e.currentTarget as HTMLElement)}
             className="text-xs font-medium text-ink-dim tabular-nums bg-lift px-1.5 py-0.5 rounded hover:bg-lift/80 transition-colors cursor-pointer"
           >
             {localPoints}
@@ -442,11 +489,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           <button
             ref={pointsBtnRef}
             aria-label="Adicionar pontos"
-            onClick={(e) => {
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setPointsPos({ top: rect.bottom + 4, left: rect.left + rect.width / 2 });
-              setPointsOpen((v) => !v);
-            }}
+            onClick={(e) => openPointsPopover(e.currentTarget as HTMLElement)}
             className="opacity-0 group-hover:opacity-100 text-xs text-ink-muted tabular-nums px-1.5 py-0.5 rounded border border-dashed border-line-dim hover:border-brand/60 transition-colors"
           >
             —
@@ -456,8 +499,17 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
         {pointsOpen && createPortal(
           <div
             ref={pointsPopoverRef}
-            style={{ position: 'fixed', top: pointsPos.top, left: pointsPos.left, transform: 'translateX(-50%)' }}
-            className="z-[9999] bg-modal border border-line rounded-xl shadow-2xl py-1 min-w-[96px] max-h-48 overflow-y-auto"
+            data-testid="points-popover"
+            style={{
+              position: 'fixed',
+              left: pointsPos.left,
+              ...(pointsPos.placement === 'above'
+                ? { bottom: pointsPos.bottom }
+                : { top: pointsPos.top }),
+              maxHeight: pointsPos.maxHeight,
+              transform: 'translateX(-50%)',
+            }}
+            className="z-[9999] bg-modal border border-line rounded-xl shadow-2xl py-1 min-w-[96px] overflow-y-auto"
           >
             <div className="flex flex-col">
               {FIBONACCI_POINTS.map((pt) => (
@@ -506,7 +558,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             task={task}
             spaceId={spaceId}
             onDone={() => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] })}
-            onSelect={onSelect ? () => onSelect(task._id, kind) : undefined}
+            onSelect={
+              onStartSelect
+                ? () => onStartSelect(task._id, kind)
+                : onSelect
+                  ? () => onSelect(task._id, kind)
+                  : undefined
+            }
           />
         )}
       </div>

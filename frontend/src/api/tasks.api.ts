@@ -93,10 +93,6 @@ export interface BulkDestination {
   sprintId?: string;
 }
 
-export async function bulkDeleteTasks(spaceId: string, taskIds: string[]): Promise<void> {
-  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-delete`, { taskIds });
-}
-
 export async function bulkMoveTasks(spaceId: string, taskIds: string[], dest: BulkDestination): Promise<void> {
   await apiClient.post(`/spaces/${spaceId}/tasks/bulk-move`, { taskIds, ...dest });
 }
@@ -121,17 +117,30 @@ export async function duplicateSubtask(spaceId: string, taskId: string, newParen
   await apiClient.post(`/spaces/${spaceId}/tasks/duplicate-subtask`, { taskId, newParentTaskId });
 }
 
-export interface BulkUpdatePayload {
+// ── Unified bulk action endpoint ──────────────────────────────────────────────
+export type BulkAction = 'status' | 'priority' | 'assignees' | 'move' | 'delete';
+
+export interface BulkPatchPayload {
+  taskIds: string[];
+  action: BulkAction;
   status?: TaskStatus;
   priority?: TaskPriority;
   assignees?: string[];
-  storyPoints?: FibonacciPoint;
+  listId?: string;
+  sprintId?: string;
 }
 
-export async function bulkUpdateTasks(
+export interface BulkPatchResult {
+  affected: number;
+}
+
+export async function bulkPatchTasks(
   spaceId: string,
-  taskIds: string[],
-  updates: BulkUpdatePayload,
-): Promise<void> {
-  await apiClient.post(`/spaces/${spaceId}/tasks/bulk-update`, { taskIds, ...updates });
+  payload: BulkPatchPayload,
+): Promise<BulkPatchResult> {
+  const res = await apiClient.patch<ApiResponse<BulkPatchResult>>(
+    `/spaces/${spaceId}/tasks/bulk`,
+    payload,
+  );
+  return res.data.data;
 }

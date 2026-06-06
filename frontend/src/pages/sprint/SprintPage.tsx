@@ -32,6 +32,7 @@ import { FilterBar } from '../../components/filter/FilterBar';
 import { SprintDashboard } from '../../components/sprint/SprintDashboard';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { useTaskSelection } from '../../hooks/useTaskSelection';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { Task, GroupedTaskResult } from '../../types/task.types';
 import type { Note } from '../../types/note.types';
 import { cn } from '../../lib/utils';
@@ -70,9 +71,19 @@ export function SprintPage() {
   const [newTaskName, setNewTaskName] = useState('');
   const [showCreateNote, setShowCreateNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [openFiltersSignal, setOpenFiltersSignal] = useState(0);
 
   const taskFilter = useTaskFilter({ sprintId });
   const selection = useTaskSelection();
+
+  // Page-local shortcuts — only meaningful on the tasks tab.
+  useKeyboardShortcuts(
+    {
+      n: () => setShowCreate(true),
+      f: () => setOpenFiltersSignal((v) => v + 1),
+    },
+    { enabled: tab === 'tarefas' },
+  );
 
   const { data: members = [] } = useQuery({
     queryKey: ['space-members', spaceId],
@@ -363,6 +374,7 @@ export function SprintPage() {
             onSaveFilter={(name) => createSavedFilter.mutate(name)}
             onLoadFilter={taskFilter.loadFilter}
             onDeleteFilter={(id) => deleteSavedFilter.mutate(id)}
+            openSignal={openFiltersSignal}
           />
         </div>}
       </header>

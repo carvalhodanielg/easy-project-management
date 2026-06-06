@@ -74,8 +74,12 @@ export function TaskDetailPage() {
   if (isLoading || !task) {
     return (
       <div
+        data-testid="task-detail-loading-backdrop"
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-        onClick={() => navigate(-1)}
+        // Navigate to a real in-app route rather than `navigate(-1)`, so that
+        // dismissing while loading still works after a deep-link reload (which
+        // has no prior SPA history entry to go back to).
+        onClick={() => navigate(`/spaces/${spaceId}`)}
       >
         <div className="flex items-center gap-2 bg-modal border border-line rounded-xl px-5 py-3 text-sm text-ink-dim">
           <Loader2 size={15} className="animate-spin" /> Carregando…

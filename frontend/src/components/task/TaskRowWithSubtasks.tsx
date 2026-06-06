@@ -34,8 +34,8 @@ export function TaskRowWithSubtasks({ task, spaceId, subtaskMode = 'collapsed', 
         onToggleExpand={!selectionMode && hasSubtasks && !forceExpanded ? () => setExpanded((e) => !e) : undefined}
         isExpanded={forceExpanded || expanded}
         isSelected={isSelected}
-        selectionMode={selectionMode}
-        onSelect={onSelect}
+        onSelect={selectionMode ? onSelect : undefined}
+        onStartSelect={onSelect}
         onAddSubtask={!selectionMode ? handleAddSubtask : undefined}
         dragHandle={dragHandle}
       />

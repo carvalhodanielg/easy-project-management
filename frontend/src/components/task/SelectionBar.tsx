@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Trash2, MoveRight, Copy, ArrowUpFromLine, MoveUpRight, CornerDownRight, ChevronDown } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
-import type { BulkUpdatePayload } from '../../api/tasks.api';
+import { useBulkPatchTasks } from '../../hooks/useBulkPatchTasks';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
 import { ParentTaskPickerModal } from './ParentTaskPickerModal';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task.types';
@@ -82,18 +82,28 @@ export function SelectionBar({
     void queryClient.invalidateQueries({ queryKey: ['subtasks'] });
   };
 
+  // Unified bulk endpoint (PATCH /spaces/:spaceId/tasks/bulk) used for the
+  // status / priority / assignees / move / delete actions.
+  const bulkPatch = useBulkPatchTasks(spaceId);
+
   const deleteMutation = useMutation({
-    mutationFn: () => {
-      const ids = [...mainTaskIds, ...subtaskIds];
-      return tasksApi.bulkDeleteTasks(spaceId, ids);
-    },
-    onSuccess: () => { invalidate(); onClear(); },
+    mutationFn: () =>
+      bulkPatch.mutateAsync({
+        taskIds: [...mainTaskIds, ...subtaskIds],
+        action: 'delete',
+      }),
+    onSuccess: () => { onClear(); },
   });
 
   const moveMutation = useMutation({
     mutationFn: (dest: Destination) =>
-      tasksApi.bulkMoveTasks(spaceId, mainTaskIds, dest),
-    onSuccess: () => { invalidate(); onClear(); setModal(null); },
+      bulkPatch.mutateAsync({
+        taskIds: mainTaskIds,
+        action: 'move',
+        listId: dest.listId,
+        sprintId: dest.sprintId,
+      }),
+    onSuccess: () => { onClear(); setModal(null); },
   });
 
   const duplicateMutation = useMutation({
@@ -120,11 +130,16 @@ export function SelectionBar({
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
   });
 
-  const bulkUpdateMutation = useMutation({
-    mutationFn: (updates: BulkUpdatePayload) =>
-      tasksApi.bulkUpdateTasks(spaceId, [...mainTaskIds, ...subtaskIds], updates),
-    onSuccess: () => { invalidate(); setPicker(null); },
-  });
+  const bulkPatchAction = (
+    payload:
+      | { action: 'status'; status: TaskStatus }
+      | { action: 'priority'; priority: TaskPriority }
+      | { action: 'assignees'; assignees: string[] },
+  ) =>
+    bulkPatch.mutate(
+      { taskIds: [...mainTaskIds, ...subtaskIds], ...payload },
+      { onSuccess: () => setPicker(null) },
+    );
 
   const isPending =
     deleteMutation.isPending ||
@@ -133,7 +148,7 @@ export function SelectionBar({
     convertMutation.isPending ||
     promoteMutation.isPending ||
     moveSubtaskMutation.isPending ||
-    bulkUpdateMutation.isPending;
+    bulkPatch.isPending;
 
   const showMain = selectionType === 'main' || selectionType === 'mixed';
   const showSub  = selectionType === 'subtask' || selectionType === 'mixed';
@@ -179,7 +194,7 @@ export function SelectionBar({
               {STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => bulkUpdateMutation.mutate({ status: opt.value })}
+                  onClick={() => bulkPatchAction({ action: 'status', status: opt.value })}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink hover:bg-lift transition-colors"
                 >
                   <span className={`w-2 h-2 rounded-full shrink-0 ${opt.color}`} />
@@ -205,7 +220,7 @@ export function SelectionBar({
               {PRIORITY_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => bulkUpdateMutation.mutate({ priority: opt.value })}
+                  onClick={() => bulkPatchAction({ action: 'priority', priority: opt.value })}
                   className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-lift transition-colors ${opt.color}`}
                 >
                   {opt.label}
@@ -229,7 +244,7 @@ export function SelectionBar({
             {picker === 'assignee' && (
               <div className="absolute bottom-full mb-2 left-0 bg-surface border border-line rounded-xl shadow-xl py-1 min-w-[168px] z-50 max-h-48 overflow-y-auto">
                 <button
-                  onClick={() => bulkUpdateMutation.mutate({ assignees: [] })}
+                  onClick={() => bulkPatchAction({ action: 'assignees', assignees: [] })}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink-muted hover:bg-lift transition-colors"
                 >
                   Sem responsável
@@ -240,7 +255,7 @@ export function SelectionBar({
                   return (
                     <button
                       key={m._id}
-                      onClick={() => bulkUpdateMutation.mutate({ assignees: [u._id] })}
+                      onClick={() => bulkPatchAction({ action: 'assignees', assignees: [u._id] })}
                       className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-ink hover:bg-lift transition-colors"
                     >
                       {u.avatarUrl ? (

@@ -30,6 +30,7 @@ import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { useTaskSelection } from '../../hooks/useTaskSelection';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { Task, GroupedTaskResult } from '../../types/task.types';
 import { useSpacesStore } from '../../store/spaces.store';
 import { cn } from '../../lib/utils';
@@ -50,6 +51,13 @@ export function ListPage() {
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showCreate, setShowCreate] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
+  const [openFiltersSignal, setOpenFiltersSignal] = useState(0);
+
+  // Page-local shortcuts: N → new task, F → open filters.
+  useKeyboardShortcuts({
+    n: () => setShowCreate(true),
+    f: () => setOpenFiltersSignal((v) => v + 1),
+  });
 
   const taskFilter = useTaskFilter({ listId });
   const selection = useTaskSelection();
@@ -252,6 +260,7 @@ export function ListPage() {
             onSaveFilter={(name) => createSavedFilter.mutate(name)}
             onLoadFilter={taskFilter.loadFilter}
             onDeleteFilter={(id) => deleteSavedFilter.mutate(id)}
+            openSignal={openFiltersSignal}
           />
         </div>
       </header>

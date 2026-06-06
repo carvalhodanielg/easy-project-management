@@ -208,6 +208,66 @@ describe('TaskDetailPage', () => {
   });
 });
 
+describe('TaskDetailPage — deep link / reload persistence', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // Simulates a hard page reload landing directly on the task deep link:
+  // the SPA history has a single entry, so there is nothing to `navigate(-1)` to.
+  function renderDeepLink() {
+    vi.mocked(tasksApi.getTask).mockResolvedValue(TASK as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1/tasks/t1']} initialIndex={0}>
+          <Routes>
+            <Route path="/spaces/:spaceId/tasks/:taskId" element={<TaskDetailPage />} />
+            <Route path="/spaces/:spaceId/lists/:listId" element={<div data-testid="list-page" />} />
+            <Route path="/spaces/:spaceId" element={<div data-testid="space-page" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('restores the open task from the deep link without redirecting to a list', async () => {
+    renderDeepLink();
+    await waitFor(() => {
+      expect(screen.getByText('Tarefa Teste')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('task-detail-backdrop')).toBeInTheDocument();
+    expect(screen.queryByTestId('list-page')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('space-page')).not.toBeInTheDocument();
+  });
+
+  it('loading state stays on a valid in-app route instead of navigating back out of the SPA', async () => {
+    // Never resolve the task so the page is stuck in the loading state, mimicking
+    // the moment right after a reload while the deep-linked task is still fetching.
+    vi.mocked(tasksApi.getTask).mockReturnValue(new Promise(() => {}) as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1/tasks/t1']} initialIndex={0}>
+          <Routes>
+            <Route path="/spaces/:spaceId/tasks/:taskId" element={<TaskDetailPage />} />
+            <Route path="/spaces/:spaceId/lists/:listId" element={<div data-testid="list-page" />} />
+            <Route path="/spaces/:spaceId" element={<div data-testid="space-page" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const loadingBackdrop = await screen.findByTestId('task-detail-loading-backdrop');
+    fireEvent.click(loadingBackdrop);
+
+    // Clicking the loading backdrop on a fresh deep link must land on a real
+    // in-app route (the space root), not attempt `navigate(-1)` which would
+    // leave the SPA / fall back to the list root.
+    await waitFor(() => {
+      expect(screen.getByTestId('space-page')).toBeInTheDocument();
+    });
+  });
+});
+
 describe('TaskDetailPage — subtask navigation', () => {
   beforeEach(() => vi.clearAllMocks());
 

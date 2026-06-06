@@ -32,13 +32,11 @@ Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas
 - [x] Bloqueio de conclusão por dependências — impede marcar tarefa como concluída enquanto dependências estão pendentes
 - [x] Layout da tela de tarefa estilo ClickUp — três colunas: subtarefas à esquerda, campos/descrição no centro, atividade+comentários à direita; modal centralizado de 1280px substituindo drawer de 700px
 - [x] Persistência de navegação ao recarregar — o deep link `/spaces/:spaceId/tasks/:taskId` reabre a tarefa direto ao recarregar; o estado de carregamento navega para uma rota válida do app em vez de `navigate(-1)`, evitando redirecionar para a lista raiz
+- [x] Seletor de pontos: posicionamento e margem — o popover de story points detecta o viewport e exibe acima do gatilho quando não há espaço abaixo, com margem inferior de segurança para nunca ficar colado à borda da janela
 
 ---
 
 ## Alta prioridade
-
-### Seletor de pontos: posicionamento e margem
-O popover do seletor de story points deve exibir acima quando não há espaço abaixo na tela (detecção de viewport). Adicionar margem inferior para evitar que fique colado à borda da janela.
 
 ### Melhorias de header (redução de altura e espaço)
 O header atual ocupa espaço demais. Quatro ajustes planejados:

@@ -257,6 +257,55 @@ describe('TaskRow', () => {
       renderRow({ ...TASK, storyPoints: null });
       expect(screen.getByRole('button', { name: /adicionar pontos/i })).toBeInTheDocument();
     });
+
+    it('opens the popover below the trigger when there is enough space underneath', () => {
+      renderRow();
+      window.innerHeight = 800;
+      const trigger = screen.getByRole('button', { name: /pontos: 5/i });
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: 100, bottom: 124, left: 200, right: 240, width: 40, height: 24,
+        x: 200, y: 100, toJSON: () => ({}),
+      } as DOMRect);
+      fireEvent.click(trigger);
+      const popover = screen.getByTestId('points-popover');
+      // anchored below: uses top, not bottom
+      expect(popover.style.top).not.toBe('');
+      expect(popover.style.bottom).toBe('');
+      // top should be just under the trigger's bottom edge
+      expect(parseFloat(popover.style.top)).toBeGreaterThanOrEqual(124);
+    });
+
+    it('flips the popover above the trigger when there is not enough space below', () => {
+      renderRow();
+      window.innerHeight = 600;
+      const trigger = screen.getByRole('button', { name: /pontos: 5/i });
+      // trigger sits near the bottom of the viewport
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: 560, bottom: 584, left: 200, right: 240, width: 40, height: 24,
+        x: 200, y: 560, toJSON: () => ({}),
+      } as DOMRect);
+      fireEvent.click(trigger);
+      const popover = screen.getByTestId('points-popover');
+      // anchored above: uses bottom, not top
+      expect(popover.style.bottom).not.toBe('');
+      expect(popover.style.top).toBe('');
+      // bottom margin safeguard: keeps the popover off the window's bottom edge
+      expect(parseFloat(popover.style.bottom)).toBeGreaterThan(0);
+    });
+
+    it('keeps a bottom-margin safeguard so the popover never sits flush with the window edge', () => {
+      renderRow();
+      window.innerHeight = 600;
+      const trigger = screen.getByRole('button', { name: /pontos: 5/i });
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: 560, bottom: 584, left: 200, right: 240, width: 40, height: 24,
+        x: 200, y: 560, toJSON: () => ({}),
+      } as DOMRect);
+      fireEvent.click(trigger);
+      const popover = screen.getByTestId('points-popover');
+      // maxHeight must reserve space below so it can't touch the viewport edge
+      expect(popover.style.maxHeight).not.toBe('');
+    });
   });
 
   describe('inline assignee edit', () => {

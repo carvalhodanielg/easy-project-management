@@ -22,6 +22,7 @@ const publicUser = {
 
 const mockUsersService = {
   update: jest.fn(),
+  updatePreferences: jest.fn(),
   uploadAvatar: jest.fn(),
   toPublic: jest.fn(),
 };
@@ -64,6 +65,30 @@ describe('UsersController', () => {
         mockUser._id.toString(),
         { displayName: 'Alice Updated' },
       );
+    });
+  });
+
+  describe('PATCH /users/me/preferences', () => {
+    it('delegates to usersService.updatePreferences with user id and dto', async () => {
+      mockUsersService.updatePreferences.mockResolvedValue(mockUser);
+
+      await controller.updatePreferences(mockUser as never, { theme: 'light' });
+
+      expect(mockUsersService.updatePreferences).toHaveBeenCalledWith(
+        mockUser._id.toString(),
+        { theme: 'light' },
+      );
+    });
+
+    it('returns the updated public user', async () => {
+      mockUsersService.updatePreferences.mockResolvedValue(mockUser);
+
+      const result = await controller.updatePreferences(mockUser as never, {
+        theme: 'light',
+      });
+
+      expect(result).toEqual(publicUser);
+      expect(mockUsersService.toPublic).toHaveBeenCalledWith(mockUser);
     });
   });
 

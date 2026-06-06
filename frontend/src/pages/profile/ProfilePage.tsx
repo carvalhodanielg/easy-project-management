@@ -1,12 +1,16 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { updateMe, uploadAvatar } from '../../api/users.api';
 import { UserAvatar } from '../../components/ui/UserAvatar';
+import { useTheme } from '../../hooks/useTheme';
+import type { ThemeMode } from '../../types/user.types';
 
 export function ProfilePage() {
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
+  const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
@@ -125,6 +129,42 @@ export function ProfilePage() {
             {namePending ? 'Salvando...' : 'Salvar'}
           </button>
         </form>
+
+        {/* Appearance */}
+        <div className="mt-6 pt-4 border-t border-line flex flex-col gap-3">
+          <span className="text-sm text-ink-dim font-medium">Aparência</span>
+          <div
+            role="radiogroup"
+            aria-label="Tema"
+            className="grid grid-cols-2 gap-2"
+          >
+            {([
+              { value: 'light', label: 'Claro', Icon: Sun },
+              { value: 'dark', label: 'Escuro', Icon: Moon },
+            ] as { value: ThemeMode; label: string; Icon: typeof Sun }[]).map(
+              ({ value, label, Icon }) => {
+                const active = theme === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setTheme(value)}
+                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                      active
+                        ? 'border-brand bg-brand/10 text-ink'
+                        : 'border-line text-ink-dim hover:bg-lift'
+                    }`}
+                  >
+                    <Icon size={15} />
+                    {label}
+                  </button>
+                );
+              },
+            )}
+          </div>
+        </div>
 
         <div className="mt-6 pt-4 border-t border-line">
           <p className="text-xs text-ink-muted">{user.email}</p>

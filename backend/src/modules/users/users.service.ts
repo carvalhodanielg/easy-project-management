@@ -5,6 +5,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { User, UserDocument } from './schemas/user.schema';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { R2StorageService } from '../../common/r2/r2-storage.service';
 
 @Injectable()
@@ -35,6 +36,23 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto): Promise<UserDocument> {
     const user = await this.userModel
       .findByIdAndUpdate(id, dto, { returnDocument: 'after' })
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async updatePreferences(
+    id: string,
+    dto: UpdatePreferencesDto,
+  ): Promise<UserDocument> {
+    // Merge by dot-notation so siblings under `preferences` are preserved
+    // as new preference keys are added over time.
+    const set: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(dto)) {
+      if (value !== undefined) set[`preferences.${key}`] = value;
+    }
+    const user = await this.userModel
+      .findByIdAndUpdate(id, { $set: set }, { returnDocument: 'after' })
       .exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -83,6 +101,7 @@ export class UsersService {
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      preferences: user.preferences,
     };
   }
 }

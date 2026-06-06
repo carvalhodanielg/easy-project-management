@@ -42,9 +42,28 @@
   --font-sans: "Inter", system-ui, "Segoe UI", sans-serif;
 }
 
+/* ── Light theme overrides (default/dark lives in @theme above) ── */
+[data-theme="light"] {
+  --color-base:    #FFFFFF;
+  --color-sidebar: #F7F7F8;
+  --color-surface: #FFFFFF;
+  --color-lift:    #F0F0F2;
+  --color-input:   #FFFFFF;
+  --color-modal:   #FFFFFF;
+  --color-rail:    #F7F7F8;
+
+  --color-ink:       #18181B;
+  --color-ink-dim:   #6B6B7B;
+  --color-ink-muted: #A1A1AE;
+
+  --color-line:     #E4E4E8;
+  --color-line-dim: #EFEFF2;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
 
 body {
   margin: 0;

@@ -14,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { UserDocument } from './schemas/user.schema';
@@ -39,6 +40,16 @@ export class UsersController {
     const updated = await this.usersService.update(id, {
       displayName: dto.displayName,
     });
+    return this.usersService.toPublic(updated);
+  }
+
+  @Patch('me/preferences')
+  async updatePreferences(
+    @CurrentUser() user: UserDocument,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    const id = user._id.toString();
+    const updated = await this.usersService.updatePreferences(id, dto);
     return this.usersService.toPublic(updated);
   }
 

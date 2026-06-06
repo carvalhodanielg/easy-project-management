@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { LayoutList, Kanban, Plus, X, List } from 'lucide-react';
+import { LayoutList, Kanban, Plus, X } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -18,7 +18,6 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import * as tasksApi from '../../api/tasks.api';
-import * as listsApi from '../../api/lists.api';
 import * as savedFiltersApi from '../../api/saved-filters.api';
 import * as spacesApi from '../../api/spaces.api';
 import { SortableTaskRow } from '../../components/task/SortableTaskRow';
@@ -32,7 +31,6 @@ import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { useTaskSelection } from '../../hooks/useTaskSelection';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { Task, GroupedTaskResult } from '../../types/task.types';
-import { useSpacesStore } from '../../store/spaces.store';
 import { cn } from '../../lib/utils';
 
 const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
@@ -47,7 +45,6 @@ const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
 export function ListPage() {
   const { spaceId, listId } = useParams<{ spaceId: string; listId: string }>();
   const queryClient = useQueryClient();
-  const currentSpace = useSpacesStore((s) => s.currentSpace);
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showCreate, setShowCreate] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
@@ -85,11 +82,6 @@ export function ListPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
   });
 
-  const { data: list } = useQuery({
-    queryKey: ['list', listId],
-    queryFn: () => listsApi.getLists(spaceId!).then((ls) => ls.find((l) => l._id === listId)),
-    enabled: !!spaceId && !!listId,
-  });
 
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
@@ -207,32 +199,14 @@ export function ListPage() {
 
       {/* Header */}
       <header className="bg-surface border-b border-line shrink-0">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-lift border border-line flex items-center justify-center">
-              <List size={15} className="text-ink-dim" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-ink">{list?.name ?? '…'}</h1>
-              <p className="text-xs text-ink-muted mt-0.5">{currentSpace?.name}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
-          >
-            <Plus size={13} /> Nova tarefa
-          </button>
-        </div>
-
-        {/* View tabs + filter bar */}
+        {/* View tabs */}
         <div className="flex items-center gap-0 px-6 border-b border-line-dim">
           {(['list', 'kanban'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                'flex items-center gap-1.5 px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors',
                 view === v
                   ? 'border-brand text-brand font-medium'
                   : 'border-transparent text-ink-muted hover:text-ink-dim',
@@ -244,7 +218,7 @@ export function ListPage() {
           ))}
         </div>
 
-        <div className="px-6 py-2.5">
+        <div className="px-6 py-2.5 flex items-center gap-3">
           <FilterBar
             filters={taskFilter.filters}
             onToggleStatus={taskFilter.toggleStatus}
@@ -262,6 +236,12 @@ export function ListPage() {
             onDeleteFilter={(id) => deleteSavedFilter.mutate(id)}
             openSignal={openFiltersSignal}
           />
+          <button
+            onClick={() => setShowCreate(true)}
+            className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+          >
+            <Plus size={13} /> Nova tarefa
+          </button>
         </div>
       </header>
 

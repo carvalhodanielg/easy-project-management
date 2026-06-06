@@ -434,34 +434,27 @@ export function SpaceLayout() {
   const unfiledSprints = sprints.filter((s) => !s.folderId);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden">
 
-      {/* ── Sidebar ── */}
-      <aside className="w-58 shrink-0 bg-sidebar border-r border-line flex flex-col overflow-hidden">
-
-        {/* Workspace header */}
-        <div className="px-3 py-3 border-b border-line shrink-0">
-          <Tooltip content="Ir para início" side="right">
+      {/* ── Top bar (full width) ── */}
+      <header className="shrink-0 grid grid-cols-3 items-center px-3 py-2 border-b border-line bg-surface">
+        {/* Left: app logo + space name */}
+        <div className="justify-self-start min-w-0 max-w-full">
+          <Tooltip content="Ir para início" side="bottom">
             <button
               onClick={() => navigate('/home')}
-              className="flex items-center gap-2.5 w-full px-2 py-2 rounded-lg hover:bg-lift transition-colors group"
+              className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-lift transition-colors max-w-full"
             >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
-                style={{ background: space?.color ?? '#6366F1' }}
-              >
-                {space?.name?.charAt(0).toUpperCase() ?? 'C'}
-              </div>
-              <span className="text-sm font-semibold text-ink truncate flex-1 text-left">
+              <img src="/favicon.svg" alt="Claudio" className="w-7 h-7 shrink-0" />
+              <span className="text-sm font-semibold text-ink truncate text-left">
                 {space?.name ?? 'Claudio'}
               </span>
-              <ChevronDown size={12} className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           </Tooltip>
         </div>
 
-        {/* Search trigger */}
-        <div className="px-3 py-2 border-b border-line shrink-0">
+        {/* Center: search trigger */}
+        <div className="justify-self-center w-full max-w-md">
           <button
             onClick={() => setShowSearch(true)}
             className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg bg-lift/50 hover:bg-lift border border-line-dim hover:border-line text-ink-muted hover:text-ink-dim transition-all text-sm"
@@ -471,6 +464,18 @@ export function SpaceLayout() {
             <kbd className="hidden sm:flex items-center gap-px text-[10px] font-mono opacity-60">⌘K</kbd>
           </button>
         </div>
+
+        {/* Right: notifications */}
+        <div className="justify-self-end">
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* ── Body: sidebar + main ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+      {/* ── Sidebar ── */}
+      <aside className="w-58 shrink-0 bg-sidebar border-r border-line flex flex-col overflow-hidden">
 
         {/* Nav tree */}
         <nav className="flex-1 overflow-y-auto px-2 py-2">
@@ -638,11 +643,9 @@ export function SpaceLayout() {
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-hidden flex flex-col bg-base">
-        <div className="shrink-0 flex items-center justify-end px-4 py-2 border-b border-line bg-surface">
-          <NotificationBell />
-        </div>
         <Outlet />
       </main>
+      </div>
 
       {/* ── Global search ── */}
       {showSearch && spaceId && (

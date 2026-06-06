@@ -16,9 +16,8 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { LayoutList, Kanban, Plus, X, Zap, Calendar, FileText, Loader2, Tag, ChevronRight, BarChart2 } from 'lucide-react';
+import { LayoutList, Kanban, Plus, X, Zap, FileText, Loader2, Tag, ChevronRight, BarChart2 } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
-import * as sprintsApi from '../../api/sprints.api';
 import * as notesApi from '../../api/notes.api';
 import * as savedFiltersApi from '../../api/saved-filters.api';
 import * as spacesApi from '../../api/spaces.api';
@@ -44,12 +43,6 @@ const LABEL_COLORS: Record<string, string> = {
   decisão:   'bg-s-review/20 text-s-review',
   revisão:   'bg-p-high/20 text-p-high',
   referência:'bg-s-done/20 text-s-done',
-};
-
-const STATUS_META: Record<sprintsApi.Sprint['status'], { label: string; color: string }> = {
-  planning:  { label: 'Planejamento', color: 'text-s-review' },
-  active:    { label: 'Ativo',        color: 'text-s-done' },
-  completed: { label: 'Concluído',    color: 'text-ink-dim' },
 };
 
 const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
@@ -108,12 +101,6 @@ export function SprintPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
   });
 
-  const { data: sprint } = useQuery({
-    queryKey: ['sprint', sprintId],
-    queryFn: () => sprintsApi.getSprints(spaceId!).then((ss) => ss.find((s) => s._id === sprintId)),
-    enabled: !!spaceId && !!sprintId,
-  });
-
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
 
@@ -129,10 +116,6 @@ export function SprintPage() {
   const flatTasks: Task[] = isGrouped
     ? (tasks as GroupedTaskResult[]).flatMap((g) => g.tasks)
     : (tasks as Task[]);
-
-  const totalPoints = flatTasks.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
-  const donePoints  = flatTasks.filter((t) => t.status === 'feito').reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
-  const progress    = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
 
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['notes', spaceId, sprintId],
@@ -245,74 +228,11 @@ export function SprintPage() {
     reorderMutation.mutate({ taskId: active.id as string, position: newPosition });
   }
 
-  const sprintLabel = sprint
-    ? `Sprint ${sprint.number}${sprint.name ? ` — ${sprint.name}` : ''}`
-    : '…';
-
-  const statusMeta = sprint ? STATUS_META[sprint.status] : null;
-
   return (
     <div className="h-full flex flex-col">
 
       {/* Header */}
       <header className="bg-surface border-b border-line shrink-0">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand/12 border border-brand/20 flex items-center justify-center">
-              <Zap size={15} className="text-brand" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold text-ink">{sprintLabel}</h1>
-                {statusMeta && (
-                  <span className={`text-xs font-medium ${statusMeta.color}`}>
-                    · {statusMeta.label}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 mt-0.5">
-                {sprint && (
-                  <span className="flex items-center gap-1 text-xs text-ink-muted">
-                    <Calendar size={10} />
-                    {new Date(sprint.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    {' → '}
-                    {new Date(sprint.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  </span>
-                )}
-                {totalPoints > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-line rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-brand rounded-full transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-ink-muted tabular-nums">
-                      {donePoints}/{totalPoints} pts
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          {tab === 'tarefas' && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
-            >
-              <Plus size={13} /> Nova tarefa
-            </button>
-          )}
-          {tab === 'notas' && (
-            <button
-              onClick={() => setShowCreateNote(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
-            >
-              <Plus size={13} /> Nova nota
-            </button>
-          )}
-        </div>
-
         {/* Main tabs */}
         <div className="flex items-center gap-0 px-6 border-b border-line-dim">
           {([
@@ -324,7 +244,7 @@ export function SprintPage() {
               key={key}
               onClick={() => setTab(key)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                'flex items-center gap-1.5 px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors',
                 tab === key
                   ? 'border-brand text-brand font-medium'
                   : 'border-transparent text-ink-muted hover:text-ink-dim',
@@ -336,7 +256,7 @@ export function SprintPage() {
           ))}
 
           {tab === 'tarefas' && (
-            <div className="ml-auto flex items-center py-1.5" aria-label="Modo de visualização">
+            <div className="ml-auto flex items-center py-1" aria-label="Modo de visualização">
               <div className="bg-lift rounded-lg p-0.5 flex items-center gap-0.5">
                 {(['list', 'kanban'] as const).map((v) => (
                   <button
@@ -356,9 +276,18 @@ export function SprintPage() {
               </div>
             </div>
           )}
+
+          {tab === 'notas' && (
+            <button
+              onClick={() => setShowCreateNote(true)}
+              className="ml-auto my-1 flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Plus size={13} /> Nova nota
+            </button>
+          )}
         </div>
 
-        {tab === 'tarefas' && <div className="px-6 py-2.5">
+        {tab === 'tarefas' && <div className="px-6 py-2.5 flex items-center gap-3">
           <FilterBar
             filters={taskFilter.filters}
             onToggleStatus={taskFilter.toggleStatus}
@@ -376,6 +305,12 @@ export function SprintPage() {
             onDeleteFilter={(id) => deleteSavedFilter.mutate(id)}
             openSignal={openFiltersSignal}
           />
+          <button
+            onClick={() => setShowCreate(true)}
+            className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+          >
+            <Plus size={13} /> Nova tarefa
+          </button>
         </div>}
       </header>
 

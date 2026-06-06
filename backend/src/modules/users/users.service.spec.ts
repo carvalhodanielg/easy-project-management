@@ -16,6 +16,7 @@ const mockUser = {
   displayName: 'Alice',
   passwordHash: 'hash',
   avatarUrl: null,
+  preferences: { theme: 'dark' },
 };
 
 function execMock<T>(value: T) {
@@ -130,6 +131,46 @@ describe('UsersService', () => {
       expect(result).not.toHaveProperty('passwordHash');
       expect(result).toHaveProperty('email', 'alice@example.com');
       expect(result).toHaveProperty('displayName', 'Alice');
+    });
+
+    it('includes preferences', () => {
+      const result = service.toPublic(mockUser as never);
+      expect(result).toHaveProperty('preferences', { theme: 'dark' });
+    });
+  });
+
+  describe('updatePreferences', () => {
+    it('merges preferences with dot-notation $set (does not overwrite subobject)', async () => {
+      const updated = { ...mockUser, preferences: { theme: 'light' } };
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
+
+      const result = await service.updatePreferences(userId, { theme: 'light' });
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        userId,
+        { $set: { 'preferences.theme': 'light' } },
+        { returnDocument: 'after' },
+      );
+      expect(result.preferences.theme).toBe('light');
+    });
+
+    it('ignores undefined fields when building $set', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(mockUser));
+
+      await service.updatePreferences(userId, { theme: undefined });
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        userId,
+        { $set: {} },
+        { returnDocument: 'after' },
+      );
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(null));
+      await expect(
+        service.updatePreferences(userId, { theme: 'light' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

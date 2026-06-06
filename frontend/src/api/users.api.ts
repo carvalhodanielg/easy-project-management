@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { User } from '../types/user.types';
+import type { User, UserPreferences } from '../types/user.types';
 
 interface ApiResponse<T> { data: T; }
 
@@ -10,6 +10,13 @@ export async function searchUsers(q: string): Promise<User[]> {
 
 export async function updateMe(payload: { displayName?: string }): Promise<User> {
   const res = await apiClient.patch<ApiResponse<User>>('/users/me', payload);
+  return res.data.data;
+}
+
+export async function updatePreferences(
+  payload: Partial<UserPreferences>,
+): Promise<User> {
+  const res = await apiClient.patch<ApiResponse<User>>('/users/me/preferences', payload);
   return res.data.data;
 }
 

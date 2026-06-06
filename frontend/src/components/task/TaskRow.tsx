@@ -37,18 +37,28 @@ interface Props {
   onToggleExpand?: () => void;
   isExpanded?: boolean;
   isSelected?: boolean;
-  selectionMode?: boolean;
+  /**
+   * When provided the row is in selection mode: the per-row checkbox replaces
+   * the inline status button. Callers should only pass this once a selection is
+   * active (or the row should otherwise be selectable).
+   */
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
+  /**
+   * Entry point used by the row action menu to begin a selection. Available
+   * even when the row is not yet in selection mode.
+   */
+  onStartSelect?: (id: string, kind: 'main' | 'subtask') => void;
   onAddSubtask?: () => void;
   dragHandle?: React.ReactNode;
 }
 
-export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, selectionMode, onSelect, onAddSubtask, dragHandle }: Props) {
+export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect, onStartSelect, onAddSubtask, dragHandle }: Props) {
   const navigate  = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
+  const selectionMode = !!onSelect;
 
   // ── Status ────────────────────────────────────────────────────────────────
   const [statusOpen, setStatusOpen] = useState(false);
@@ -265,8 +275,10 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
         className="relative flex items-center justify-center gap-0.5"
         style={{ paddingLeft: depth > 0 ? `${depth * 16 + 4}px` : '4px' }}
       >
-        {/* Normal content — hidden only when in selection mode */}
-        <div className={`flex items-center gap-0.5 ${selectionMode ? 'invisible pointer-events-none' : ''}`}>
+        {/* Normal content — removed entirely while in selection mode so the
+            checkbox replaces the inline status button */}
+        {!selectionMode && (
+        <div className="flex items-center gap-0.5">
           {dragHandle ?? <span className="w-3" />}
           {onToggleExpand ? (
             <button
@@ -312,12 +324,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             )}
           </div>
         </div>
+        )}
 
         {/* Checkbox overlay — only visible in selection mode */}
-        {onSelect && selectionMode && (
+        {selectionMode && (
           <button
             aria-label={isSelected ? 'Desmarcar' : 'Selecionar'}
-            onClick={(e) => { e.stopPropagation(); onSelect(task._id, kind); }}
+            onClick={(e) => { e.stopPropagation(); onSelect!(task._id, kind); }}
             className="absolute inset-0 flex items-center justify-center z-10"
           >
             <span className={`w-4 h-4 flex items-center justify-center rounded shrink-0 transition-all border ${
@@ -545,7 +558,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             task={task}
             spaceId={spaceId}
             onDone={() => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] })}
-            onSelect={onSelect ? () => onSelect(task._id, kind) : undefined}
+            onSelect={
+              onStartSelect
+                ? () => onStartSelect(task._id, kind)
+                : onSelect
+                  ? () => onSelect(task._id, kind)
+                  : undefined
+            }
           />
         )}
       </div>

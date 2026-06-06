@@ -119,8 +119,8 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, selection
           task={sub}
           depth={rowDepth}
           isSelected={isSelectedFn?.(sub._id)}
-          selectionMode={selectionMode}
-          onSelect={onSelect}
+          onSelect={selectionMode ? onSelect : undefined}
+          onStartSelect={onSelect}
         />
       ))}
     </>

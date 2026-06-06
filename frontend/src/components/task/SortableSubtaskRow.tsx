@@ -47,8 +47,8 @@ export function SortableSubtaskRow({ task, parentId, depth = 0, isSelected, sele
           task={task}
           depth={depth}
           isSelected={isSelected}
-          selectionMode={selectionMode}
-          onSelect={onSelect}
+          onSelect={selectionMode ? onSelect : undefined}
+          onStartSelect={onSelect}
           dragHandle={dragHandle}
         />
       </div>

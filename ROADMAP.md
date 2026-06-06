@@ -4,6 +4,19 @@ Features planejadas para o projeto. Ordenadas por impacto estimado.
 
 ---
 
+## Bugs conhecidos
+
+### Reordenar tarefas — bug visual
+O drag-and-drop de reordenação de tarefas/subtarefas ainda apresenta um glitch visual (ex.: posição/placeholder durante o arraste). Funcionalidade persiste corretamente, mas o feedback visual precisa de ajuste. Relacionado ao DnD com `@dnd-kit`.
+
+### Seleção de tarefas
+A seleção de tarefas (checkbox por linha) está incompleta/com bug — pré-requisito para as operações em lote (ver "Operações em lote" em Alta prioridade). Testes de seleção em `TaskRow` atualmente falhando.
+
+### Responsividade em telas pequenas
+Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas/layout (ex.: modal de tarefa de 1280px, colunas) para se adaptarem a viewports menores.
+
+---
+
 ## Concluídas
 
 - [x] Busca global (`Cmd/Ctrl+K`) — tarefas, notas e documentos wiki por espaço

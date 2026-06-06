@@ -27,6 +27,8 @@ interface Props {
   onSaveFilter?: (name: string) => void;
   onLoadFilter?: (filters: Partial<FilterState>) => void;
   onDeleteFilter?: (id: string) => void;
+  /** Increment to imperatively open the filter dropdown (e.g. from a shortcut). */
+  openSignal?: number;
 }
 
 const STATUSES   = Object.keys(STATUS_LABELS)   as TaskStatus[];
@@ -66,12 +68,19 @@ export function FilterBar({
   filters, members = [], tags = [],
   onToggleStatus, onTogglePriority, onToggleAssignee, onToggleTag,
   onSetGroupBy, onSetSearch, onSetSubtaskMode, onReset, isActive,
-  savedFilters = [], onSaveFilter, onLoadFilter, onDeleteFilter,
+  savedFilters = [], onSaveFilter, onLoadFilter, onDeleteFilter, openSignal,
 }: Props) {
   const filterDropdown = useDropdown();
   const savedDropdown  = useDropdown();
   const [saveName, setSaveName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+
+  // Open the dropdown when the parent bumps `openSignal` (keyboard shortcut).
+  const { setOpen: setFilterOpen } = filterDropdown;
+  useEffect(() => {
+    if (openSignal === undefined || openSignal === 0) return;
+    setFilterOpen(true);
+  }, [openSignal, setFilterOpen]);
 
   function handleSave() {
     const trimmed = saveName.trim();

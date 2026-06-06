@@ -33,6 +33,7 @@ Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas
 - [x] Layout da tela de tarefa estilo ClickUp — três colunas: subtarefas à esquerda, campos/descrição no centro, atividade+comentários à direita; modal centralizado de 1280px substituindo drawer de 700px
 - [x] Persistência de navegação ao recarregar — o deep link `/spaces/:spaceId/tasks/:taskId` reabre a tarefa direto ao recarregar; o estado de carregamento navega para uma rota válida do app em vez de `navigate(-1)`, evitando redirecionar para a lista raiz
 - [x] Seletor de pontos: posicionamento e margem — o popover de story points detecta o viewport e exibe acima do gatilho quando não há espaço abaixo, com margem inferior de segurança para nunca ficar colado à borda da janela
+- [x] Atalhos de teclado — listeners globais via hook `useKeyboardShortcuts`: `N` abre nova tarefa (em lista/sprint), `F` abre os filtros, `?` mostra o modal de referência de atalhos e `Esc` fecha modais/painéis; suprimidos enquanto digita em input/textarea/select/contenteditable e quando há modificador (ctrl/meta/alt)
 
 ---
 
@@ -47,14 +48,6 @@ O header atual ocupa espaço demais. Quatro ajustes planejados:
 
 ### Lembretes de prazo
 Notificação automática quando uma tarefa está vencendo (ex.: 1 dia antes do `dueDate`). Requer um job agendado no backend (cron NestJS) que consulta tarefas com `dueDate` próximo e cria notificações `due_soon`. Baixo custo, alto impacto para adoção.
-
-### Atalhos de teclado
-- `N` — nova tarefa (quando em lista/sprint)
-- `F` — abrir filtros
-- `?` — modal de referência de atalhos
-- `Esc` — fechar modais/painéis
-
-Quick win — já existe infraestrutura de modais, é só adicionar event listeners globais.
 
 ### Perfil e upload de avatar
 Página de perfil do usuário com upload de foto. O campo `avatarUrl` já existe no schema de User mas nunca é preenchido. O módulo de attachments já tem lógica de upload que pode ser reaproveitada.

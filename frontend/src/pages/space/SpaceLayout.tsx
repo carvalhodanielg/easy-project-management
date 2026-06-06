@@ -16,8 +16,10 @@ import type { DayOfWeek } from '../../api/sprint-folders.api';
 import { GlobalSearch } from '../../components/search/GlobalSearch';
 import { NotificationBell } from '../../components/notifications/NotificationBell';
 import { UserAvatar } from '../../components/ui/UserAvatar';
+import { ShortcutsModal } from '../../components/ui/ShortcutsModal';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../../components/ui/tooltip';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
@@ -349,6 +351,7 @@ export function SpaceLayout() {
   const queryClient = useQueryClient();
 
   const [showSearch, setShowSearch] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [sprintName,  setSprintName]  = useState('');
@@ -412,6 +415,17 @@ export function SpaceLayout() {
     document.addEventListener('keydown', handleGlobalKey);
     return () => document.removeEventListener('keydown', handleGlobalKey);
   }, [handleGlobalKey]);
+
+  // Global keyboard shortcuts: "?" opens the reference modal, "Esc" closes panels.
+  useKeyboardShortcuts({
+    '?': () => setShowShortcuts(true),
+    escape: () => {
+      setShowShortcuts(false);
+      setShowSearch(false);
+      setShowCreateSprint(false);
+      setShowCreateFolder(false);
+    },
+  });
 
 
   const sprintsListActive = location.pathname.endsWith('/sprints');
@@ -633,6 +647,11 @@ export function SpaceLayout() {
       {/* ── Global search ── */}
       {showSearch && spaceId && (
         <GlobalSearch spaceId={spaceId} onClose={() => setShowSearch(false)} />
+      )}
+
+      {/* ── Keyboard shortcuts reference ── */}
+      {showShortcuts && (
+        <ShortcutsModal onClose={() => setShowShortcuts(false)} />
       )}
 
       {/* ── Create sprint folder modal ── */}

@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsIn,
   IsArray,
+  ArrayNotEmpty,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -139,12 +140,6 @@ export class AddDependencyDto {
   type: 'blocks' | 'blocked_by';
 }
 
-export class BulkDeleteDto {
-  @IsArray()
-  @IsMongoId({ each: true })
-  taskIds: string[];
-}
-
 export class BulkMoveDto {
   @IsArray()
   @IsMongoId({ each: true })
@@ -205,10 +200,29 @@ export class MoveSubtaskDto {
   newParentTaskId: string;
 }
 
-export class BulkUpdateTaskDto {
+export class DuplicateSubtaskDto {
+  @IsMongoId()
+  taskId: string;
+
+  @IsMongoId()
+  newParentTaskId: string;
+}
+
+export type BulkAction =
+  | 'status'
+  | 'priority'
+  | 'assignees'
+  | 'move'
+  | 'delete';
+
+export class BulkPatchDto {
   @IsArray()
+  @ArrayNotEmpty()
   @IsMongoId({ each: true })
   taskIds: string[];
+
+  @IsIn(['status', 'priority', 'assignees', 'move', 'delete'])
+  action: BulkAction;
 
   @IsOptional()
   @IsEnum(TaskStatus)
@@ -224,15 +238,10 @@ export class BulkUpdateTaskDto {
   assignees?: string[];
 
   @IsOptional()
-  @IsNumber()
-  @IsIn([...FIBONACCI_POINTS])
-  storyPoints?: number;
-}
-
-export class DuplicateSubtaskDto {
   @IsMongoId()
-  taskId: string;
+  listId?: string;
 
+  @IsOptional()
   @IsMongoId()
-  newParentTaskId: string;
+  sprintId?: string;
 }

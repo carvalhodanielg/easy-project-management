@@ -18,7 +18,7 @@ import {
   AddDependencyDto,
   BulkMoveDto,
   PromoteToMainTaskDto,
-  BulkUpdateTaskDto,
+  BulkPatchDto,
 } from './dto/create-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
@@ -516,30 +516,6 @@ export class TasksService {
 
   // ── Bulk operations ───────────────────────────────────────────────────────
 
-  async bulkDelete(spaceId: string, taskIds: string[]): Promise<void> {
-    const oids = taskIds.map((id) => new Types.ObjectId(id));
-
-    // Find all subtasks of the tasks being deleted
-    const subtasks = await this.taskModel
-      .find({ parentTask: { $in: oids }, spaceId: new Types.ObjectId(spaceId) })
-      .exec();
-    const subtaskOids = subtasks.map((s) => s._id);
-
-    const allOids = [...oids, ...subtaskOids];
-
-    await this.taskModel
-      .deleteMany({
-        _id: { $in: allOids },
-        spaceId: new Types.ObjectId(spaceId),
-      })
-      .exec();
-
-    await this.taskModel.updateMany(
-      { spaceId: new Types.ObjectId(spaceId) },
-      { $pull: { blockedBy: { $in: allOids }, blocks: { $in: allOids } } },
-    );
-  }
-
   async bulkMove(
     spaceId: string,
     taskIds: string[],
@@ -626,18 +602,101 @@ export class TasksService {
     }
   }
 
-  async bulkUpdate(spaceId: string, dto: BulkUpdateTaskDto): Promise<void> {
-    const { taskIds, assignees, ...fields } = dto;
-    const oids = taskIds.map((id) => new Types.ObjectId(id));
-    const filter = { _id: { $in: oids }, spaceId: new Types.ObjectId(spaceId) };
+  /**
+   * Unified bulk action endpoint. Applies a single action to every task in
+   * `taskIds` that belongs to `spaceId`. Tasks outside the space are silently
+   * ignored (the spaceId filter scopes every query) so callers can never mutate
+   * tasks they have no access to. Returns the number of affected tasks.
+   */
+  async bulkPatch(
+    spaceId: string,
+    dto: BulkPatchDto,
+  ): Promise<{ affected: number }> {
+    const spaceOid = new Types.ObjectId(spaceId);
+    const oids = dto.taskIds.map((id) => new Types.ObjectId(id));
+    const filter = { _id: { $in: oids }, spaceId: spaceOid };
 
-    const set: Record<string, unknown> = { ...fields };
-    if (assignees !== undefined) {
-      set.assignees = assignees.map((id) => new Types.ObjectId(id));
-    }
+    switch (dto.action) {
+      case 'status': {
+        const res = await this.taskModel
+          .updateMany(filter, { $set: { status: dto.status } })
+          .exec();
+        return { affected: res?.modifiedCount ?? 0 };
+      }
 
-    if (Object.keys(set).length > 0) {
-      await this.taskModel.updateMany(filter, { $set: set }).exec();
+      case 'priority': {
+        const res = await this.taskModel
+          .updateMany(filter, { $set: { priority: dto.priority } })
+          .exec();
+        return { affected: res?.modifiedCount ?? 0 };
+      }
+
+      case 'assignees': {
+        const assignees = (dto.assignees ?? []).map(
+          (id) => new Types.ObjectId(id),
+        );
+        const res = await this.taskModel
+          .updateMany(filter, { $set: { assignees } })
+          .exec();
+        return { affected: res?.modifiedCount ?? 0 };
+      }
+
+      case 'move': {
+        // Domain rule: a task belongs to either a list OR a sprint, never both
+        // and never neither. Setting one destination must clear the other.
+        if (!dto.listId && !dto.sprintId) {
+          throw new BadRequestException(
+            'Move requires either a listId or a sprintId',
+          );
+        }
+        if (dto.listId && dto.sprintId) {
+          throw new BadRequestException(
+            'Move accepts only one of listId or sprintId, not both',
+          );
+        }
+
+        // Move subtasks alongside their parents so they stay in the same place.
+        const subtasks = await this.taskModel
+          .find({ parentTask: { $in: oids }, spaceId: spaceOid })
+          .exec();
+        const allOids = [...oids, ...subtasks.map((s) => s._id)];
+
+        const res = await this.taskModel
+          .updateMany(
+            { _id: { $in: allOids }, spaceId: spaceOid },
+            {
+              listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
+              sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,
+            },
+          )
+          .exec();
+        return { affected: res?.modifiedCount ?? 0 };
+      }
+
+      case 'delete': {
+        const subtasks = await this.taskModel
+          .find({ parentTask: { $in: oids }, spaceId: spaceOid })
+          .exec();
+        const allOids = [...oids, ...subtasks.map((s) => s._id)];
+
+        const res = await this.taskModel
+          .deleteMany({ _id: { $in: allOids }, spaceId: spaceOid })
+          .exec();
+
+        await this.taskModel
+          .updateMany(
+            { spaceId: spaceOid },
+            {
+              $pull: { blockedBy: { $in: allOids }, blocks: { $in: allOids } },
+            },
+          )
+          .exec();
+
+        return { affected: res?.deletedCount ?? 0 };
+      }
+
+      default:
+        throw new BadRequestException('Unsupported bulk action');
     }
   }
 

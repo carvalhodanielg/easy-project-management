@@ -3,7 +3,15 @@ export default () => ({
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/atkplan',
   jwt: {
     secret: process.env.JWT_SECRET ?? 'changeme-in-production',
-    expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
+    // Short-lived access token; sessions are kept alive by the refresh token.
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
+  },
+  refreshToken: {
+    // How long a refresh token stays valid, in days.
+    expiresInDays: parseInt(
+      process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS ?? '30',
+      10,
+    ),
   },
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   invitations: {

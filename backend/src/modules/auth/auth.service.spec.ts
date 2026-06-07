@@ -13,6 +13,7 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../../common/mail/mail.service';
 import { PasswordReset } from './schemas/password-reset.schema';
 import { EmailVerification } from './schemas/email-verification.schema';
+import { RefreshToken } from './schemas/refresh-token.schema';
 
 const mockUser = {
   _id: { toString: () => 'user-id-1' },
@@ -43,6 +44,7 @@ const mockConfigService = {
   get: jest.fn((key: string) => {
     if (key === 'passwordReset.expiresInMinutes') return 60;
     if (key === 'emailVerification.expiresInHours') return 24;
+    if (key === 'refreshToken.expiresInDays') return 30;
     if (key === 'frontendUrl') return 'http://localhost:5173';
     return undefined;
   }),
@@ -60,6 +62,12 @@ const mockEmailVerificationModel = {
   updateMany: jest.fn(),
 };
 
+const mockRefreshTokenModel = {
+  create: jest.fn(),
+  findOne: jest.fn(),
+  updateOne: jest.fn(),
+};
+
 function execMock<T>(value: T) {
   return { exec: jest.fn().mockResolvedValue(value) };
 }
@@ -73,6 +81,9 @@ describe('AuthService', () => {
     // individual tests override as needed.
     mockEmailVerificationModel.updateMany.mockReturnValue(execMock({}));
     mockEmailVerificationModel.create.mockResolvedValue({});
+    // Sensible default so register()/login()'s refresh-token path doesn't throw.
+    mockRefreshTokenModel.create.mockResolvedValue({});
+    mockRefreshTokenModel.updateOne.mockReturnValue(execMock({}));
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -87,6 +98,10 @@ describe('AuthService', () => {
         {
           provide: getModelToken(EmailVerification.name),
           useValue: mockEmailVerificationModel,
+        },
+        {
+          provide: getModelToken(RefreshToken.name),
+          useValue: mockRefreshTokenModel,
         },
       ],
     }).compile();
@@ -116,7 +131,10 @@ describe('AuthService', () => {
         displayName: 'New User',
       });
 
-      expect(result).toEqual({ token: 'signed-token' });
+      expect(result).toEqual({
+        token: 'signed-token',
+        refreshToken: expect.any(String),
+      });
       expect(mockUsersService.create).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'new@example.com' }),
       );
@@ -176,7 +194,10 @@ describe('AuthService', () => {
         displayName: 'New User',
       });
 
-      expect(result).toEqual({ token: 'signed-token' });
+      expect(result).toEqual({
+        token: 'signed-token',
+        refreshToken: expect.any(String),
+      });
     });
   });
 
@@ -211,7 +232,10 @@ describe('AuthService', () => {
         password: 'correct-pass',
       });
 
-      expect(result).toEqual({ token: 'signed-token' });
+      expect(result).toEqual({
+        token: 'signed-token',
+        refreshToken: expect.any(String),
+      });
     });
   });
 
@@ -421,6 +445,119 @@ describe('AuthService', () => {
       const [emailArg] = mockMailService.sendEmailVerification.mock
         .calls[0] as [{ to: string; verifyUrl: string }];
       expect(emailArg.verifyUrl).toContain('/verify-email?token=');
+    });
+  });
+
+  describe('register/login issue a refresh token', () => {
+    it('persists a refresh token on register', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue(mockUser);
+
+      await service.register({
+        email: 'new@example.com',
+        password: 'password123',
+        displayName: 'New User',
+      });
+
+      expect(mockRefreshTokenModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser._id,
+          token: expect.any(String),
+          expiresAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('persists a refresh token on login', async () => {
+      const hash = await bcrypt.hash('correct-pass', 10);
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        passwordHash: hash,
+      });
+
+      await service.login({
+        email: 'test@example.com',
+        password: 'correct-pass',
+      });
+
+      expect(mockRefreshTokenModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser._id,
+          token: expect.any(String),
+          expiresAt: expect.any(Date),
+        }),
+      );
+    });
+  });
+
+  describe('refresh', () => {
+    it('throws UnauthorizedException when token is unknown', async () => {
+      mockRefreshTokenModel.findOne.mockReturnValue(execMock(null));
+      await expect(service.refresh('nope')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when token was revoked', async () => {
+      mockRefreshTokenModel.findOne.mockReturnValue(
+        execMock({
+          userId: mockUser._id,
+          revokedAt: new Date(),
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+      );
+      await expect(service.refresh('revoked')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when token is expired', async () => {
+      mockRefreshTokenModel.findOne.mockReturnValue(
+        execMock({
+          userId: mockUser._id,
+          revokedAt: null,
+          expiresAt: new Date(Date.now() - 60_000),
+        }),
+      );
+      await expect(service.refresh('expired')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('returns a new access token for a valid refresh token', async () => {
+      mockRefreshTokenModel.findOne.mockReturnValue(
+        execMock({
+          userId: mockUser._id,
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+      );
+      mockUsersService.findById.mockResolvedValue(mockUser);
+
+      const result = await service.refresh('valid');
+
+      expect(result).toEqual({ token: 'signed-token' });
+      expect(mockJwtService.sign).toHaveBeenCalled();
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the matching, still-active refresh token', async () => {
+      await service.logout('some-token');
+
+      expect(mockRefreshTokenModel.updateOne).toHaveBeenCalledWith(
+        { token: 'some-token', revokedAt: null },
+        expect.objectContaining({ revokedAt: expect.any(Date) }),
+      );
+    });
+
+    it('is idempotent and does not throw for an unknown token', async () => {
+      mockRefreshTokenModel.updateOne.mockReturnValue(
+        execMock({ matchedCount: 0 }),
+      );
+      await expect(service.logout('ghost')).resolves.toEqual({
+        message: expect.any(String),
+      });
     });
   });
 });

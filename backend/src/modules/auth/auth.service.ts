@@ -24,8 +24,17 @@ import {
   EmailVerification,
   EmailVerificationDocument,
 } from './schemas/email-verification.schema';
+import {
+  RefreshToken,
+  RefreshTokenDocument,
+} from './schemas/refresh-token.schema';
 
 const SALT_ROUNDS = 10;
+
+export interface AuthTokens {
+  token: string;
+  refreshToken: string;
+}
 
 // Returned regardless of whether the email exists, to avoid leaking which
 // addresses have accounts (account enumeration).
@@ -49,9 +58,11 @@ export class AuthService {
     private readonly passwordResetModel: Model<PasswordResetDocument>,
     @InjectModel(EmailVerification.name)
     private readonly emailVerificationModel: Model<EmailVerificationDocument>,
+    @InjectModel(RefreshToken.name)
+    private readonly refreshTokenModel: Model<RefreshTokenDocument>,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ token: string }> {
+  async register(dto: RegisterDto): Promise<AuthTokens> {
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already in use');
 
@@ -66,17 +77,50 @@ export class AuthService {
     // verification link and surface an "unverified" state in the UI.
     await this.issueEmailVerification(user);
 
-    return { token: this.signToken(user) };
+    return this.issueTokens(user);
   }
 
-  async login(dto: LoginDto): Promise<{ token: string }> {
+  async login(dto: LoginDto): Promise<AuthTokens> {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
+    return this.issueTokens(user);
+  }
+
+  // Exchanges a valid, non-revoked, non-expired refresh token for a fresh
+  // access token. The refresh token itself stays the same (revocable, no
+  // rotation), so the client keeps using it until it expires or logs out.
+  async refresh(refreshToken: string): Promise<{ token: string }> {
+    const stored = await this.refreshTokenModel
+      .findOne({ token: refreshToken })
+      .exec();
+
+    if (
+      !stored ||
+      stored.revokedAt ||
+      stored.expiresAt.getTime() < Date.now()
+    ) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.usersService.findById(stored.userId.toString());
     return { token: this.signToken(user) };
+  }
+
+  // Revokes a refresh token so it can no longer mint access tokens. Idempotent:
+  // unknown or already-revoked tokens succeed silently (no enumeration signal).
+  async logout(refreshToken: string): Promise<{ message: string }> {
+    await this.refreshTokenModel
+      .updateOne(
+        { token: refreshToken, revokedAt: null },
+        { revokedAt: new Date() },
+      )
+      .exec();
+
+    return { message: 'Sessão encerrada.' };
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
@@ -219,6 +263,29 @@ export class AuthService {
     const base =
       this.configService.get<string>('frontendUrl') ?? 'http://localhost:5173';
     return `${base.replace(/\/$/, '')}/verify-email?token=${token}`;
+  }
+
+  // Issues a short-lived access token plus a long-lived, revocable refresh
+  // token persisted for the session.
+  private async issueTokens(user: UserDocument): Promise<AuthTokens> {
+    const refreshToken = await this.createRefreshToken(user);
+    return { token: this.signToken(user), refreshToken };
+  }
+
+  private async createRefreshToken(user: UserDocument): Promise<string> {
+    const token = randomBytes(32).toString('hex');
+    await this.refreshTokenModel.create({
+      userId: user._id,
+      token,
+      expiresAt: this.computeRefreshExpiry(),
+    });
+    return token;
+  }
+
+  private computeRefreshExpiry(): Date {
+    const days =
+      this.configService.get<number>('refreshToken.expiresInDays') ?? 30;
+    return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
   }
 
   private signToken(user: UserDocument): string {

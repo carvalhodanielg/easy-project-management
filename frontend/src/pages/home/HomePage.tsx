@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import { useLogout } from '../../hooks/useAuth';
 import * as spacesApi from '../../api/spaces.api';
 import type { Space } from '../../types/space.types';
 import { UserAvatar } from '../../components/ui/UserAvatar';
@@ -15,7 +16,7 @@ const PRESET_COLORS = [
 
 export function HomePage() {
   const user        = useAuthStore((s) => s.user);
-  const logout      = useAuthStore((s) => s.logout);
+  const logout      = useLogout();
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
 

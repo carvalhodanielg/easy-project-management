@@ -25,9 +25,9 @@ export function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const token = await authApi.register({ email, password, displayName });
+      const { token, refreshToken } = await authApi.register({ email, password, displayName });
       const user  = await authApi.getMe(token);
-      setAuth(token, user);
+      setAuth(token, refreshToken, user);
       navigate(redirect || '/home', { replace: true });
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Falha ao criar conta. Tente novamente.'));

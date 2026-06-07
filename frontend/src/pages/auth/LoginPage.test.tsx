@@ -46,7 +46,7 @@ describe('LoginPage', () => {
   });
 
   it('calls login api with form values', async () => {
-    vi.mocked(authApi.login).mockResolvedValue('tok');
+    vi.mocked(authApi.login).mockResolvedValue({ token: 'tok', refreshToken: 'rt' });
     vi.mocked(authApi.getMe).mockResolvedValue({ _id: '1', email: 'u@e.com', displayName: 'U', avatarUrl: null });
     renderPage();
 

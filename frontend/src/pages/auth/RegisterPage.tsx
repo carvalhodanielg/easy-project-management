@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import * as authApi from '../../api/auth.api';
+import { getApiErrorMessage } from '../../lib/errors';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -29,10 +30,7 @@ export function RegisterPage() {
       setAuth(token, user);
       navigate(redirect || '/home', { replace: true });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: { message?: string | string[] } } } })
-        ?.response?.data?.error?.message;
-      const detail = Array.isArray(msg) ? msg[0] : msg;
-      setError(detail ?? 'Falha ao criar conta. Tente novamente.');
+      setError(getApiErrorMessage(err, 'Falha ao criar conta. Tente novamente.'));
     } finally {
       setLoading(false);
     }
@@ -105,7 +103,8 @@ export function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Mínimo 6 caracteres"
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
                 className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
               />
             </div>

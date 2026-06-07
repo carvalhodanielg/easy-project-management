@@ -28,6 +28,11 @@ describe('RegisterPage', () => {
     expect(screen.getByLabelText(/senha/i)).toBeInTheDocument();
   });
 
+  it('tells the user the password needs at least 8 characters', () => {
+    renderPage();
+    expect(screen.getByPlaceholderText(/mínimo 8 caracteres/i)).toBeInTheDocument();
+  });
+
   it('leaves the email editable for a normal registration', () => {
     renderPage();
     const email = screen.getByLabelText(/email/i);

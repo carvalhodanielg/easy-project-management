@@ -13,6 +13,7 @@ import { useSpacesStore } from '../../store/spaces.store';
 import type { SpaceRole } from '../../types/space.types';
 import type { User } from '../../types/user.types';
 import { cn } from '../../lib/utils';
+import { getApiErrorMessage } from '../../lib/errors';
 import { UserAvatar } from '../../components/ui/UserAvatar';
 
 /* ── helpers ── */
@@ -199,7 +200,9 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       )}
 
       {inviteMutation.isError && (
-        <p className="text-xs text-danger">Falha ao enviar o convite.</p>
+        <p className="text-xs text-danger">
+          {getApiErrorMessage(inviteMutation.error, 'Falha ao enviar o convite.')}
+        </p>
       )}
 
       {/* Selected user preview */}

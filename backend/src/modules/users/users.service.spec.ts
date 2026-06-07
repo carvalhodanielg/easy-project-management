@@ -222,6 +222,29 @@ describe('UsersService', () => {
     });
   });
 
+  describe('updatePassword', () => {
+    it('updates the password hash and returns the user', async () => {
+      const updated = { ...mockUser, passwordHash: 'new-hash' };
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
+
+      const result = await service.updatePassword(userId, 'new-hash');
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        userId,
+        { passwordHash: 'new-hash' },
+        { returnDocument: 'after' },
+      );
+      expect(result.passwordHash).toBe('new-hash');
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.updatePassword(userId, 'new-hash')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   describe('uploadAvatar', () => {
     const mockFile = {
       originalname: 'photo.jpg',

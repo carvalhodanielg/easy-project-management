@@ -33,4 +33,24 @@ describe('MailService', () => {
     );
     expect(logged).toContain('invitee@test.com');
   });
+
+  it('sends a password reset without throwing and logs the reset url', async () => {
+    const spy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    await expect(
+      service.sendPasswordReset({
+        to: 'user@test.com',
+        resetUrl: 'http://localhost:5173/reset-password?token=xyz789',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const logged = spy.mock.calls[0][0] as string;
+    expect(logged).toContain(
+      'http://localhost:5173/reset-password?token=xyz789',
+    );
+    expect(logged).toContain('user@test.com');
+  });
 });

@@ -245,6 +245,29 @@ describe('UsersService', () => {
     });
   });
 
+  describe('markEmailVerified', () => {
+    it('sets emailVerified to true and returns the user', async () => {
+      const updated = { ...mockUser, emailVerified: true };
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(updated));
+
+      const result = await service.markEmailVerified(userId);
+
+      expect(mockUserModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        userId,
+        { emailVerified: true },
+        { returnDocument: 'after' },
+      );
+      expect(result.emailVerified).toBe(true);
+    });
+
+    it('throws NotFoundException when user not found', async () => {
+      mockUserModel.findByIdAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.markEmailVerified(userId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   describe('uploadAvatar', () => {
     const mockFile = {
       originalname: 'photo.jpg',

@@ -11,6 +11,10 @@ import {
   PasswordReset,
   PasswordResetSchema,
 } from './schemas/password-reset.schema';
+import {
+  EmailVerification,
+  EmailVerificationSchema,
+} from './schemas/email-verification.schema';
 
 @Module({
   imports: [
@@ -18,6 +22,7 @@ import {
     PassportModule,
     MongooseModule.forFeature([
       { name: PasswordReset.name, schema: PasswordResetSchema },
+      { name: EmailVerification.name, schema: EmailVerificationSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

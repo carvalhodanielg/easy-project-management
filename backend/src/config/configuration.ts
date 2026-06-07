@@ -17,6 +17,13 @@ export default () => ({
       10,
     ),
   },
+  emailVerification: {
+    // How long an email verification link stays valid, in hours.
+    expiresInHours: parseInt(
+      process.env.EMAIL_VERIFICATION_EXPIRES_IN_HOURS ?? '24',
+      10,
+    ),
+  },
   uploadDest: process.env.UPLOAD_DEST ?? './uploads',
   r2: {
     endpoint: process.env.R2_ENDPOINT ?? '', // custom endpoint (MinIO dev); if empty, uses R2 default

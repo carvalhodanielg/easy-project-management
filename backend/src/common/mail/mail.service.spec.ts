@@ -53,4 +53,22 @@ describe('MailService', () => {
     );
     expect(logged).toContain('user@test.com');
   });
+
+  it('sends an email verification without throwing and logs the verify url', async () => {
+    const spy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    await expect(
+      service.sendEmailVerification({
+        to: 'user@test.com',
+        verifyUrl: 'http://localhost:5173/verify-email?token=ver123',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const logged = spy.mock.calls[0][0] as string;
+    expect(logged).toContain('http://localhost:5173/verify-email?token=ver123');
+    expect(logged).toContain('user@test.com');
+  });
 });

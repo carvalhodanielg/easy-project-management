@@ -20,6 +20,10 @@ import {
   PasswordReset,
   PasswordResetDocument,
 } from './schemas/password-reset.schema';
+import {
+  EmailVerification,
+  EmailVerificationDocument,
+} from './schemas/email-verification.schema';
 
 const SALT_ROUNDS = 10;
 
@@ -27,6 +31,10 @@ const SALT_ROUNDS = 10;
 // addresses have accounts (account enumeration).
 const FORGOT_PASSWORD_MESSAGE =
   'Se o e-mail estiver cadastrado, enviaremos instruções para redefinir a senha.';
+
+// Same anti-enumeration stance for resending verification links.
+const RESEND_VERIFICATION_MESSAGE =
+  'Se o e-mail estiver cadastrado e ainda não verificado, enviaremos um novo link.';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +47,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     @InjectModel(PasswordReset.name)
     private readonly passwordResetModel: Model<PasswordResetDocument>,
+    @InjectModel(EmailVerification.name)
+    private readonly emailVerificationModel: Model<EmailVerificationDocument>,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ token: string }> {
@@ -51,6 +61,10 @@ export class AuthService {
       passwordHash,
       displayName: dto.displayName,
     });
+
+    // Soft verification: the account is usable immediately, but we send a
+    // verification link and surface an "unverified" state in the UI.
+    await this.issueEmailVerification(user);
 
     return { token: this.signToken(user) };
   }
@@ -121,6 +135,68 @@ export class AuthService {
     return { message: 'Senha redefinida com sucesso.' };
   }
 
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const verification = await this.emailVerificationModel
+      .findOne({ token })
+      .exec();
+
+    if (
+      !verification ||
+      verification.usedAt ||
+      verification.expiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    await this.usersService.markEmailVerified(verification.userId.toString());
+
+    verification.usedAt = new Date();
+    await verification.save();
+
+    return { message: 'E-mail verificado com sucesso.' };
+  }
+
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const user = await this.usersService.findByEmail(email);
+    // Always respond the same way; only reissue when there is an unverified
+    // account, so the response never reveals whether the email is registered.
+    if (user && !user.emailVerified) {
+      await this.issueEmailVerification(user);
+    }
+
+    return { message: RESEND_VERIFICATION_MESSAGE };
+  }
+
+  // Invalidates any pending verification tokens, issues a fresh one and emails
+  // the verification link (best-effort delivery).
+  private async issueEmailVerification(user: UserDocument): Promise<void> {
+    await this.emailVerificationModel
+      .updateMany({ userId: user._id, usedAt: null }, { usedAt: new Date() })
+      .exec();
+
+    const token = randomBytes(32).toString('hex');
+    await this.emailVerificationModel.create({
+      userId: user._id,
+      token,
+      expiresAt: this.computeVerificationExpiry(),
+    });
+
+    const verifyUrl = this.buildVerifyUrl(token);
+
+    try {
+      await this.mailService.sendEmailVerification({
+        to: user.email,
+        verifyUrl,
+      });
+    } catch (err) {
+      // Best-effort delivery: the link is also logged by MailService.
+      this.logger.error(
+        `Failed to send verification email to ${user.email}`,
+        err as Error,
+      );
+    }
+  }
+
   private computeExpiry(): Date {
     const minutes =
       this.configService.get<number>('passwordReset.expiresInMinutes') ?? 60;
@@ -131,6 +207,18 @@ export class AuthService {
     const base =
       this.configService.get<string>('frontendUrl') ?? 'http://localhost:5173';
     return `${base.replace(/\/$/, '')}/reset-password?token=${token}`;
+  }
+
+  private computeVerificationExpiry(): Date {
+    const hours =
+      this.configService.get<number>('emailVerification.expiresInHours') ?? 24;
+    return new Date(Date.now() + hours * 60 * 60 * 1000);
+  }
+
+  private buildVerifyUrl(token: string): string {
+    const base =
+      this.configService.get<string>('frontendUrl') ?? 'http://localhost:5173';
+    return `${base.replace(/\/$/, '')}/verify-email?token=${token}`;
   }
 
   private signToken(user: UserDocument): string {

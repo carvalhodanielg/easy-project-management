@@ -13,5 +13,6 @@ export interface User {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  emailVerified?: boolean;
   preferences?: UserPreferences;
 }

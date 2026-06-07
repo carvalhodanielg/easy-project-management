@@ -4,6 +4,7 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
+import { VerifyEmailPage } from '../pages/auth/VerifyEmailPage';
 import { AcceptInvitePage } from '../pages/invite/AcceptInvitePage';
 import { HomePage } from '../pages/home/HomePage';
 import { SpaceLayout } from '../pages/space/SpaceLayout';
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
   { path: '/register', element: <RegisterPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/invite/accept', element: <AcceptInvitePage /> },
   {
     element: <ProtectedRoute />,

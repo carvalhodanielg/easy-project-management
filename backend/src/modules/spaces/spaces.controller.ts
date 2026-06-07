@@ -11,9 +11,11 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { SpacesService } from './spaces.service';
+import { InvitationsService } from './invitations.service';
 import { CreateSpaceDto } from './dto/create-space.dto';
 import { UpdateSpaceDto } from './dto/update-space.dto';
 import { AddMemberDto, UpdateMemberRoleDto } from './dto/add-member.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -21,12 +23,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
 import { SpaceRole } from './schemas/space-member.schema';
 import type { UserDocument } from '../users/schemas/user.schema';
-import { Types } from 'mongoose';
 
 @Controller('spaces')
 @UseGuards(JwtAuthGuard)
 export class SpacesController {
-  constructor(private readonly spacesService: SpacesService) {}
+  constructor(
+    private readonly spacesService: SpacesService,
+    private readonly invitationsService: InvitationsService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateSpaceDto, @CurrentUser() user: UserDocument) {
@@ -76,6 +80,35 @@ export class SpacesController {
     @Body() dto: AddMemberDto,
   ) {
     return this.spacesService.addMember(spaceId, dto);
+  }
+
+  @Get(':spaceId/invitations')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Editor)
+  listInvitations(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.invitationsService.listInvitations(spaceId);
+  }
+
+  @Post(':spaceId/invitations')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Editor)
+  inviteMember(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: InviteMemberDto,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.invitationsService.createInvitation(spaceId, dto, user);
+  }
+
+  @Delete(':spaceId/invitations/:invitationId')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  revokeInvitation(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('invitationId', ObjectIdValidationPipe) invitationId: string,
+  ) {
+    return this.invitationsService.revokeInvitation(spaceId, invitationId);
   }
 
   @Patch(':spaceId/members/:userId')

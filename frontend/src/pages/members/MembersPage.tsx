@@ -3,9 +3,11 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users, Plus, X, Shield, Eye, Trash2, Search, Check, Loader2, ChevronDown,
+  Mail, Copy, Clock,
 } from 'lucide-react';
 import * as spacesApi from '../../api/spaces.api';
 import * as usersApi from '../../api/users.api';
+import { buildInviteUrl } from '../../api/invitations.api';
 import { useAuthStore } from '../../store/auth.store';
 import { useSpacesStore } from '../../store/spaces.store';
 import type { SpaceRole } from '../../types/space.types';
@@ -21,6 +23,28 @@ const ROLE_META: Record<SpaceRole, { label: string; icon: React.ElementType; col
 
 function memberUser(m: spacesApi.SpaceMember): User | null {
   return typeof m.userId === 'object' ? m.userId : null;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isEmail = (v: string) => EMAIL_RE.test(v.trim());
+
+/* ── Copy-to-clipboard button ── */
+function CopyLinkButton({ url, label = 'Copiar link' }: { url: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-lift border border-line rounded-lg text-xs font-medium text-ink-dim hover:text-ink hover:border-brand/40 transition-colors"
+    >
+      {copied ? <Check size={12} className="text-brand" /> : <Copy size={12} />}
+      {copied ? 'Copiado!' : label}
+    </button>
+  );
 }
 
 /* ── Add member panel ── */
@@ -51,6 +75,8 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
     }, 300);
   }, [query, existingIds]);
 
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+
   const addMutation = useMutation({
     mutationFn: () => spacesApi.addSpaceMember(spaceId, selected!._id, role),
     onSuccess: () => {
@@ -58,6 +84,49 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       onClose();
     },
   });
+
+  const inviteMutation = useMutation({
+    mutationFn: () => spacesApi.inviteSpaceMember(spaceId, query.trim(), role),
+    onSuccess: (result) => {
+      setInviteUrl(result.inviteUrl);
+      void queryClient.invalidateQueries({ queryKey: ['space-invitations', spaceId] });
+    },
+  });
+
+  // Offer an email invite when the query is a valid email that matched no
+  // existing user — i.e. the person likely has no account yet.
+  const canInviteByEmail =
+    !selected && isEmail(query) && results.length === 0 && !searching;
+
+  if (inviteUrl) {
+    return (
+      <div className="bg-lift border border-line rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Mail size={15} className="text-brand" />
+          <p className="text-sm font-semibold text-ink">Convite enviado</p>
+        </div>
+        <p className="text-xs text-ink-dim">
+          Enviamos um convite para <span className="font-medium text-ink">{query.trim()}</span>.
+          Compartilhe o link abaixo se preferir:
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            readOnly
+            value={inviteUrl}
+            onFocus={(e) => e.currentTarget.select()}
+            className="flex-1 min-w-0 px-3 py-2 bg-input border border-line rounded-lg text-xs text-ink-dim focus:outline-none focus:border-brand"
+          />
+          <CopyLinkButton url={inviteUrl} />
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+        >
+          Concluir
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-lift border border-line rounded-xl p-4 space-y-3">
@@ -103,9 +172,34 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
         </div>
       )}
 
-      {/* No results */}
+      {/* No results — offer email invite for people without an account */}
       {query.trim() && results.length === 0 && !searching && !selected && (
-        <p className="text-xs text-ink-muted px-1">Nenhum usuário encontrado.</p>
+        canInviteByEmail ? (
+          <button
+            type="button"
+            onClick={() => inviteMutation.mutate()}
+            disabled={inviteMutation.isPending}
+            className="flex items-center gap-3 w-full px-3 py-2.5 border border-dashed border-brand/40 bg-brand/5 hover:bg-brand/10 rounded-lg transition-colors text-left disabled:opacity-60"
+          >
+            <div className="w-7 h-7 rounded-full bg-brand/15 flex items-center justify-center shrink-0">
+              {inviteMutation.isPending
+                ? <Loader2 size={13} className="text-brand animate-spin" />
+                : <Mail size={13} className="text-brand" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink truncate">Convidar {query.trim()}</p>
+              <p className="text-xs text-ink-muted">Enviar convite por e-mail</p>
+            </div>
+          </button>
+        ) : (
+          <p className="text-xs text-ink-muted px-1">
+            Nenhum usuário encontrado. Digite um e-mail completo para convidar por e-mail.
+          </p>
+        )
+      )}
+
+      {inviteMutation.isError && (
+        <p className="text-xs text-danger">Falha ao enviar o convite.</p>
       )}
 
       {/* Selected user preview */}
@@ -160,20 +254,23 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
   const queryClient = useQueryClient();
   const [confirmRemove, setConfirmRemove] = useState(false);
   const user = memberUser(member);
-  if (!user) return null;
-
-  const meta = ROLE_META[member.role];
-  const RoleIcon = meta.icon;
+  const userId = user?._id ?? '';
 
   const updateMutation = useMutation({
-    mutationFn: (role: SpaceRole) => spacesApi.updateMemberRole(spaceId, user._id, role),
+    mutationFn: (role: SpaceRole) => spacesApi.updateMemberRole(spaceId, userId, role),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] }),
   });
 
   const removeMutation = useMutation({
-    mutationFn: () => spacesApi.removeMember(spaceId, user._id),
+    mutationFn: () => spacesApi.removeMember(spaceId, userId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] }),
   });
+
+  // Hooks above run unconditionally; bail out only after they are declared.
+  if (!user) return null;
+
+  const meta = ROLE_META[member.role];
+  const RoleIcon = meta.icon;
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-line-dim last:border-0 hover:bg-lift/30 transition-colors">
@@ -248,6 +345,60 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
   );
 }
 
+/* ── Pending invitations ── */
+function PendingInvitations({ spaceId }: { spaceId: string }) {
+  const queryClient = useQueryClient();
+  const { data: invitations = [] } = useQuery({
+    queryKey: ['space-invitations', spaceId],
+    queryFn: () => spacesApi.getSpaceInvitations(spaceId),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (invitationId: string) => spacesApi.revokeInvitation(spaceId, invitationId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-invitations', spaceId] }),
+  });
+
+  if (invitations.length === 0) return null;
+
+  return (
+    <div className="bg-surface border border-line rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-line-dim flex items-center gap-2">
+        <Clock size={12} className="text-ink-muted" />
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted">
+          {invitations.length} convite{invitations.length !== 1 ? 's' : ''} pendente{invitations.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+      <div className="divide-y divide-line-dim">
+        {invitations.map((inv) => {
+          const meta = ROLE_META[inv.role];
+          return (
+            <div key={inv._id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="w-9 h-9 rounded-full bg-lift border border-line flex items-center justify-center shrink-0">
+                <Mail size={14} className="text-ink-muted" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink truncate">{inv.email}</p>
+                <p className="text-xs text-ink-muted">
+                  Convidado como {meta.label.toLowerCase()} · aguardando aceite
+                </p>
+              </div>
+              <CopyLinkButton url={buildInviteUrl(inv.token)} />
+              <button
+                aria-label="Revogar convite"
+                onClick={() => revokeMutation.mutate(inv._id)}
+                disabled={revokeMutation.isPending}
+                className="p-1.5 rounded text-ink-muted hover:text-danger hover:bg-danger/10 transition-colors shrink-0 disabled:opacity-60"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main page ── */
 export function MembersPage() {
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -307,6 +458,9 @@ export function MembersPage() {
               onClose={() => setShowAdd(false)}
             />
           )}
+
+          {/* Pending invitations */}
+          {canManage && <PendingInvitations spaceId={spaceId!} />}
 
           {/* Members list */}
           {isLoading ? (

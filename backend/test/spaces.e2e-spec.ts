@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../src/modules/auth/auth.module';
 import { UsersModule } from '../src/modules/users/users.module';
 import { SpacesModule } from '../src/modules/spaces/spaces.module';
+import { MailModule } from '../src/common/mail/mail.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import configuration from '../src/config/configuration';
@@ -16,6 +17,7 @@ async function buildApp(uri: string): Promise<INestApplication> {
     imports: [
       ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
       MongooseModule.forRoot(uri),
+      MailModule,
       UsersModule,
       AuthModule,
       SpacesModule,

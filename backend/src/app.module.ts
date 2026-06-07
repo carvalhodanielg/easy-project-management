@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import * as path from 'path';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
+import { MailModule } from './common/mail/mail.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { SpacesModule } from './modules/spaces/spaces.module';
@@ -45,6 +46,7 @@ import { SprintFoldersModule } from './modules/sprint-folders/sprint-folders.mod
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     DatabaseModule,
+    MailModule,
     UsersModule,
     AuthModule,
     SpacesModule,

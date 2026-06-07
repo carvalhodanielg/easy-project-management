@@ -12,6 +12,11 @@ export interface PasswordResetEmail {
   resetUrl: string;
 }
 
+export interface EmailVerificationEmail {
+  to: string;
+  verifyUrl: string;
+}
+
 /**
  * Mail delivery abstraction.
  *
@@ -34,6 +39,13 @@ export class MailService {
 
   sendPasswordReset(params: PasswordResetEmail): Promise<void> {
     this.logger.log(`Password reset link for ${params.to}: ${params.resetUrl}`);
+    return Promise.resolve();
+  }
+
+  sendEmailVerification(params: EmailVerificationEmail): Promise<void> {
+    this.logger.log(
+      `Email verification link for ${params.to}: ${params.verifyUrl}`,
+    );
     return Promise.resolve();
   }
 }

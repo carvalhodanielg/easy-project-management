@@ -37,6 +37,14 @@ export async function resetPassword(
   await apiClient.post('/auth/reset-password', { token, password });
 }
 
+export async function verifyEmail(token: string): Promise<void> {
+  await apiClient.post('/auth/verify-email', { token });
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  await apiClient.post('/auth/resend-verification', { email });
+}
+
 export async function getMe(token?: string): Promise<User> {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const res = await apiClient.get<MeResponse>('/auth/me', { headers });

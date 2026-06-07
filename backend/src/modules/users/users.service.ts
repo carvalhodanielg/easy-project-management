@@ -52,6 +52,18 @@ export class UsersService {
     return user;
   }
 
+  async markEmailVerified(id: string): Promise<UserDocument> {
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        id,
+        { emailVerified: true },
+        { returnDocument: 'after' },
+      )
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
   async updatePreferences(
     id: string,
     dto: UpdatePreferencesDto,
@@ -112,6 +124,7 @@ export class UsersService {
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      emailVerified: user.emailVerified,
       preferences: user.preferences,
     };
   }

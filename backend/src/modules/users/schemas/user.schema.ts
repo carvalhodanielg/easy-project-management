@@ -42,6 +42,9 @@ export class User {
   @Prop({ type: String, default: null })
   avatarUrl: string | null;
 
+  @Prop({ type: Boolean, default: false })
+  emailVerified: boolean;
+
   @Prop({ type: UserPreferencesSchema, default: () => ({ theme: 'dark' }) })
   preferences: UserPreferences;
 }

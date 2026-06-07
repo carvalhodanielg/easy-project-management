@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import * as authApi from '../../api/auth.api';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const redirect = params.get('redirect');
   const setAuth  = useAuthStore((s) => s.setAuth);
 
   const [email,    setEmail]    = useState('');
@@ -22,7 +24,7 @@ export function LoginPage() {
       const token = await authApi.login({ email, password });
       const user  = await authApi.getMe(token);
       setAuth(token, user);
-      navigate('/home', { replace: true });
+      navigate(redirect || '/home', { replace: true });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setError(status === 401 ? 'Email ou senha inválidos.' : 'Erro ao entrar. Tente novamente.');
@@ -109,7 +111,7 @@ export function LoginPage() {
 
         <p className="text-center text-sm text-ink-dim mt-5">
           Não tem conta?{' '}
-          <Link to="/register" className="text-brand hover:text-brand-hi font-medium transition-colors">
+          <Link to={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'} className="text-brand hover:text-brand-hi font-medium transition-colors">
             Criar conta
           </Link>
         </p>

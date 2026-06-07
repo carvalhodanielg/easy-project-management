@@ -134,6 +134,29 @@ describe('MembersPage', () => {
     });
   });
 
+  it('surfaces the backend error message when an invite fails', async () => {
+    vi.mocked(usersApi.searchUsers).mockResolvedValue([]);
+    vi.mocked(spacesApi.inviteSpaceMember).mockRejectedValue({
+      response: { data: { error: { message: 'This user is already a member of this space' } } },
+    });
+    renderPage();
+    await waitForLoaded();
+    fireEvent.click(screen.getByRole('button', { name: /adicionar membro/i }));
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText(/buscar por email/i), {
+        target: { value: 'carol@test.com' },
+      });
+      await new Promise((r) => setTimeout(r, 350));
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /convidar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('This user is already a member of this space')).toBeInTheDocument();
+    });
+  });
+
   it('does not show remove button for current user', async () => {
     renderPage();
     await waitFor(() => screen.getByText('Alice'));

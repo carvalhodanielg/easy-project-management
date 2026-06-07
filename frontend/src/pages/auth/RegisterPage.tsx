@@ -1,15 +1,21 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import * as authApi from '../../api/auth.api';
+import { getApiErrorMessage } from '../../lib/errors';
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const redirect = params.get('redirect');
+  // Invitations are addressed to a specific email — when arriving from an invite
+  // link the email is fixed and must not be edited.
+  const lockedEmail = params.get('email');
   const setAuth  = useAuthStore((s) => s.setAuth);
 
   const [displayName, setDisplayName] = useState('');
-  const [email,       setEmail]       = useState('');
+  const [email,       setEmail]       = useState(lockedEmail ?? '');
   const [password,    setPassword]    = useState('');
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(false);
@@ -22,9 +28,9 @@ export function RegisterPage() {
       const token = await authApi.register({ email, password, displayName });
       const user  = await authApi.getMe(token);
       setAuth(token, user);
-      navigate('/home', { replace: true });
-    } catch {
-      setError('Falha ao criar conta. Tente com outro email.');
+      navigate(redirect || '/home', { replace: true });
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Falha ao criar conta. Tente novamente.'));
     } finally {
       setLoading(false);
     }
@@ -75,9 +81,15 @@ export function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={!!lockedEmail}
                 placeholder="seu@email.com"
-                className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+                className={`w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all ${lockedEmail ? 'opacity-60 cursor-not-allowed' : ''}`}
               />
+              {lockedEmail && (
+                <p className="text-xs text-ink-muted mt-1.5">
+                  E-mail definido pelo convite.
+                </p>
+              )}
             </div>
 
             <div>
@@ -91,7 +103,8 @@ export function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Mínimo 6 caracteres"
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
                 className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
               />
             </div>
@@ -115,7 +128,7 @@ export function RegisterPage() {
 
         <p className="text-center text-sm text-ink-dim mt-5">
           Já tem conta?{' '}
-          <Link to="/login" className="text-brand hover:text-brand-hi font-medium transition-colors">
+          <Link to={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'} className="text-brand hover:text-brand-hi font-medium transition-colors">
             Entrar
           </Link>
         </p>

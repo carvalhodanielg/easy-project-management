@@ -127,7 +127,7 @@ export function AcceptInvitePage() {
               Entre ou crie sua conta com <span className="font-medium text-ink">{invite.email}</span> para aceitar.
             </p>
             <Link
-              to={`/register?redirect=${encodeURIComponent(redirectTarget)}`}
+              to={`/register?redirect=${encodeURIComponent(redirectTarget)}&email=${encodeURIComponent(invite.email)}`}
               className="block w-full px-4 py-2.5 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
             >
               Criar conta e aceitar

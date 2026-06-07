@@ -8,10 +8,13 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const redirect = params.get('redirect');
+  // Invitations are addressed to a specific email — when arriving from an invite
+  // link the email is fixed and must not be edited.
+  const lockedEmail = params.get('email');
   const setAuth  = useAuthStore((s) => s.setAuth);
 
   const [displayName, setDisplayName] = useState('');
-  const [email,       setEmail]       = useState('');
+  const [email,       setEmail]       = useState(lockedEmail ?? '');
   const [password,    setPassword]    = useState('');
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(false);
@@ -25,8 +28,11 @@ export function RegisterPage() {
       const user  = await authApi.getMe(token);
       setAuth(token, user);
       navigate(redirect || '/home', { replace: true });
-    } catch {
-      setError('Falha ao criar conta. Tente com outro email.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string | string[] } } } })
+        ?.response?.data?.error?.message;
+      const detail = Array.isArray(msg) ? msg[0] : msg;
+      setError(detail ?? 'Falha ao criar conta. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -77,9 +83,15 @@ export function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={!!lockedEmail}
                 placeholder="seu@email.com"
-                className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+                className={`w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all ${lockedEmail ? 'opacity-60 cursor-not-allowed' : ''}`}
               />
+              {lockedEmail && (
+                <p className="text-xs text-ink-muted mt-1.5">
+                  E-mail definido pelo convite.
+                </p>
+              )}
             </div>
 
             <div>

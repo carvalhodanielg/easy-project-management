@@ -4,9 +4,20 @@ import { HydratedDocument, Types } from 'mongoose';
 export type SpaceMemberDocument = HydratedDocument<SpaceMember>;
 
 export enum SpaceRole {
+  Owner = 'owner',
   Editor = 'editor',
   Viewer = 'viewer',
 }
+
+/**
+ * Privilege ranking used by SpaceRoleGuard. A higher number grants every
+ * permission of the roles below it, so `@Roles(Editor)` accepts Owner too.
+ */
+export const ROLE_RANK: Record<SpaceRole, number> = {
+  [SpaceRole.Viewer]: 0,
+  [SpaceRole.Editor]: 1,
+  [SpaceRole.Owner]: 2,
+};
 
 @Schema({ timestamps: true })
 export class SpaceMember {

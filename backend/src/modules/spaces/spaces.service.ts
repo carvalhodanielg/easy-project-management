@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -33,7 +34,7 @@ export class SpacesService {
     await this.spaceMemberModel.create({
       spaceId: space._id,
       userId: new Types.ObjectId(userId),
-      role: SpaceRole.Editor,
+      role: SpaceRole.Owner,
     });
 
     return space;
@@ -82,6 +83,12 @@ export class SpacesService {
     spaceId: string,
     dto: AddMemberDto,
   ): Promise<SpaceMemberDocument> {
+    if (dto.role === SpaceRole.Owner) {
+      throw new BadRequestException(
+        'Cannot assign the owner role directly; use ownership transfer',
+      );
+    }
+
     const existing = await this.spaceMemberModel
       .findOne({
         spaceId: new Types.ObjectId(spaceId),
@@ -104,7 +111,27 @@ export class SpacesService {
     userId: string,
     dto: UpdateMemberRoleDto,
   ): Promise<SpaceMemberDocument> {
+    if (dto.role === SpaceRole.Owner) {
+      throw new BadRequestException(
+        'Cannot assign the owner role directly; use ownership transfer',
+      );
+    }
+
     const member = await this.spaceMemberModel
+      .findOne({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(userId),
+      })
+      .exec();
+
+    if (!member) throw new NotFoundException('Member not found');
+    if (member.role === SpaceRole.Owner) {
+      throw new ForbiddenException(
+        "Cannot change the owner's role; use ownership transfer",
+      );
+    }
+
+    const updated = await this.spaceMemberModel
       .findOneAndUpdate(
         {
           spaceId: new Types.ObjectId(spaceId),
@@ -115,8 +142,8 @@ export class SpacesService {
       )
       .exec();
 
-    if (!member) throw new NotFoundException('Member not found');
-    return member;
+    if (!updated) throw new NotFoundException('Member not found');
+    return updated;
   }
 
   async removeMember(
@@ -128,14 +155,63 @@ export class SpacesService {
       throw new ForbiddenException('Cannot remove yourself from a space');
     }
 
-    const result = await this.spaceMemberModel
-      .findOneAndDelete({
+    const member = await this.spaceMemberModel
+      .findOne({
         spaceId: new Types.ObjectId(spaceId),
         userId: new Types.ObjectId(userId),
       })
       .exec();
 
-    if (!result) throw new NotFoundException('Member not found');
+    if (!member) throw new NotFoundException('Member not found');
+    if (member.role === SpaceRole.Owner) {
+      throw new ForbiddenException('Cannot remove the space owner');
+    }
+
+    await this.spaceMemberModel
+      .findOneAndDelete({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(userId),
+      })
+      .exec();
+  }
+
+  async transferOwnership(
+    spaceId: string,
+    currentOwnerId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    if (targetUserId === currentOwnerId) {
+      throw new BadRequestException('You already own this space');
+    }
+
+    const target = await this.spaceMemberModel
+      .findOne({
+        spaceId: new Types.ObjectId(spaceId),
+        userId: new Types.ObjectId(targetUserId),
+      })
+      .exec();
+
+    if (!target) throw new NotFoundException('Member not found');
+
+    await this.spaceMemberModel
+      .updateOne(
+        {
+          spaceId: new Types.ObjectId(spaceId),
+          userId: new Types.ObjectId(targetUserId),
+        },
+        { role: SpaceRole.Owner },
+      )
+      .exec();
+
+    await this.spaceMemberModel
+      .updateOne(
+        {
+          spaceId: new Types.ObjectId(spaceId),
+          userId: new Types.ObjectId(currentOwnerId),
+        },
+        { role: SpaceRole.Editor },
+      )
+      .exec();
   }
 
   async getUserRole(

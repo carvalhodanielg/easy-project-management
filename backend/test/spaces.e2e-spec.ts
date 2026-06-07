@@ -224,4 +224,108 @@ describe('Spaces (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('RBAC: owner role and ownership transfer', () => {
+    let realEditorToken: string;
+    let realEditorId: string;
+    let rbacSpaceId: string;
+
+    beforeAll(async () => {
+      // The creator (editorToken) creates a dedicated space for these tests.
+      const spaceRes = await request(app.getHttpServer())
+        .post('/spaces')
+        .set('Authorization', `Bearer ${editorToken}`)
+        .send({ name: 'RBAC Space' })
+        .expect(201);
+      rbacSpaceId = spaceRes.body.data._id as string;
+
+      // Register a genuine (non-owner) editor and add them to the space.
+      const reg = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: 'realeditor@test.com',
+          password: 'password123',
+          displayName: 'Real Editor',
+        });
+      realEditorToken = reg.body.data.token as string;
+      realEditorId = (
+        await request(app.getHttpServer())
+          .get('/auth/me')
+          .set('Authorization', `Bearer ${realEditorToken}`)
+      ).body.data._id as string;
+
+      await request(app.getHttpServer())
+        .post(`/spaces/${rbacSpaceId}/members`)
+        .set('Authorization', `Bearer ${editorToken}`)
+        .send({ userId: realEditorId, role: 'editor' })
+        .expect(201);
+    });
+
+    it('adds the creator as owner', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${rbacSpaceId}/members`)
+        .set('Authorization', `Bearer ${editorToken}`)
+        .expect(200);
+
+      const creator = res.body.data.find(
+        (m: { userId: { _id: string }; role: string }) =>
+          m.userId._id === editorId,
+      );
+      expect(creator.role).toBe('owner');
+    });
+
+    it('forbids a non-owner editor from adding members', async () => {
+      await request(app.getHttpServer())
+        .post(`/spaces/${rbacSpaceId}/members`)
+        .set('Authorization', `Bearer ${realEditorToken}`)
+        .send({ userId: viewerId, role: 'viewer' })
+        .expect(403);
+    });
+
+    it('forbids a non-owner editor from deleting the space', async () => {
+      await request(app.getHttpServer())
+        .delete(`/spaces/${rbacSpaceId}`)
+        .set('Authorization', `Bearer ${realEditorToken}`)
+        .expect(403);
+    });
+
+    it('rejects assigning the owner role directly', async () => {
+      await request(app.getHttpServer())
+        .post(`/spaces/${rbacSpaceId}/members`)
+        .set('Authorization', `Bearer ${editorToken}`)
+        .send({ userId: viewerId, role: 'owner' })
+        .expect(400);
+    });
+
+    it('lets the owner transfer ownership to an editor', async () => {
+      await request(app.getHttpServer())
+        .post(`/spaces/${rbacSpaceId}/transfer-ownership`)
+        .set('Authorization', `Bearer ${editorToken}`)
+        .send({ userId: realEditorId })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${rbacSpaceId}/members`)
+        .set('Authorization', `Bearer ${realEditorToken}`)
+        .expect(200);
+
+      const newOwner = res.body.data.find(
+        (m: { userId: { _id: string }; role: string }) =>
+          m.userId._id === realEditorId,
+      );
+      const formerOwner = res.body.data.find(
+        (m: { userId: { _id: string }; role: string }) =>
+          m.userId._id === editorId,
+      );
+      expect(newOwner.role).toBe('owner');
+      expect(formerOwner.role).toBe('editor');
+    });
+
+    it('strips delete rights from the former owner after transfer', async () => {
+      await request(app.getHttpServer())
+        .delete(`/spaces/${rbacSpaceId}`)
+        .set('Authorization', `Bearer ${editorToken}`)
+        .expect(403);
+    });
+  });
 });

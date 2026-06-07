@@ -16,6 +16,7 @@ import { CreateSpaceDto } from './dto/create-space.dto';
 import { UpdateSpaceDto } from './dto/update-space.dto';
 import { AddMemberDto, UpdateMemberRoleDto } from './dto/add-member.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { TransferOwnershipDto } from './dto/transfer-ownership.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -50,7 +51,7 @@ export class SpacesController {
 
   @Patch(':spaceId')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   update(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Body() dto: UpdateSpaceDto,
@@ -60,10 +61,26 @@ export class SpacesController {
 
   @Delete(':spaceId')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
     return this.spacesService.remove(spaceId);
+  }
+
+  @Post(':spaceId/transfer-ownership')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Owner)
+  @HttpCode(HttpStatus.OK)
+  transferOwnership(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Body() dto: TransferOwnershipDto,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.spacesService.transferOwnership(
+      spaceId,
+      user._id.toString(),
+      dto.userId,
+    );
   }
 
   @Get(':spaceId/members')
@@ -74,7 +91,7 @@ export class SpacesController {
 
   @Post(':spaceId/members')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   addMember(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Body() dto: AddMemberDto,
@@ -84,14 +101,14 @@ export class SpacesController {
 
   @Get(':spaceId/invitations')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   listInvitations(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
     return this.invitationsService.listInvitations(spaceId);
   }
 
   @Post(':spaceId/invitations')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   inviteMember(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Body() dto: InviteMemberDto,
@@ -102,7 +119,7 @@ export class SpacesController {
 
   @Delete(':spaceId/invitations/:invitationId')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   @HttpCode(HttpStatus.NO_CONTENT)
   revokeInvitation(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -113,7 +130,7 @@ export class SpacesController {
 
   @Patch(':spaceId/members/:userId')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   updateMemberRole(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Param('userId', ObjectIdValidationPipe) userId: string,
@@ -124,7 +141,7 @@ export class SpacesController {
 
   @Delete(':spaceId/members/:userId')
   @UseGuards(SpaceRoleGuard)
-  @Roles(SpaceRole.Editor)
+  @Roles(SpaceRole.Owner)
   @HttpCode(HttpStatus.NO_CONTENT)
   removeMember(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,

@@ -11,6 +11,7 @@ import { ListsModule } from '../src/modules/lists/lists.module';
 import { SprintsModule } from '../src/modules/sprints/sprints.module';
 import { TasksModule } from '../src/modules/tasks/tasks.module';
 import { TagsModule } from '../src/modules/tags/tags.module';
+import { MailModule } from '../src/common/mail/mail.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import configuration from '../src/config/configuration';
@@ -20,6 +21,7 @@ async function buildApp(uri: string): Promise<INestApplication> {
     imports: [
       ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
       MongooseModule.forRoot(uri),
+      MailModule,
       UsersModule,
       AuthModule,
       SpacesModule,
@@ -204,7 +206,11 @@ describe('Tasks (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/spaces/${spaceId}/tasks/bulk`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ taskIds: [bulkA, bulkB], action: 'status', status: 'em_progresso' })
+        .send({
+          taskIds: [bulkA, bulkB],
+          action: 'status',
+          status: 'em_progresso',
+        })
         .expect(200);
 
       expect(res.body.data).toEqual({ affected: 2 });

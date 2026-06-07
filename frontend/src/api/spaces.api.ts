@@ -65,6 +65,10 @@ export async function removeMember(spaceId: string, userId: string): Promise<voi
   await apiClient.delete(`/spaces/${spaceId}/members/${userId}`);
 }
 
+export async function transferOwnership(spaceId: string, userId: string): Promise<void> {
+  await apiClient.post(`/spaces/${spaceId}/transfer-ownership`, { userId });
+}
+
 export async function getSpaceInvitations(spaceId: string): Promise<SpaceInvitation[]> {
   const res = await apiClient.get<ApiResponse<SpaceInvitation[]>>(
     `/spaces/${spaceId}/invitations`,

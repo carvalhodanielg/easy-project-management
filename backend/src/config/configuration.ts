@@ -10,6 +10,13 @@ export default () => ({
     // How long a space invitation link stays valid, in days.
     expiresInDays: parseInt(process.env.INVITATION_EXPIRES_IN_DAYS ?? '7', 10),
   },
+  passwordReset: {
+    // How long a password reset link stays valid, in minutes.
+    expiresInMinutes: parseInt(
+      process.env.PASSWORD_RESET_EXPIRES_IN_MINUTES ?? '60',
+      10,
+    ),
+  },
   uploadDest: process.env.UPLOAD_DEST ?? './uploads',
   r2: {
     endpoint: process.env.R2_ENDPOINT ?? '', // custom endpoint (MinIO dev); if empty, uses R2 default

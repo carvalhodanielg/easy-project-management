@@ -7,6 +7,11 @@ export interface SpaceInviteEmail {
   inviterName: string;
 }
 
+export interface PasswordResetEmail {
+  to: string;
+  resetUrl: string;
+}
+
 /**
  * Mail delivery abstraction.
  *
@@ -24,6 +29,11 @@ export class MailService {
       `Space invite for ${params.to} to join "${params.spaceName}" ` +
         `(invited by ${params.inviterName}): ${params.inviteUrl}`,
     );
+    return Promise.resolve();
+  }
+
+  sendPasswordReset(params: PasswordResetEmail): Promise<void> {
+    this.logger.log(`Password reset link for ${params.to}: ${params.resetUrl}`);
     return Promise.resolve();
   }
 }

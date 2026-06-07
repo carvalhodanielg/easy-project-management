@@ -41,6 +41,17 @@ export class UsersService {
     return user;
   }
 
+  async updatePassword(
+    id: string,
+    passwordHash: string,
+  ): Promise<UserDocument> {
+    const user = await this.userModel
+      .findByIdAndUpdate(id, { passwordHash }, { returnDocument: 'after' })
+      .exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
   async updatePreferences(
     id: string,
     dto: UpdatePreferencesDto,

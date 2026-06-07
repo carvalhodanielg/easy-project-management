@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
+import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage';
 import { AcceptInvitePage } from '../pages/invite/AcceptInvitePage';
 import { HomePage } from '../pages/home/HomePage';
 import { SpaceLayout } from '../pages/space/SpaceLayout';
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/invite/accept', element: <AcceptInvitePage /> },
   {
     element: <ProtectedRoute />,

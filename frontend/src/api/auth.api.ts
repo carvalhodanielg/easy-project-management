@@ -26,6 +26,17 @@ export async function login(payload: {
   return res.data.data.token;
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  await apiClient.post('/auth/forgot-password', { email });
+}
+
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<void> {
+  await apiClient.post('/auth/reset-password', { token, password });
+}
+
 export async function getMe(token?: string): Promise<User> {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const res = await apiClient.get<MeResponse>('/auth/me', { headers });

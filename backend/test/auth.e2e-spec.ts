@@ -6,6 +6,8 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../src/modules/auth/auth.module';
 import { UsersModule } from '../src/modules/users/users.module';
+import { MailModule } from '../src/common/mail/mail.module';
+import { MailService } from '../src/common/mail/mail.service';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import configuration from '../src/config/configuration';
@@ -13,6 +15,7 @@ import configuration from '../src/config/configuration';
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let mongod: MongoMemoryServer;
+  let mailService: MailService;
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -22,11 +25,13 @@ describe('Auth (e2e)', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         MongooseModule.forRoot(uri),
+        MailModule,
         UsersModule,
         AuthModule,
       ],
     }).compile();
 
+    mailService = moduleFixture.get<MailService>(MailService);
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true }),
@@ -142,6 +147,93 @@ describe('Auth (e2e)', () => {
         .get('/auth/me')
         .set('Authorization', 'Bearer invalid-token')
         .expect(401);
+    });
+  });
+
+  describe('Password reset flow', () => {
+    // Intercept the reset email to capture the (otherwise out-of-band) token.
+    function captureResetToken(): jest.SpyInstance {
+      return jest
+        .spyOn(mailService, 'sendPasswordReset')
+        .mockResolvedValue(undefined);
+    }
+
+    function tokenFromSpy(spy: jest.SpyInstance): string {
+      const { resetUrl } = spy.mock.calls[0][0] as { resetUrl: string };
+      return new URL(resetUrl).searchParams.get('token') as string;
+    }
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('returns a generic 200 for an unknown email (no enumeration)', async () => {
+      const spy = captureResetToken();
+      const res = await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'ghost@example.com' })
+        .expect(200);
+
+      expect(res.body.data).toHaveProperty('message');
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('completes the full forgot -> reset -> login cycle', async () => {
+      const newPassword = 'brand-new-pass-456';
+      const spy = captureResetToken();
+
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: registerPayload.email })
+        .expect(200);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const token = tokenFromSpy(spy);
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: newPassword })
+        .expect(200);
+
+      // New password works.
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: registerPayload.email, password: newPassword })
+        .expect(200);
+
+      // Old password no longer works.
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: registerPayload.email,
+          password: registerPayload.password,
+        })
+        .expect(401);
+    });
+
+    it('rejects a reused token with 400', async () => {
+      const spy = captureResetToken();
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: registerPayload.email })
+        .expect(200);
+      const token = tokenFromSpy(spy);
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: 'another-pass-789' })
+        .expect(200);
+
+      // Second use of the same token must fail.
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: 'yet-another-000' })
+        .expect(400);
+    });
+
+    it('rejects an invalid token with 400', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: 'does-not-exist', password: 'whatever-123' })
+        .expect(400);
     });
   });
 });

@@ -8,6 +8,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const redirect = params.get('redirect');
+  const resetDone = params.get('reset') === 'success';
   const setAuth  = useAuthStore((s) => s.setAuth);
 
   const [email,    setEmail]    = useState('');
@@ -50,6 +51,12 @@ export function LoginPage() {
         <div className="bg-surface border border-line rounded-2xl p-6 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
 
+            {resetDone && (
+              <p className="text-sm text-s-done bg-s-done/10 border border-s-done/20 rounded-lg px-3 py-2">
+                Senha redefinida com sucesso. Faça login com a nova senha.
+              </p>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-ink-dim mb-1.5">
                 Email
@@ -68,9 +75,14 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-ink-dim mb-1.5">
-                Senha
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-ink-dim">
+                  Senha
+                </label>
+                <Link to="/forgot-password" className="text-xs text-brand hover:text-brand-hi font-medium transition-colors">
+                  Esqueceu a senha?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"

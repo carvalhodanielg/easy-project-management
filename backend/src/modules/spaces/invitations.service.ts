@@ -14,6 +14,7 @@ import { Space, SpaceDocument } from './schemas/space.schema';
 import {
   SpaceMember,
   SpaceMemberDocument,
+  SpaceRole,
 } from './schemas/space-member.schema';
 import {
   InvitationStatus,
@@ -56,6 +57,12 @@ export class InvitationsService {
     dto: InviteMemberDto,
     inviter: UserDocument,
   ): Promise<{ invitation: SpaceInvitationDocument; inviteUrl: string }> {
+    if (dto.role === SpaceRole.Owner) {
+      throw new BadRequestException(
+        'Cannot invite a member as owner; use ownership transfer',
+      );
+    }
+
     const email = dto.email.toLowerCase().trim();
 
     const space = await this.spaceModel.findById(spaceId).exec();

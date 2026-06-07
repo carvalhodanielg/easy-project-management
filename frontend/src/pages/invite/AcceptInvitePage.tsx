@@ -5,6 +5,7 @@ import * as invitationsApi from '../../api/invitations.api';
 import { useAuthStore } from '../../store/auth.store';
 
 const ROLE_LABEL: Record<string, string> = {
+  owner: 'Dono',
   editor: 'Editor',
   viewer: 'Visualizador',
 };

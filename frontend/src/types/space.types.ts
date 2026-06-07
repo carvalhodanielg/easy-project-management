@@ -10,7 +10,7 @@ export interface Space {
   updatedAt: string;
 }
 
-export type SpaceRole = 'editor' | 'viewer';
+export type SpaceRole = 'owner' | 'editor' | 'viewer';
 
 export interface SpaceMember {
   _id: string;

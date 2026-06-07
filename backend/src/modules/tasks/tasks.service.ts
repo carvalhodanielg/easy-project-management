@@ -782,10 +782,16 @@ export class TasksService {
   ): Promise<void> {
     const [subtask, newParent] = await Promise.all([
       this.taskModel
-        .findOne({ _id: new Types.ObjectId(taskId), spaceId: new Types.ObjectId(spaceId) })
+        .findOne({
+          _id: new Types.ObjectId(taskId),
+          spaceId: new Types.ObjectId(spaceId),
+        })
         .exec(),
       this.taskModel
-        .findOne({ _id: new Types.ObjectId(newParentTaskId), spaceId: new Types.ObjectId(spaceId) })
+        .findOne({
+          _id: new Types.ObjectId(newParentTaskId),
+          spaceId: new Types.ObjectId(spaceId),
+        })
         .exec(),
     ]);
 

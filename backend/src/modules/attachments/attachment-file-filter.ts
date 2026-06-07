@@ -16,7 +16,10 @@ const ALLOWED_MIME_EXACT = new Set([
 const GENERIC_MIME = new Set(['text/plain', 'application/octet-stream']);
 const MARKDOWN_EXT = new Set(['.md', '.markdown']);
 
-export function isAllowedAttachment(mimetype: string, originalname: string): boolean {
+export function isAllowedAttachment(
+  mimetype: string,
+  originalname: string,
+): boolean {
   if (ALLOWED_MIME_PREFIXES.some((p) => mimetype.startsWith(p))) return true;
   if (ALLOWED_MIME_EXACT.has(mimetype)) return true;
 

@@ -11,6 +11,7 @@ import { Model, Types } from 'mongoose';
 import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import {
+  ROLE_RANK,
   SpaceMember,
   SpaceMemberDocument,
   SpaceRole,
@@ -51,7 +52,12 @@ export class SpaceRoleGuard implements CanActivate {
 
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    if (!requiredRoles.includes(member.role)) {
+    // Hierarchical check: the least-privileged required role sets the bar, and
+    // any role ranked at or above it passes (e.g. Owner satisfies Editor).
+    const requiredRank = Math.min(
+      ...requiredRoles.map((role) => ROLE_RANK[role]),
+    );
+    if (ROLE_RANK[member.role] < requiredRank) {
       throw new ForbiddenException('Insufficient permissions');
     }
 

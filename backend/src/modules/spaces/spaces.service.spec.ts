@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -29,6 +30,13 @@ const mockMember = {
   role: SpaceRole.Editor,
 };
 
+const mockOwnerMember = {
+  _id: new Types.ObjectId(),
+  spaceId: new Types.ObjectId(spaceId),
+  userId: new Types.ObjectId(userId),
+  role: SpaceRole.Owner,
+};
+
 function execMock<T>(value: T) {
   return { exec: jest.fn().mockResolvedValue(value) };
 }
@@ -47,6 +55,7 @@ const mockSpaceMemberModel = {
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
   findOneAndDelete: jest.fn(),
+  updateOne: jest.fn(),
   deleteMany: jest.fn(),
 };
 
@@ -71,15 +80,15 @@ describe('SpacesService', () => {
   });
 
   describe('create', () => {
-    it('creates a space and adds creator as Editor', async () => {
+    it('creates a space and adds creator as Owner', async () => {
       mockSpaceModel.create.mockResolvedValue(mockSpace);
-      mockSpaceMemberModel.create.mockResolvedValue(mockMember);
+      mockSpaceMemberModel.create.mockResolvedValue(mockOwnerMember);
 
       const result = await service.create({ name: 'My Space' }, userId);
 
       expect(result).toEqual(mockSpace);
       expect(mockSpaceMemberModel.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: SpaceRole.Editor }),
+        expect.objectContaining({ role: SpaceRole.Owner }),
       );
     });
   });
@@ -134,6 +143,15 @@ describe('SpacesService', () => {
   });
 
   describe('addMember', () => {
+    it('throws BadRequestException when assigning owner role directly', async () => {
+      await expect(
+        service.addMember(spaceId, {
+          userId: memberId,
+          role: SpaceRole.Owner,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('throws ConflictException if user already a member', async () => {
       mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
       await expect(
@@ -167,13 +185,21 @@ describe('SpacesService', () => {
     });
 
     it('throws NotFoundException when member not found', async () => {
-      mockSpaceMemberModel.findOneAndDelete.mockReturnValue(execMock(null));
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(null));
       await expect(
         service.removeMember(spaceId, memberId, userId),
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('throws ForbiddenException when removing the owner', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockOwnerMember));
+      await expect(
+        service.removeMember(spaceId, memberId, userId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('removes member successfully', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
       mockSpaceMemberModel.findOneAndDelete.mockReturnValue(
         execMock(mockMember),
       );
@@ -209,18 +235,66 @@ describe('SpacesService', () => {
   describe('updateMemberRole', () => {
     it('updates role and returns updated member', async () => {
       const updated = { ...mockMember, role: SpaceRole.Viewer };
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
       mockSpaceMemberModel.findOneAndUpdate.mockReturnValue(execMock(updated));
-      const result = await service.updateMemberRole(spaceId, userId, {
+      const result = await service.updateMemberRole(spaceId, memberId, {
         role: SpaceRole.Viewer,
       });
       expect(result.role).toBe(SpaceRole.Viewer);
     });
 
-    it('throws NotFoundException when member not found', async () => {
-      mockSpaceMemberModel.findOneAndUpdate.mockReturnValue(execMock(null));
+    it('throws BadRequestException when assigning owner role directly', async () => {
       await expect(
-        service.updateMemberRole(spaceId, userId, { role: SpaceRole.Viewer }),
+        service.updateMemberRole(spaceId, memberId, {
+          role: SpaceRole.Owner,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when member not found', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(null));
+      await expect(
+        service.updateMemberRole(spaceId, memberId, { role: SpaceRole.Viewer }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when changing the owner role', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockOwnerMember));
+      await expect(
+        service.updateMemberRole(spaceId, userId, { role: SpaceRole.Editor }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('transferOwnership', () => {
+    it('throws BadRequestException when transferring to self', async () => {
+      await expect(
+        service.transferOwnership(spaceId, userId, userId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when target is not a member', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(null));
+      await expect(
+        service.transferOwnership(spaceId, userId, memberId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('promotes the target to Owner and demotes the current owner', async () => {
+      mockSpaceMemberModel.findOne.mockReturnValue(execMock(mockMember));
+      mockSpaceMemberModel.updateOne.mockReturnValue(execMock({}));
+
+      await service.transferOwnership(spaceId, userId, memberId);
+
+      expect(mockSpaceMemberModel.updateOne).toHaveBeenCalledTimes(2);
+      expect(mockSpaceMemberModel.updateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: new Types.ObjectId(memberId) }),
+        { role: SpaceRole.Owner },
+      );
+      expect(mockSpaceMemberModel.updateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: new Types.ObjectId(userId) }),
+        { role: SpaceRole.Editor },
+      );
     });
   });
 

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users, Plus, X, Shield, Eye, Trash2, Search, Check, Loader2, ChevronDown,
-  Mail, Copy, Clock,
+  Mail, Copy, Clock, Crown,
 } from 'lucide-react';
 import * as spacesApi from '../../api/spaces.api';
 import * as usersApi from '../../api/users.api';
@@ -18,8 +18,9 @@ import { UserAvatar } from '../../components/ui/UserAvatar';
 
 /* ── helpers ── */
 const ROLE_META: Record<SpaceRole, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  editor: { label: 'Editor',       icon: Shield, color: 'text-brand',   bg: 'bg-brand/10' },
-  viewer: { label: 'Visualizador', icon: Eye,    color: 'text-ink-dim', bg: 'bg-lift' },
+  owner:  { label: 'Dono',         icon: Crown,  color: 'text-amber-500', bg: 'bg-amber-500/10' },
+  editor: { label: 'Editor',       icon: Shield, color: 'text-brand',     bg: 'bg-brand/10' },
+  viewer: { label: 'Visualizador', icon: Eye,    color: 'text-ink-dim',   bg: 'bg-lift' },
 };
 
 function memberUser(m: spacesApi.SpaceMember): User | null {
@@ -256,6 +257,7 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
 }) {
   const queryClient = useQueryClient();
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(false);
   const user = memberUser(member);
   const userId = user?._id ?? '';
 
@@ -269,11 +271,22 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] }),
   });
 
+  const transferMutation = useMutation({
+    mutationFn: () => spacesApi.transferOwnership(spaceId, userId),
+    onSuccess: () => {
+      setConfirmTransfer(false);
+      void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] });
+    },
+  });
+
   // Hooks above run unconditionally; bail out only after they are declared.
   if (!user) return null;
 
   const meta = ROLE_META[member.role];
   const RoleIcon = meta.icon;
+  // The owner row is always read-only: ownership changes only via transfer.
+  const isOwnerRow = member.role === 'owner';
+  const canEditRow = canManage && !isCurrentUser && !isOwnerRow;
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 border-b border-line-dim last:border-0 hover:bg-lift/30 transition-colors">
@@ -292,7 +305,7 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
       </div>
 
       {/* Role */}
-      {canManage && !isCurrentUser ? (
+      {canEditRow ? (
         <div className="relative">
           <select
             value={member.role}
@@ -316,8 +329,38 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
         </span>
       )}
 
+      {/* Transfer ownership */}
+      {canEditRow && (
+        confirmTransfer ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => transferMutation.mutate()}
+              disabled={transferMutation.isPending}
+              className="px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-600 text-xs font-medium rounded-lg hover:bg-amber-500/25 transition-colors disabled:opacity-60"
+            >
+              {transferMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Tornar dono'}
+            </button>
+            <button
+              onClick={() => setConfirmTransfer(false)}
+              className="p-1 text-ink-muted hover:text-ink transition-colors"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <button
+            aria-label="Transferir propriedade"
+            title="Transferir propriedade"
+            onClick={() => setConfirmTransfer(true)}
+            className="p-1.5 rounded text-ink-muted hover:text-amber-500 hover:bg-amber-500/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+          >
+            <Crown size={14} />
+          </button>
+        )
+      )}
+
       {/* Remove */}
-      {canManage && !isCurrentUser && (
+      {canEditRow && (
         confirmRemove ? (
           <div className="flex items-center gap-1.5 shrink-0">
             <button
@@ -419,7 +462,7 @@ export function MembersPage() {
     const u = memberUser(m);
     return u?._id === currentUser?._id;
   });
-  const canManage = currentMember?.role === 'editor';
+  const canManage = currentMember?.role === 'owner';
   const existingIds = new Set(members.map((m) => memberUser(m)?._id ?? '').filter(Boolean));
 
   return (
@@ -479,7 +522,10 @@ export function MembersPage() {
                 </p>
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-xs text-ink-muted">
-                    <Shield size={11} className="text-brand" /> Editor — edita e gerencia
+                    <Crown size={11} className="text-amber-500" /> Dono — gerencia o espaço
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+                    <Shield size={11} className="text-brand" /> Editor — edita conteúdo
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-ink-muted">
                     <Eye size={11} /> Visualizador — só leitura
@@ -510,7 +556,8 @@ export function MembersPage() {
           <div className="bg-brand/5 border border-brand/15 rounded-xl px-4 py-3.5">
             <p className="text-xs font-semibold text-brand mb-1">Sobre as permissões</p>
             <ul className="space-y-1 text-xs text-ink-dim">
-              <li><span className="font-medium text-ink">Editor</span> — pode criar, editar e excluir tarefas, sprints e listas; gerenciar membros do espaço.</li>
+              <li><span className="font-medium text-ink">Dono</span> — gerencia membros e convites, edita e exclui o espaço, e pode transferir a propriedade.</li>
+              <li><span className="font-medium text-ink">Editor</span> — pode criar, editar e excluir tarefas, sprints e listas.</li>
               <li><span className="font-medium text-ink">Visualizador</span> — acesso somente leitura a todas as informações do espaço.</li>
             </ul>
           </div>

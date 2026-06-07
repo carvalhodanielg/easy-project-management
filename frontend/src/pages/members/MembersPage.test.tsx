@@ -18,7 +18,7 @@ const MEMBERS: spacesApi.SpaceMember[] = [
     _id: 'm1',
     spaceId: 'sp1',
     userId: { _id: 'u1', email: 'alice@test.com', displayName: 'Alice', avatarUrl: null },
-    role: 'editor',
+    role: 'owner',
   },
   {
     _id: 'm2',
@@ -28,9 +28,15 @@ const MEMBERS: spacesApi.SpaceMember[] = [
   },
 ];
 
-function renderPage() {
+// Same roster but the current user (Alice) is a plain editor, not the owner.
+const EDITOR_MEMBERS: spacesApi.SpaceMember[] = [
+  { ...MEMBERS[0], role: 'editor' },
+  MEMBERS[1],
+];
+
+function renderPage(members: spacesApi.SpaceMember[] = MEMBERS) {
   vi.mocked(useAuthStore).mockReturnValue(CURRENT_USER);
-  vi.mocked(spacesApi.getSpaceMembers).mockResolvedValue(MEMBERS as never);
+  vi.mocked(spacesApi.getSpaceMembers).mockResolvedValue(members as never);
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -76,7 +82,7 @@ describe('MembersPage', () => {
   it('shows role badges', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Editor')).toBeInTheDocument();
+      expect(screen.getByText('Dono')).toBeInTheDocument();
       expect(screen.getByText('Visualizador')).toBeInTheDocument();
     });
   });
@@ -171,5 +177,27 @@ describe('MembersPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Você')).toBeInTheDocument();
     });
+  });
+
+  it('lets the owner transfer ownership to another member', async () => {
+    vi.mocked(spacesApi.transferOwnership).mockResolvedValue(undefined);
+    renderPage();
+    await waitForLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: /transferir propriedade/i }));
+    fireEvent.click(screen.getByRole('button', { name: /tornar dono/i }));
+
+    await waitFor(() => {
+      expect(spacesApi.transferOwnership).toHaveBeenCalledWith('sp1', 'u2');
+    });
+  });
+
+  it('hides management controls from a non-owner editor', async () => {
+    renderPage(EDITOR_MEMBERS);
+    await waitFor(() => screen.getByText('Alice'));
+
+    expect(screen.queryByRole('button', { name: /adicionar membro/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /remover/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /transferir propriedade/i })).not.toBeInTheDocument();
   });
 });

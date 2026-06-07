@@ -6,6 +6,7 @@ import {
   FolderOpen, X, Loader2, Users, Search, Folder,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import { useLogout } from '../../hooks/useAuth';
 import { useSpacesStore } from '../../store/spaces.store';
 import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
@@ -346,7 +347,7 @@ export function SpaceLayout() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const user      = useAuthStore((s) => s.user);
-  const logout    = useAuthStore((s) => s.logout);
+  const logout    = useLogout();
   const { setCurrentSpace } = useSpacesStore();
   const queryClient = useQueryClient();
 

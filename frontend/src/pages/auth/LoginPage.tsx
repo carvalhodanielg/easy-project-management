@@ -22,9 +22,9 @@ export function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const token = await authApi.login({ email, password });
+      const { token, refreshToken } = await authApi.login({ email, password });
       const user  = await authApi.getMe(token);
-      setAuth(token, user);
+      setAuth(token, refreshToken, user);
       navigate(redirect || '/home', { replace: true });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

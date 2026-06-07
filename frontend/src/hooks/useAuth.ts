@@ -4,16 +4,16 @@ import * as authApi from '../api/auth.api';
 import { useAuthStore } from '../store/auth.store';
 
 export function useLogin() {
-  const { setAuth, setUser } = useAuthStore();
+  const { setUser } = useAuthStore();
 
   return useMutation({
     mutationFn: authApi.login,
-    onSuccess: async (token) => {
-      const { setAuth: _setAuth } = useAuthStore.getState();
+    onSuccess: async ({ token, refreshToken }) => {
+      const { setAuth } = useAuthStore.getState();
       // temporarily set token to allow getMe call
       useAuthStore.setState({ token });
       const user = await authApi.getMe();
-      _setAuth(token, user);
+      setAuth(token, refreshToken, user);
       setUser(user);
     },
   });
@@ -24,13 +24,31 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: authApi.register,
-    onSuccess: async (token) => {
+    onSuccess: async ({ token, refreshToken }) => {
       useAuthStore.setState({ token });
       const user = await authApi.getMe();
-      useAuthStore.getState().setAuth(token, user);
+      useAuthStore.getState().setAuth(token, refreshToken, user);
       navigate('/home');
     },
   });
+}
+
+// Revokes the refresh token (best-effort) before clearing local session state.
+export function useLogout() {
+  const navigate = useNavigate();
+
+  return async () => {
+    const { refreshToken, logout } = useAuthStore.getState();
+    if (refreshToken) {
+      try {
+        await authApi.logout(refreshToken);
+      } catch {
+        // Best-effort: clear the local session even if revocation fails.
+      }
+    }
+    logout();
+    navigate('/login', { replace: true });
+  };
 }
 
 export function useCurrentUser() {

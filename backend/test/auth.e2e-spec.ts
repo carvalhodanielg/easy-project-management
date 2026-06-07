@@ -63,6 +63,8 @@ describe('Auth (e2e)', () => {
 
       expect(res.body.data).toHaveProperty('token');
       expect(typeof res.body.data.token).toBe('string');
+      expect(res.body.data).toHaveProperty('refreshToken');
+      expect(typeof res.body.data.refreshToken).toBe('string');
     });
 
     it('rejects duplicate email with 409', async () => {
@@ -234,6 +236,75 @@ describe('Auth (e2e)', () => {
         .post('/auth/reset-password')
         .send({ token: 'does-not-exist', password: 'whatever-123' })
         .expect(400);
+    });
+  });
+
+  describe('Session refresh flow', () => {
+    // Self-contained user so the password-reset suite above can't interfere.
+    const sessionUser = {
+      email: 'session@example.com',
+      password: 'password123',
+      displayName: 'Session User',
+    };
+
+    async function newSession(): Promise<{
+      token: string;
+      refreshToken: string;
+    }> {
+      const res = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send(sessionUser);
+      // 201 on first registration, 409 afterwards -> fall back to login.
+      if (res.status === 201) return res.body.data;
+      const login = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: sessionUser.email, password: sessionUser.password })
+        .expect(200);
+      return login.body.data;
+    }
+
+    it('exchanges a valid refresh token for a new access token', async () => {
+      const { refreshToken } = await newSession();
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(res.body.data).toHaveProperty('token');
+      // The new access token works on a protected route.
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${res.body.data.token as string}`)
+        .expect(200);
+    });
+
+    it('rejects an unknown refresh token with 401', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: 'does-not-exist' })
+        .expect(401);
+    });
+
+    it('logout revokes the refresh token so it can no longer refresh', async () => {
+      const { refreshToken } = await newSession();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+    });
+
+    it('logout is idempotent (unknown token still returns 200)', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: 'never-existed' })
+        .expect(200);
     });
   });
 });

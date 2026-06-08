@@ -43,6 +43,12 @@ export class SpacesController {
     return this.spacesService.findAllForUser(user._id.toString());
   }
 
+  // Static segment — declared before `:spaceId` so it isn't parsed as an id.
+  @Get('trash')
+  findArchived(@CurrentUser() user: UserDocument) {
+    return this.spacesService.findArchivedForUser(user._id.toString());
+  }
+
   @Get(':spaceId')
   @UseGuards(SpaceRoleGuard)
   findOne(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
@@ -59,12 +65,27 @@ export class SpacesController {
     return this.spacesService.update(spaceId, dto);
   }
 
+  // Soft delete: moves the space (and its contents) to the trash.
   @Delete(':spaceId')
   @UseGuards(SpaceRoleGuard)
   @Roles(SpaceRole.Owner)
+  archive(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.spacesService.archive(spaceId);
+  }
+
+  @Post(':spaceId/restore')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Owner)
+  restore(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.spacesService.restore(spaceId);
+  }
+
+  @Delete(':spaceId/permanent')
+  @UseGuards(SpaceRoleGuard)
+  @Roles(SpaceRole.Owner)
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
-    return this.spacesService.remove(spaceId);
+  permanentRemove(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.spacesService.permanentRemove(spaceId);
   }
 
   @Post(':spaceId/transfer-ownership')

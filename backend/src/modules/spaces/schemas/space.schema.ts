@@ -16,6 +16,9 @@ export class Space {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: Date, default: null, index: true })
+  archivedAt: Date | null;
 }
 
 export const SpaceSchema = SchemaFactory.createForClass(Space);

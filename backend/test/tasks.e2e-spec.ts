@@ -259,7 +259,7 @@ describe('Tasks (e2e)', () => {
         .expect(400);
     });
 
-    it('bulk-deletes and returns affected count', async () => {
+    it('bulk-archives and returns affected count', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/spaces/${spaceId}/tasks/bulk`)
         .set('Authorization', `Bearer ${token}`)
@@ -268,10 +268,22 @@ describe('Tasks (e2e)', () => {
 
       expect(res.body.data.affected).toBeGreaterThanOrEqual(2);
 
-      await request(app.getHttpServer())
-        .get(`/spaces/${spaceId}/tasks/${bulkA}`)
+      // Soft delete: the tasks leave the active listing and land in the trash.
+      const active = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks`)
         .set('Authorization', `Bearer ${token}`)
-        .expect(404);
+        .expect(200);
+      expect(active.body.data.map((t: { _id: string }) => t._id)).not.toContain(
+        bulkA,
+      );
+
+      const trash = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/trash`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(trash.body.data.map((t: { _id: string }) => t._id)).toContain(
+        bulkA,
+      );
     });
   });
 
@@ -342,11 +354,20 @@ describe('Tasks (e2e)', () => {
   });
 
   describe('DELETE /spaces/:spaceId/tasks/:taskId', () => {
-    it('deletes a task', async () => {
+    it('archives a task (soft delete) and removes it from active listings', async () => {
       await request(app.getHttpServer())
         .delete(`/spaces/${spaceId}/tasks/${subtaskId}`)
         .set('Authorization', `Bearer ${token}`)
-        .expect(204);
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .query({ includeSubtasks: true })
+        .expect(200);
+      expect(res.body.data.map((t: { _id: string }) => t._id)).not.toContain(
+        subtaskId,
+      );
     });
   });
 

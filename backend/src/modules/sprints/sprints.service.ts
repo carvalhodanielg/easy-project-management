@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Sprint, SprintDocument } from './schemas/sprint.schema';
@@ -32,7 +36,7 @@ export class SprintsService {
 
   async findBySpace(spaceId: string): Promise<SprintDocument[]> {
     return this.sprintModel
-      .find({ spaceId: new Types.ObjectId(spaceId) })
+      .find({ spaceId: new Types.ObjectId(spaceId), archivedAt: null })
       .sort({ number: 1 })
       .exec();
   }
@@ -111,7 +115,7 @@ export class SprintsService {
       updatedAt: Date;
     };
     const tasks = (await this.taskModel
-      .find({ sprintId: new Types.ObjectId(sprintId) })
+      .find({ sprintId: new Types.ObjectId(sprintId), archivedAt: null })
       .populate('assignees', 'displayName avatarUrl')
       .exec()) as unknown as PopulatedTask[];
 
@@ -207,7 +211,7 @@ export class SprintsService {
     let previousSprintPoints: number | null = null;
     if (prevSprint) {
       const prevTasks = await this.taskModel
-        .find({ sprintId: prevSprint._id })
+        .find({ sprintId: prevSprint._id, archivedAt: null })
         .exec();
       previousSprintPoints = prevTasks
         .filter((t) => t.status === TaskStatus.Feito)
@@ -226,14 +230,84 @@ export class SprintsService {
     };
   }
 
-  async remove(spaceId: string, sprintId: string): Promise<void> {
-    const result = await this.sprintModel
-      .findOneAndDelete({
-        _id: new Types.ObjectId(sprintId),
-        spaceId: new Types.ObjectId(spaceId),
-      })
+  /** Soft delete: archive the sprint and its still-active tasks under a shared timestamp. */
+  async archive(spaceId: string, sprintId: string): Promise<SprintDocument> {
+    const now = new Date();
+    const sprintOid = new Types.ObjectId(sprintId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const sprint = await this.sprintModel
+      .findOneAndUpdate(
+        { _id: sprintOid, spaceId: spaceOid, archivedAt: null },
+        { archivedAt: now },
+        { returnDocument: 'after' },
+      )
       .exec();
 
-    if (!result) throw new NotFoundException('Sprint not found');
+    if (!sprint) throw new NotFoundException('Sprint not found');
+
+    await this.taskModel
+      .updateMany(
+        { sprintId: sprintOid, spaceId: spaceOid, archivedAt: null },
+        { archivedAt: now },
+      )
+      .exec();
+
+    return sprint;
+  }
+
+  async restore(spaceId: string, sprintId: string): Promise<SprintDocument> {
+    const sprintOid = new Types.ObjectId(sprintId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const sprint = await this.sprintModel
+      .findOne({ _id: sprintOid, spaceId: spaceOid })
+      .exec();
+
+    if (!sprint || !sprint.archivedAt) {
+      throw new NotFoundException('Archived sprint not found');
+    }
+
+    const archivedAt = sprint.archivedAt;
+    sprint.archivedAt = null;
+    await sprint.save();
+
+    await this.taskModel
+      .updateMany(
+        { sprintId: sprintOid, spaceId: spaceOid, archivedAt },
+        { archivedAt: null },
+      )
+      .exec();
+
+    return sprint;
+  }
+
+  /** Permanently delete an archived sprint and all of its tasks. */
+  async permanentRemove(spaceId: string, sprintId: string): Promise<void> {
+    const sprintOid = new Types.ObjectId(sprintId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const sprint = await this.sprintModel
+      .findOne({ _id: sprintOid, spaceId: spaceOid })
+      .exec();
+
+    if (!sprint) throw new NotFoundException('Sprint not found');
+    if (!sprint.archivedAt) {
+      throw new BadRequestException(
+        'Sprint must be archived before permanent deletion',
+      );
+    }
+
+    await this.sprintModel.deleteOne({ _id: sprintOid }).exec();
+    await this.taskModel
+      .deleteMany({ sprintId: sprintOid, spaceId: spaceOid })
+      .exec();
+  }
+
+  async findArchivedBySpace(spaceId: string): Promise<SprintDocument[]> {
+    return this.sprintModel
+      .find({ spaceId: new Types.ObjectId(spaceId), archivedAt: { $ne: null } })
+      .sort({ archivedAt: -1 })
+      .exec();
   }
 }

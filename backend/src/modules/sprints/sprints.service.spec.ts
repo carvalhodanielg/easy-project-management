@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { SprintsService } from './sprints.service';
 import { Sprint, SprintStatus } from './schemas/sprint.schema';
@@ -24,15 +24,19 @@ function chainMock<T>(value: T) {
 
 const mockSprintModel = {
   find: jest.fn(),
+  findById: jest.fn(),
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
   findOneAndDelete: jest.fn(),
   create: jest.fn(),
   countDocuments: jest.fn(),
+  deleteOne: jest.fn(),
 };
 
 const mockTaskModel = {
   find: jest.fn(),
+  updateMany: jest.fn(),
+  deleteMany: jest.fn(),
 };
 
 describe('SprintsService', () => {
@@ -279,6 +283,89 @@ describe('SprintsService', () => {
       await expect(
         service.update(spaceId, sprintId, { name: 'X' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('archive', () => {
+    it('stamps archivedAt and cascade-archives still-active tasks', async () => {
+      const archived = {
+        _id: new Types.ObjectId(sprintId),
+        archivedAt: new Date(),
+      };
+      mockSprintModel.findOneAndUpdate.mockReturnValue(execMock(archived));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      const result = await service.archive(spaceId, sprintId);
+
+      expect(result).toEqual(archived);
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sprintId: expect.anything(),
+          archivedAt: null,
+        }),
+        expect.objectContaining({ archivedAt: expect.any(Date) }),
+      );
+    });
+
+    it('throws NotFoundException when sprint not found or already archived', async () => {
+      mockSprintModel.findOneAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.archive(spaceId, sprintId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('restore', () => {
+    it('clears archivedAt and restores tasks archived in the same op', async () => {
+      const archivedAt = new Date();
+      const save = jest.fn().mockResolvedValue(undefined);
+      const sprint = { _id: new Types.ObjectId(sprintId), archivedAt, save };
+      mockSprintModel.findOne.mockReturnValue(execMock(sprint));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      await service.restore(spaceId, sprintId);
+
+      expect(sprint.archivedAt).toBeNull();
+      expect(save).toHaveBeenCalled();
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ sprintId: expect.anything(), archivedAt }),
+        expect.objectContaining({ archivedAt: null }),
+      );
+    });
+
+    it('throws NotFoundException when the sprint is not archived', async () => {
+      mockSprintModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(sprintId), archivedAt: null }),
+      );
+      await expect(service.restore(spaceId, sprintId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('permanentRemove', () => {
+    it('deletes the archived sprint and its tasks', async () => {
+      mockSprintModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(sprintId), archivedAt: new Date() }),
+      );
+      mockSprintModel.deleteOne.mockReturnValue(execMock({}));
+      mockTaskModel.deleteMany.mockReturnValue(execMock({}));
+
+      await service.permanentRemove(spaceId, sprintId);
+
+      expect(mockSprintModel.deleteOne).toHaveBeenCalled();
+      expect(mockTaskModel.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ sprintId: expect.anything() }),
+      );
+    });
+
+    it('throws BadRequestException when the sprint is not archived', async () => {
+      mockSprintModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(sprintId), archivedAt: null }),
+      );
+      await expect(service.permanentRemove(spaceId, sprintId)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

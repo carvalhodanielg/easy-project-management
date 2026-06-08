@@ -13,6 +13,9 @@ import {
   SpaceMemberDocument,
   SpaceRole,
 } from './schemas/space-member.schema';
+import { List, ListDocument } from '../lists/schemas/list.schema';
+import { Sprint, SprintDocument } from '../sprints/schemas/sprint.schema';
+import { Task, TaskDocument } from '../tasks/schemas/task.schema';
 import { CreateSpaceDto } from './dto/create-space.dto';
 import { UpdateSpaceDto } from './dto/update-space.dto';
 import { AddMemberDto, UpdateMemberRoleDto } from './dto/add-member.dto';
@@ -23,6 +26,10 @@ export class SpacesService {
     @InjectModel(Space.name) private readonly spaceModel: Model<SpaceDocument>,
     @InjectModel(SpaceMember.name)
     private readonly spaceMemberModel: Model<SpaceMemberDocument>,
+    @InjectModel(List.name) private readonly listModel: Model<ListDocument>,
+    @InjectModel(Sprint.name)
+    private readonly sprintModel: Model<SprintDocument>,
+    @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
   ) {}
 
   async create(dto: CreateSpaceDto, userId: string): Promise<SpaceDocument> {
@@ -47,7 +54,9 @@ export class SpacesService {
       .exec();
 
     const spaceIds = memberships.map((m) => m.spaceId);
-    return this.spaceModel.find({ _id: { $in: spaceIds } }).exec();
+    return this.spaceModel
+      .find({ _id: { $in: spaceIds }, archivedAt: null })
+      .exec();
   }
 
   async findById(spaceId: string): Promise<SpaceDocument> {
@@ -64,11 +73,107 @@ export class SpacesService {
     return space;
   }
 
-  async remove(spaceId: string): Promise<void> {
-    const space = await this.spaceModel.findByIdAndDelete(spaceId).exec();
+  /**
+   * Soft delete: archive the space and cascade-archive its still-active lists,
+   * sprints and tasks under a shared `archivedAt`, so `restore` can bring back
+   * exactly what this operation archived.
+   */
+  async archive(spaceId: string): Promise<SpaceDocument> {
+    const now = new Date();
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const space = await this.spaceModel
+      .findOneAndUpdate(
+        { _id: spaceOid, archivedAt: null },
+        { archivedAt: now },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
     if (!space) throw new NotFoundException('Space not found');
-    await this.spaceMemberModel
-      .deleteMany({ spaceId: new Types.ObjectId(spaceId) })
+
+    await Promise.all([
+      this.listModel
+        .updateMany(
+          { spaceId: spaceOid, archivedAt: null },
+          { archivedAt: now },
+        )
+        .exec(),
+      this.sprintModel
+        .updateMany(
+          { spaceId: spaceOid, archivedAt: null },
+          { archivedAt: now },
+        )
+        .exec(),
+      this.taskModel
+        .updateMany(
+          { spaceId: spaceOid, archivedAt: null },
+          { archivedAt: now },
+        )
+        .exec(),
+    ]);
+
+    return space;
+  }
+
+  async restore(spaceId: string): Promise<SpaceDocument> {
+    const spaceOid = new Types.ObjectId(spaceId);
+    const space = await this.spaceModel.findById(spaceOid).exec();
+
+    if (!space || !space.archivedAt) {
+      throw new NotFoundException('Archived space not found');
+    }
+
+    const archivedAt = space.archivedAt;
+    space.archivedAt = null;
+    await space.save();
+
+    await Promise.all([
+      this.listModel
+        .updateMany({ spaceId: spaceOid, archivedAt }, { archivedAt: null })
+        .exec(),
+      this.sprintModel
+        .updateMany({ spaceId: spaceOid, archivedAt }, { archivedAt: null })
+        .exec(),
+      this.taskModel
+        .updateMany({ spaceId: spaceOid, archivedAt }, { archivedAt: null })
+        .exec(),
+    ]);
+
+    return space;
+  }
+
+  /** Permanently delete an archived space and everything it contains. */
+  async permanentRemove(spaceId: string): Promise<void> {
+    const spaceOid = new Types.ObjectId(spaceId);
+    const space = await this.spaceModel.findById(spaceOid).exec();
+
+    if (!space) throw new NotFoundException('Space not found');
+    if (!space.archivedAt) {
+      throw new BadRequestException(
+        'Space must be archived before permanent deletion',
+      );
+    }
+
+    await this.spaceModel.deleteOne({ _id: spaceOid }).exec();
+    await Promise.all([
+      this.spaceMemberModel.deleteMany({ spaceId: spaceOid }).exec(),
+      this.listModel.deleteMany({ spaceId: spaceOid }).exec(),
+      this.sprintModel.deleteMany({ spaceId: spaceOid }).exec(),
+      this.taskModel.deleteMany({ spaceId: spaceOid }).exec(),
+    ]);
+  }
+
+  async findArchivedForUser(userId: string): Promise<SpaceDocument[]> {
+    const memberships = await this.spaceMemberModel
+      .find({ userId: new Types.ObjectId(userId) })
+      .select('spaceId')
+      .exec();
+
+    const spaceIds = memberships.map((m) => m.spaceId);
+    return this.spaceModel
+      .find({ _id: { $in: spaceIds }, archivedAt: { $ne: null } })
+      .sort({ archivedAt: -1 })
       .exec();
   }
 

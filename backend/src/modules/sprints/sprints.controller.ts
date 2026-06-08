@@ -28,6 +28,12 @@ export class SprintsController {
     return this.sprintsService.findBySpace(spaceId);
   }
 
+  // Static segment — declared before `:sprintId` so it isn't parsed as an id.
+  @Get('trash')
+  findArchived(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.sprintsService.findArchivedBySpace(spaceId);
+  }
+
   @Post()
   @Roles(SpaceRole.Editor)
   create(
@@ -63,13 +69,32 @@ export class SprintsController {
     return this.sprintsService.update(spaceId, sprintId, dto);
   }
 
+  // Soft delete: moves the sprint (and its tasks) to the trash.
   @Delete(':sprintId')
   @Roles(SpaceRole.Editor)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
+  archive(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Param('sprintId', ObjectIdValidationPipe) sprintId: string,
   ) {
-    return this.sprintsService.remove(spaceId, sprintId);
+    return this.sprintsService.archive(spaceId, sprintId);
+  }
+
+  @Post(':sprintId/restore')
+  @Roles(SpaceRole.Editor)
+  restore(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('sprintId', ObjectIdValidationPipe) sprintId: string,
+  ) {
+    return this.sprintsService.restore(spaceId, sprintId);
+  }
+
+  @Delete(':sprintId/permanent')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  permanentRemove(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('sprintId', ObjectIdValidationPipe) sprintId: string,
+  ) {
+    return this.sprintsService.permanentRemove(spaceId, sprintId);
   }
 }

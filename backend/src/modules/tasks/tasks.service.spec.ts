@@ -59,6 +59,8 @@ const mockTaskModel = {
   findOneAndDelete: jest.fn(),
   updateOne: jest.fn(),
   updateMany: jest.fn(),
+  deleteOne: jest.fn(),
+  deleteMany: jest.fn(),
   countDocuments: jest.fn(),
   aggregate: jest.fn(),
 };
@@ -205,25 +207,98 @@ describe('TasksService', () => {
     });
   });
 
-  describe('remove', () => {
-    it('deletes task and cleans dependency arrays', async () => {
-      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(mockTask));
-      mockTaskModel.deleteMany = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
+  describe('archive', () => {
+    it('stamps archivedAt and cascade-archives still-active subtasks', async () => {
+      const archived = { ...mockTask, archivedAt: new Date() };
+      mockTaskModel.findOneAndUpdate.mockReturnValue(execMock(archived));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      const result = await service.archive(spaceId, taskId);
+
+      expect(result).toEqual(archived);
+      expect(mockTaskModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt: null }),
+        expect.objectContaining({ archivedAt: expect.any(Date) }),
+        expect.anything(),
+      );
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parentTask: expect.anything(),
+          archivedAt: null,
+        }),
+        expect.objectContaining({ archivedAt: expect.any(Date) }),
+      );
+    });
+
+    it('throws NotFoundException when task not found or already archived', async () => {
+      mockTaskModel.findOneAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.archive(spaceId, taskId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('restore', () => {
+    it('clears archivedAt and restores subtasks archived in the same op', async () => {
+      const archivedAt = new Date();
+      const save = jest.fn().mockResolvedValue(undefined);
+      const task = { ...mockTask, archivedAt, save };
+      mockTaskModel.findOne.mockReturnValue(execMock(task));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      await service.restore(spaceId, taskId);
+
+      expect(task.archivedAt).toBeNull();
+      expect(save).toHaveBeenCalled();
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ parentTask: expect.anything(), archivedAt }),
+        expect.objectContaining({ archivedAt: null }),
+      );
+    });
+
+    it('throws NotFoundException when the task is not archived', async () => {
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ ...mockTask, archivedAt: null }),
+      );
+      await expect(service.restore(spaceId, taskId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('permanentRemove', () => {
+    it('deletes the archived task, its subtasks and cleans dependency arrays', async () => {
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ ...mockTask, archivedAt: new Date() }),
+      );
+      mockTaskModel.deleteOne.mockReturnValue(execMock({}));
+      mockTaskModel.deleteMany.mockReturnValue(execMock({}));
       mockTaskModel.updateMany.mockResolvedValue({});
 
-      await service.remove(spaceId, taskId);
+      await service.permanentRemove(spaceId, taskId);
 
+      expect(mockTaskModel.deleteOne).toHaveBeenCalled();
+      expect(mockTaskModel.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ parentTask: expect.anything() }),
+      );
       expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
         { spaceId: expect.anything() },
         { $pull: { blockedBy: expect.anything(), blocks: expect.anything() } },
       );
     });
 
+    it('throws BadRequestException when the task is not archived', async () => {
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ ...mockTask, archivedAt: null }),
+      );
+      await expect(service.permanentRemove(spaceId, taskId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
     it('throws NotFoundException when task not found', async () => {
-      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(null));
-      await expect(service.remove(spaceId, taskId)).rejects.toThrow(
+      mockTaskModel.findOne.mockReturnValue(execMock(null));
+      await expect(service.permanentRemove(spaceId, taskId)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -658,29 +733,6 @@ describe('TasksService', () => {
     });
   });
 
-  describe('remove', () => {
-    it('cascade-deletes subtasks when removing a task', async () => {
-      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(mockTask));
-      mockTaskModel.deleteMany = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
-      mockTaskModel.updateMany.mockResolvedValue({});
-
-      await service.remove(spaceId, taskId);
-
-      expect(mockTaskModel.deleteMany).toHaveBeenCalledWith(
-        expect.objectContaining({ parentTask: expect.anything() }),
-      );
-    });
-
-    it('throws NotFoundException when task not found', async () => {
-      mockTaskModel.findOneAndDelete.mockReturnValue(execMock(null));
-      await expect(service.remove(spaceId, taskId)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
   describe('duplicateSubtask', () => {
     it('creates a copy of the subtask under the new parent with inherited listId/sprintId', async () => {
       const newParentId = new Types.ObjectId().toString();
@@ -850,7 +902,7 @@ describe('TasksService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('delete removes tasks and their subtasks and returns affected count', async () => {
+    it('delete archives tasks and their subtasks and returns affected count', async () => {
       const subtask = {
         ...mockTask,
         _id: new Types.ObjectId(),
@@ -859,19 +911,20 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue({
         exec: jest.fn().mockResolvedValue([subtask]),
       });
-      mockTaskModel.deleteMany = jest.fn().mockReturnValue({
-        exec: jest.fn().mockResolvedValue({ deletedCount: 2 }),
+      mockTaskModel.updateMany = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ modifiedCount: 2 }),
       });
-      mockTaskModel.updateMany = jest
-        .fn()
-        .mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
 
       const result = await service.bulkPatch(spaceId, {
         taskIds: [taskId],
         action: 'delete',
       });
 
-      expect(mockTaskModel.deleteMany).toHaveBeenCalled();
+      // Soft delete: stamps archivedAt instead of removing documents.
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt: null }),
+        expect.objectContaining({ archivedAt: expect.any(Date) }),
+      );
       expect(result).toEqual({ affected: 2 });
     });
   });

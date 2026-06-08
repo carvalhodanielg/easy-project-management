@@ -6,6 +6,9 @@ import {
   SpaceInvitation,
   SpaceInvitationSchema,
 } from './schemas/space-invitation.schema';
+import { List, ListSchema } from '../lists/schemas/list.schema';
+import { Sprint, SprintSchema } from '../sprints/schemas/sprint.schema';
+import { Task, TaskSchema } from '../tasks/schemas/task.schema';
 import { SpacesService } from './spaces.service';
 import { InvitationsService } from './invitations.service';
 import { SpacesController } from './spaces.controller';
@@ -19,6 +22,9 @@ import { UsersModule } from '../users/users.module';
       { name: Space.name, schema: SpaceSchema },
       { name: SpaceMember.name, schema: SpaceMemberSchema },
       { name: SpaceInvitation.name, schema: SpaceInvitationSchema },
+      { name: List.name, schema: ListSchema },
+      { name: Sprint.name, schema: SprintSchema },
+      { name: Task.name, schema: TaskSchema },
     ]),
     UsersModule,
   ],

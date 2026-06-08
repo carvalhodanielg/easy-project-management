@@ -12,6 +12,7 @@ export interface Sprint {
   startDate: string;
   endDate: string;
   status: 'planning' | 'active' | 'completed';
+  archivedAt?: string | null;
 }
 
 export async function getSprints(spaceId: string): Promise<Sprint[]> {
@@ -29,8 +30,23 @@ export async function updateSprint(spaceId: string, sprintId: string, payload: P
   return res.data.data;
 }
 
+// Soft delete: moves the sprint (and its tasks) to the trash.
 export async function deleteSprint(spaceId: string, sprintId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/sprints/${sprintId}`);
+}
+
+export async function getArchivedSprints(spaceId: string): Promise<Sprint[]> {
+  const res = await apiClient.get<ApiResponse<Sprint[]>>(`/spaces/${spaceId}/sprints/trash`);
+  return res.data.data;
+}
+
+export async function restoreSprint(spaceId: string, sprintId: string): Promise<Sprint> {
+  const res = await apiClient.post<ApiResponse<Sprint>>(`/spaces/${spaceId}/sprints/${sprintId}/restore`);
+  return res.data.data;
+}
+
+export async function permanentDeleteSprint(spaceId: string, sprintId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/sprints/${sprintId}/permanent`);
 }
 
 export interface SprintStats {

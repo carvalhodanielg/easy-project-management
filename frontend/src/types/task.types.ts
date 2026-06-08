@@ -51,6 +51,7 @@ export interface Task {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string | null;
 }
 
 export interface CreateTaskPayload {

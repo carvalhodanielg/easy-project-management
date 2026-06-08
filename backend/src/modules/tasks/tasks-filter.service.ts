@@ -45,7 +45,7 @@ export class TasksFilterService {
       _id: Types.ObjectId;
       count: number;
     }>([
-      { $match: { parentTask: { $in: ids } } },
+      { $match: { parentTask: { $in: ids }, archivedAt: null } },
       { $group: { _id: '$parentTask', count: { $sum: 1 } } },
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
@@ -61,6 +61,7 @@ export class TasksFilterService {
     const matchStage: PipelineStage.Match = {
       $match: {
         spaceId: new Types.ObjectId(spaceId),
+        archivedAt: null,
         sprintId: { $ne: null },
         storyPoints: { $ne: null },
         status: { $ne: TaskStatus.Fechado },
@@ -91,6 +92,7 @@ export class TasksFilterService {
   ): Record<string, unknown> {
     const match: Record<string, unknown> = {
       spaceId: new Types.ObjectId(spaceId),
+      archivedAt: null,
     };
 
     if (!dto.includeSubtasks) match.parentTask = null;

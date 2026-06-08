@@ -155,6 +155,12 @@ export class TasksController {
     );
   }
 
+  // Static segment — declared before `:taskId` so it isn't parsed as an id.
+  @Get('trash')
+  findArchived(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.tasksService.findArchivedBySpace(spaceId);
+  }
+
   @Get(':taskId')
   findOne(@Param('taskId', ObjectIdValidationPipe) taskId: string) {
     return this.tasksService.findById(taskId);
@@ -181,14 +187,33 @@ export class TasksController {
     return this.tasksService.move(spaceId, taskId, dto);
   }
 
+  // Soft delete: moves the task (and its subtasks) to the trash.
   @Delete(':taskId')
   @Roles(SpaceRole.Editor)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
+  archive(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Param('taskId', ObjectIdValidationPipe) taskId: string,
   ) {
-    return this.tasksService.remove(spaceId, taskId);
+    return this.tasksService.archive(spaceId, taskId);
+  }
+
+  @Post(':taskId/restore')
+  @Roles(SpaceRole.Editor)
+  restore(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.restore(spaceId, taskId);
+  }
+
+  @Delete(':taskId/permanent')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  permanentRemove(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.permanentRemove(spaceId, taskId);
   }
 
   @Get(':taskId/subtasks')

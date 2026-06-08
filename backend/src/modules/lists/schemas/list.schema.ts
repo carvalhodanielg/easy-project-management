@@ -13,6 +13,9 @@ export class List {
 
   @Prop({ default: 0 })
   position: number;
+
+  @Prop({ type: Date, default: null, index: true })
+  archivedAt: Date | null;
 }
 
 export const ListSchema = SchemaFactory.createForClass(List);

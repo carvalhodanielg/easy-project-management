@@ -8,6 +8,7 @@ export interface Space {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string | null;
 }
 
 export type SpaceRole = 'owner' | 'editor' | 'viewer';

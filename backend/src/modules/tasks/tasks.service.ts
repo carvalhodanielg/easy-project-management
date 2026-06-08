@@ -125,6 +125,7 @@ export class TasksService {
   ): Promise<TaskDocument[]> {
     const filter: Record<string, unknown> = {
       spaceId: new Types.ObjectId(spaceId),
+      archivedAt: null,
     };
     if (query.listId) filter.listId = new Types.ObjectId(query.listId);
     if (query.sprintId) filter.sprintId = new Types.ObjectId(query.sprintId);
@@ -148,7 +149,7 @@ export class TasksService {
       _id: Types.ObjectId;
       count: number;
     }>([
-      { $match: { parentTask: { $in: ids } } },
+      { $match: { parentTask: { $in: ids }, archivedAt: null } },
       { $group: { _id: '$parentTask', count: { $sum: 1 } } },
     ]);
     const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
@@ -159,7 +160,7 @@ export class TasksService {
 
   async findSubtasks(parentTaskId: string): Promise<TaskDocument[]> {
     return this.taskModel
-      .find({ parentTask: new Types.ObjectId(parentTaskId) })
+      .find({ parentTask: new Types.ObjectId(parentTaskId), archivedAt: null })
       .populate('assignees', 'email displayName avatarUrl')
       .sort({ position: 1, createdAt: 1 })
       .exec();
@@ -407,31 +408,103 @@ export class TasksService {
     return task;
   }
 
-  async remove(spaceId: string, taskId: string): Promise<void> {
+  /**
+   * Soft delete: move the task (and its still-active subtasks) to the trash by
+   * stamping a shared `archivedAt`. The shared timestamp lets `restore` bring back
+   * exactly what this operation archived, without touching subtasks that were
+   * archived independently earlier.
+   */
+  async archive(spaceId: string, taskId: string): Promise<TaskDocument> {
+    const now = new Date();
+    const taskOid = new Types.ObjectId(taskId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
     const task = await this.taskModel
-      .findOneAndDelete({
-        _id: new Types.ObjectId(taskId),
-        spaceId: new Types.ObjectId(spaceId),
-      })
+      .findOneAndUpdate(
+        { _id: taskOid, spaceId: spaceOid, archivedAt: null },
+        { archivedAt: now },
+        { returnDocument: 'after' },
+      )
       .exec();
 
     if (!task) throw new NotFoundException('Task not found');
 
+    await this.taskModel
+      .updateMany(
+        { parentTask: taskOid, spaceId: spaceOid, archivedAt: null },
+        { archivedAt: now },
+      )
+      .exec();
+
+    return task;
+  }
+
+  async restore(spaceId: string, taskId: string): Promise<TaskDocument> {
+    const taskOid = new Types.ObjectId(taskId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const task = await this.taskModel
+      .findOne({ _id: taskOid, spaceId: spaceOid })
+      .exec();
+
+    if (!task || !task.archivedAt) {
+      throw new NotFoundException('Archived task not found');
+    }
+
+    const archivedAt = task.archivedAt;
+    task.archivedAt = null;
+    await task.save();
+
+    await this.taskModel
+      .updateMany(
+        { parentTask: taskOid, spaceId: spaceOid, archivedAt },
+        { archivedAt: null },
+      )
+      .exec();
+
+    return task;
+  }
+
+  /** Permanently delete an archived task (and its subtasks); cleans up dependencies. */
+  async permanentRemove(spaceId: string, taskId: string): Promise<void> {
+    const taskOid = new Types.ObjectId(taskId);
+    const spaceOid = new Types.ObjectId(spaceId);
+
+    const task = await this.taskModel
+      .findOne({ _id: taskOid, spaceId: spaceOid })
+      .exec();
+
+    if (!task) throw new NotFoundException('Task not found');
+    if (!task.archivedAt) {
+      throw new BadRequestException(
+        'Task must be archived before permanent deletion',
+      );
+    }
+
+    await this.taskModel.deleteOne({ _id: taskOid }).exec();
+
     await Promise.all([
-      this.taskModel.deleteMany({
-        parentTask: new Types.ObjectId(taskId),
-        spaceId: new Types.ObjectId(spaceId),
-      }),
+      this.taskModel.deleteMany({ parentTask: taskOid, spaceId: spaceOid }),
       this.taskModel.updateMany(
-        { spaceId: new Types.ObjectId(spaceId) },
-        {
-          $pull: {
-            blockedBy: new Types.ObjectId(taskId),
-            blocks: new Types.ObjectId(taskId),
-          },
-        },
+        { spaceId: spaceOid },
+        { $pull: { blockedBy: taskOid, blocks: taskOid } },
       ),
     ]);
+  }
+
+  /** Archived tasks of a space (the trash). Excludes archived subtasks of an
+   * archived parent so the trash lists each archived item once at top level. */
+  async findArchivedBySpace(spaceId: string): Promise<TaskDocument[]> {
+    return this.taskModel
+      .find({
+        spaceId: new Types.ObjectId(spaceId),
+        archivedAt: { $ne: null },
+        parentTask: null,
+      })
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .sort({ archivedAt: -1 })
+      .exec();
   }
 
   async addDependency(
@@ -674,25 +747,26 @@ export class TasksService {
       }
 
       case 'delete': {
+        // Soft delete: archive the selected tasks and their still-active subtasks
+        // under a shared timestamp so they can be restored together from the trash.
+        const now = new Date();
         const subtasks = await this.taskModel
-          .find({ parentTask: { $in: oids }, spaceId: spaceOid })
+          .find({
+            parentTask: { $in: oids },
+            spaceId: spaceOid,
+            archivedAt: null,
+          })
           .exec();
         const allOids = [...oids, ...subtasks.map((s) => s._id)];
 
         const res = await this.taskModel
-          .deleteMany({ _id: { $in: allOids }, spaceId: spaceOid })
-          .exec();
-
-        await this.taskModel
           .updateMany(
-            { spaceId: spaceOid },
-            {
-              $pull: { blockedBy: { $in: allOids }, blocks: { $in: allOids } },
-            },
+            { _id: { $in: allOids }, spaceId: spaceOid, archivedAt: null },
+            { archivedAt: now },
           )
           .exec();
 
-        return { affected: res?.deletedCount ?? 0 };
+        return { affected: res?.modifiedCount ?? 0 };
       }
 
       default:

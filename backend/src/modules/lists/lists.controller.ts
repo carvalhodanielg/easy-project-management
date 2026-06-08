@@ -28,6 +28,11 @@ export class ListsController {
     return this.listsService.findBySpace(spaceId);
   }
 
+  @Get('trash')
+  findArchived(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.listsService.findArchivedBySpace(spaceId);
+  }
+
   @Post()
   @Roles(SpaceRole.Editor)
   create(
@@ -47,13 +52,32 @@ export class ListsController {
     return this.listsService.update(spaceId, listId, dto);
   }
 
+  // Soft delete: moves the list (and its tasks) to the trash.
   @Delete(':listId')
   @Roles(SpaceRole.Editor)
-  @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
+  archive(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
     @Param('listId', ObjectIdValidationPipe) listId: string,
   ) {
-    return this.listsService.remove(spaceId, listId);
+    return this.listsService.archive(spaceId, listId);
+  }
+
+  @Post(':listId/restore')
+  @Roles(SpaceRole.Editor)
+  restore(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('listId', ObjectIdValidationPipe) listId: string,
+  ) {
+    return this.listsService.restore(spaceId, listId);
+  }
+
+  @Delete(':listId/permanent')
+  @Roles(SpaceRole.Editor)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  permanentRemove(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('listId', ObjectIdValidationPipe) listId: string,
+  ) {
+    return this.listsService.permanentRemove(spaceId, listId);
   }
 }

@@ -41,6 +41,9 @@ export class Sprint {
   /** Sequential number within the folder (1, 2, 3…). Null for sprints without a folder. */
   @Prop({ type: Number, default: null })
   folderNumber: number | null;
+
+  @Prop({ type: Date, default: null, index: true })
+  archivedAt: Date | null;
 }
 
 export const SprintSchema = SchemaFactory.createForClass(Sprint);

@@ -36,8 +36,23 @@ export async function updateSpace(spaceId: string, payload: Partial<CreateSpaceP
   return res.data.data;
 }
 
+// Soft delete: moves the space (and its contents) to the trash.
 export async function deleteSpace(spaceId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}`);
+}
+
+export async function getArchivedSpaces(): Promise<Space[]> {
+  const res = await apiClient.get<ApiResponse<Space[]>>('/spaces/trash');
+  return res.data.data;
+}
+
+export async function restoreSpace(spaceId: string): Promise<Space> {
+  const res = await apiClient.post<ApiResponse<Space>>(`/spaces/${spaceId}/restore`);
+  return res.data.data;
+}
+
+export async function permanentDeleteSpace(spaceId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/permanent`);
 }
 
 export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {

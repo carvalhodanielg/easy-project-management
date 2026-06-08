@@ -9,6 +9,9 @@ import { getModelToken } from '@nestjs/mongoose';
 import { SpacesService } from './spaces.service';
 import { Space } from './schemas/space.schema';
 import { SpaceMember, SpaceRole } from './schemas/space-member.schema';
+import { List } from '../lists/schemas/list.schema';
+import { Sprint } from '../sprints/schemas/sprint.schema';
+import { Task } from '../tasks/schemas/task.schema';
 import { Types } from 'mongoose';
 
 const userId = new Types.ObjectId().toString();
@@ -47,6 +50,8 @@ const mockSpaceModel = {
   findById: jest.fn(),
   findByIdAndUpdate: jest.fn(),
   findByIdAndDelete: jest.fn(),
+  findOneAndUpdate: jest.fn(),
+  deleteOne: jest.fn(),
 };
 
 const mockSpaceMemberModel = {
@@ -58,6 +63,15 @@ const mockSpaceMemberModel = {
   updateOne: jest.fn(),
   deleteMany: jest.fn(),
 };
+
+// Cascade targets share the same minimal shape.
+const makeChildModel = () => ({
+  updateMany: jest.fn(),
+  deleteMany: jest.fn(),
+});
+const mockListModel = makeChildModel();
+const mockSprintModel = makeChildModel();
+const mockTaskModel = makeChildModel();
 
 describe('SpacesService', () => {
   let service: SpacesService;
@@ -73,6 +87,9 @@ describe('SpacesService', () => {
           provide: getModelToken(SpaceMember.name),
           useValue: mockSpaceMemberModel,
         },
+        { provide: getModelToken(List.name), useValue: mockListModel },
+        { provide: getModelToken(Sprint.name), useValue: mockSprintModel },
+        { provide: getModelToken(Task.name), useValue: mockTaskModel },
       ],
     }).compile();
 
@@ -124,21 +141,127 @@ describe('SpacesService', () => {
     });
   });
 
-  describe('remove', () => {
-    it('deletes space and its members', async () => {
-      mockSpaceModel.findByIdAndDelete.mockReturnValue(execMock(mockSpace));
-      mockSpaceMemberModel.deleteMany.mockReturnValue(execMock({}));
+  describe('archive', () => {
+    it('stamps archivedAt and cascade-archives lists, sprints and tasks', async () => {
+      const archived = { ...mockSpace, archivedAt: new Date() };
+      mockSpaceModel.findOneAndUpdate.mockReturnValue(execMock(archived));
+      mockListModel.updateMany.mockReturnValue(execMock({}));
+      mockSprintModel.updateMany.mockReturnValue(execMock({}));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
 
-      await service.remove(spaceId);
+      const result = await service.archive(spaceId);
 
-      expect(mockSpaceMemberModel.deleteMany).toHaveBeenCalledWith(
-        expect.objectContaining({ spaceId: expect.anything() }),
+      expect(result).toEqual(archived);
+      // Only the space is matched on archivedAt:null and cascades to its children.
+      expect(mockSpaceModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt: null }),
+        expect.objectContaining({ archivedAt: expect.any(Date) }),
+        expect.anything(),
+      );
+      for (const m of [mockListModel, mockSprintModel, mockTaskModel]) {
+        expect(m.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({ archivedAt: null }),
+          expect.objectContaining({ archivedAt: expect.any(Date) }),
+        );
+      }
+    });
+
+    it('throws NotFoundException when space not found or already archived', async () => {
+      mockSpaceModel.findOneAndUpdate.mockReturnValue(execMock(null));
+      await expect(service.archive(spaceId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('restore', () => {
+    it('clears archivedAt and restores only children archived in the same op', async () => {
+      const archivedAt = new Date();
+      const save = jest.fn().mockResolvedValue(undefined);
+      const space = { ...mockSpace, archivedAt, save };
+      mockSpaceModel.findById.mockReturnValue(execMock(space));
+      mockListModel.updateMany.mockReturnValue(execMock({}));
+      mockSprintModel.updateMany.mockReturnValue(execMock({}));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      await service.restore(spaceId);
+
+      expect(space.archivedAt).toBeNull();
+      expect(save).toHaveBeenCalled();
+      // Children are matched by the space's previous archivedAt timestamp.
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt }),
+        expect.objectContaining({ archivedAt: null }),
       );
     });
 
-    it('throws NotFoundException when space not found', async () => {
-      mockSpaceModel.findByIdAndDelete.mockReturnValue(execMock(null));
-      await expect(service.remove(spaceId)).rejects.toThrow(NotFoundException);
+    it('throws NotFoundException when the space is not archived', async () => {
+      mockSpaceModel.findById.mockReturnValue(
+        execMock({ ...mockSpace, archivedAt: null }),
+      );
+      await expect(service.restore(spaceId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('permanentRemove', () => {
+    it('deletes the space and all of its contents when archived', async () => {
+      mockSpaceModel.findById.mockReturnValue(
+        execMock({ ...mockSpace, archivedAt: new Date() }),
+      );
+      mockSpaceModel.deleteOne.mockReturnValue(execMock({}));
+      mockSpaceMemberModel.deleteMany.mockReturnValue(execMock({}));
+      mockListModel.deleteMany.mockReturnValue(execMock({}));
+      mockSprintModel.deleteMany.mockReturnValue(execMock({}));
+      mockTaskModel.deleteMany.mockReturnValue(execMock({}));
+
+      await service.permanentRemove(spaceId);
+
+      expect(mockSpaceModel.deleteOne).toHaveBeenCalled();
+      for (const m of [
+        mockSpaceMemberModel,
+        mockListModel,
+        mockSprintModel,
+        mockTaskModel,
+      ]) {
+        expect(m.deleteMany).toHaveBeenCalledWith(
+          expect.objectContaining({ spaceId: expect.anything() }),
+        );
+      }
+    });
+
+    it('throws BadRequestException when the space is not archived', async () => {
+      mockSpaceModel.findById.mockReturnValue(
+        execMock({ ...mockSpace, archivedAt: null }),
+      );
+      await expect(service.permanentRemove(spaceId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws NotFoundException when the space does not exist', async () => {
+      mockSpaceModel.findById.mockReturnValue(execMock(null));
+      await expect(service.permanentRemove(spaceId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('findArchivedForUser', () => {
+    it('returns archived spaces the user belongs to', async () => {
+      mockSpaceMemberModel.find.mockReturnValue({
+        select: jest
+          .fn()
+          .mockReturnValue(execMock([{ spaceId: mockSpace._id }])),
+      });
+      const sortExec = {
+        sort: jest.fn().mockReturnValue(execMock([mockSpace])),
+      };
+      mockSpaceModel.find.mockReturnValue(sortExec);
+
+      const result = await service.findArchivedForUser(userId);
+
+      expect(result).toEqual([mockSpace]);
+      expect(mockSpaceModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt: { $ne: null } }),
+      );
     });
   });
 

@@ -3,7 +3,7 @@ import { Outlet, useParams, useNavigate, NavLink, useLocation } from 'react-rout
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Home, List, Zap, Plus, LogOut, ChevronDown, ChevronRight,
-  FolderOpen, X, Loader2, Users, Search, Folder,
+  FolderOpen, X, Loader2, Users, Search, Folder, Trash2,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useLogout } from '../../hooks/useAuth';
@@ -483,6 +483,7 @@ export function SpaceLayout() {
 
           <NavItem to="/home" icon={Home}>Início</NavItem>
           <NavItem to={`/spaces/${spaceId}/members`} icon={Users}>Membros</NavItem>
+          <NavItem to={`/spaces/${spaceId}/trash`} icon={Trash2}>Lixeira</NavItem>
 
           {/* Lists */}
           {lists.length > 0 && (

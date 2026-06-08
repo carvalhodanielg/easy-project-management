@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid, Trash2, RotateCcw } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useLogout } from '../../hooks/useAuth';
 import * as spacesApi from '../../api/spaces.api';
@@ -28,6 +28,25 @@ export function HomePage() {
   const { data: spaces = [], isLoading } = useQuery({
     queryKey: ['spaces'],
     queryFn: spacesApi.getSpaces,
+  });
+
+  const { data: archivedSpaces = [] } = useQuery({
+    queryKey: ['spaces', 'trash'],
+    queryFn: spacesApi.getArchivedSpaces,
+  });
+
+  function invalidateSpaces() {
+    void queryClient.invalidateQueries({ queryKey: ['spaces'] });
+  }
+
+  const restoreMutation = useMutation({
+    mutationFn: (spaceId: string) => spacesApi.restoreSpace(spaceId),
+    onSuccess: invalidateSpaces,
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: (spaceId: string) => spacesApi.permanentDeleteSpace(spaceId),
+    onSuccess: invalidateSpaces,
   });
 
   const createMutation = useMutation({
@@ -238,6 +257,58 @@ export function HomePage() {
                 <Plus size={15} /> Criar primeiro espaço
               </button>
             </div>
+          )}
+
+          {/* Archived spaces (trash) */}
+          {archivedSpaces.length > 0 && (
+            <section className="mt-10">
+              <div className="flex items-center gap-2 mb-3">
+                <Trash2 size={14} className="text-ink-muted" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted">
+                  Lixeira · Espaços arquivados
+                </h2>
+              </div>
+              <div className="space-y-1.5 max-w-2xl">
+                {archivedSpaces.map((space: Space) => (
+                  <div
+                    key={space._id}
+                    className="flex items-center gap-3 px-4 py-2.5 bg-surface border border-line rounded-lg"
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      style={{ background: space.color }}
+                    >
+                      {space.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="flex-1 truncate text-sm text-ink">{space.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => restoreMutation.mutate(space._id)}
+                      disabled={restoreMutation.isPending || purgeMutation.isPending}
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-ink-dim hover:text-brand hover:bg-brand/10 rounded-md transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw size={13} /> Restaurar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Excluir "${space.name}" definitivamente? Esta ação não pode ser desfeita.`,
+                          )
+                        ) {
+                          purgeMutation.mutate(space._id);
+                        }
+                      }}
+                      disabled={restoreMutation.isPending || purgeMutation.isPending}
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-ink-dim hover:text-danger hover:bg-danger/10 rounded-md transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 size={13} /> Excluir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
         </main>
       </div>

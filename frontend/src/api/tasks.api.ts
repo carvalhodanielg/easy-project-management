@@ -57,8 +57,23 @@ export async function updateTask(spaceId: string, taskId: string, payload: Updat
   return res.data.data;
 }
 
+// Soft delete: moves the task (and its subtasks) to the trash.
 export async function deleteTask(spaceId: string, taskId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/tasks/${taskId}`);
+}
+
+export async function getArchivedTasks(spaceId: string): Promise<Task[]> {
+  const res = await apiClient.get<ApiResponse<Task[]>>(`/spaces/${spaceId}/tasks/trash`);
+  return res.data.data;
+}
+
+export async function restoreTask(spaceId: string, taskId: string): Promise<Task> {
+  const res = await apiClient.post<ApiResponse<Task>>(`/spaces/${spaceId}/tasks/${taskId}/restore`);
+  return res.data.data;
+}
+
+export async function permanentDeleteTask(spaceId: string, taskId: string): Promise<void> {
+  await apiClient.delete(`/spaces/${spaceId}/tasks/${taskId}/permanent`);
 }
 
 export async function getSubtasks(spaceId: string, taskId: string): Promise<Task[]> {

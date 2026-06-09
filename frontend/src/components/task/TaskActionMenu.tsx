@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import { MoreHorizontal, Trash2, MoveRight, Copy, ChevronRight, ArrowUpFromLine, MoveUpRight, CheckSquare } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
+import { useDeleteTaskWithUndo } from '../../hooks/useDeleteTaskWithUndo';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
 import { ParentTaskPickerModal } from './ParentTaskPickerModal';
 import type { Task } from '../../types/task.types';
 
 type DropdownView = 'main' | 'move-subtask';
-type ModalType = 'move' | 'duplicate' | 'move-subtask' | 'promote' | 'duplicate-subtask' | 'confirm-delete' | null;
+type ModalType = 'move' | 'duplicate' | 'move-subtask' | 'promote' | 'duplicate-subtask' | null;
 
 interface Props {
   task: Task;
@@ -45,10 +46,7 @@ export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
     void queryClient.invalidateQueries({ queryKey: ['subtasks'] });
   }
 
-  const deleteMutation = useMutation({
-    mutationFn: () => tasksApi.deleteTask(spaceId, task._id),
-    onSuccess: () => { invalidate(); onDone(); setModal(null); },
-  });
+  const deleteWithUndo = useDeleteTaskWithUndo(spaceId);
 
   const moveMutation = useMutation({
     mutationFn: (dest: Destination) => tasksApi.bulkMoveTasks(spaceId, [task._id], dest),
@@ -105,7 +103,12 @@ export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
 
   function handleDelete() {
     setOpen(false);
-    setModal('confirm-delete');
+    deleteWithUndo.run({
+      deleteFn: () => tasksApi.deleteTask(spaceId, task._id),
+      restoreFn: () => tasksApi.restoreTask(spaceId, task._id),
+      message: isSubtask ? 'Subtarefa movida para a lixeira' : 'Tarefa movida para a lixeira',
+      onDeleted: onDone,
+    });
   }
 
   function handleMove() {
@@ -121,10 +124,6 @@ export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
     setOpen(false);
     setModal(isSubtask ? 'duplicate-subtask' : 'duplicate');
   }
-
-  const isPending =
-    deleteMutation.isPending || moveMutation.isPending || duplicateMutation.isPending ||
-    moveSubtaskMutation.isPending || promoteMutation.isPending || duplicateSubtaskMutation.isPending;
 
   return (
     <>
@@ -201,42 +200,6 @@ export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
           )}
         </div>,
         document.body,
-      )}
-
-      {/* Confirm delete dialog */}
-      {modal === 'confirm-delete' && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={closeAll}
-        >
-          <div
-            className="bg-surface border border-line rounded-xl shadow-2xl w-[360px] p-5 flex flex-col gap-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold text-ink">Confirmar exclusão</p>
-            <p className="text-sm text-ink-dim">
-              {!isSubtask && task.subtaskCount > 0
-                ? <>Esta tarefa possui <strong>{task.subtaskCount} subtarefa{task.subtaskCount !== 1 ? 's' : ''}</strong>. Todas serão apagadas junto com ela. Deseja continuar?</>
-                : 'Esta ação não pode ser desfeita. Deseja continuar?'
-              }
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={closeAll}
-                className="px-3 py-1.5 rounded-lg text-sm text-ink-dim border border-line hover:bg-lift transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate()}
-                disabled={isPending}
-                className="px-3 py-1.5 rounded-lg text-sm text-white bg-danger hover:bg-danger/80 transition-colors disabled:opacity-50"
-              >
-                Apagar
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {modal === 'move' && (

@@ -492,19 +492,57 @@ export class TasksService {
     ]);
   }
 
-  /** Archived tasks of a space (the trash). Excludes archived subtasks of an
-   * archived parent so the trash lists each archived item once at top level. */
+  /**
+   * Archived tasks of a space (the trash history). Lists ALL archived tasks,
+   * including subtasks deleted individually. Only subtasks that were
+   * cascade-archived together with their parent (same `archivedAt` timestamp)
+   * are hidden, so the operation that archived a parent + its subtasks shows up
+   * as a single entry rather than one row per subtask.
+   */
   async findArchivedBySpace(spaceId: string): Promise<TaskDocument[]> {
-    return this.taskModel
+    const tasks = await this.taskModel
       .find({
         spaceId: new Types.ObjectId(spaceId),
         archivedAt: { $ne: null },
-        parentTask: null,
       })
+      .populate('listId', 'name')
+      .populate('sprintId', 'name number')
       .populate('assignees', 'email displayName avatarUrl')
       .populate('tags')
       .sort({ archivedAt: -1 })
       .exec();
+
+    // Index archived tasks by id so we can detect cascade-archived subtasks.
+    const byId = new Map<string, TaskDocument>();
+    for (const t of tasks) byId.set(t._id.toString(), t);
+
+    return tasks.filter((t) => {
+      if (!t.parentTask) return true;
+      const parent = byId.get(t.parentTask.toString());
+      if (!parent || !parent.archivedAt || !t.archivedAt) return true;
+      // Drop only when archived in the same operation as the parent.
+      return parent.archivedAt.getTime() !== t.archivedAt.getTime();
+    });
+  }
+
+  /** Permanently delete every archived task of a space; cleans up dependencies. */
+  async emptyTaskTrash(spaceId: string): Promise<{ affected: number }> {
+    const spaceOid = new Types.ObjectId(spaceId);
+    const filter = { spaceId: spaceOid, archivedAt: { $ne: null } };
+
+    const archived = await this.taskModel.find(filter).exec();
+    const ids = archived.map((t) => t._id);
+
+    const { deletedCount } = await this.taskModel.deleteMany(filter).exec();
+
+    await this.taskModel
+      .updateMany(
+        { spaceId: spaceOid },
+        { $pull: { blockedBy: { $in: ids }, blocks: { $in: ids } } },
+      )
+      .exec();
+
+    return { affected: deletedCount ?? 0 };
   }
 
   async addDependency(

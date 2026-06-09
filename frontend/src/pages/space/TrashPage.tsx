@@ -10,16 +10,20 @@ type ItemKind = 'list' | 'sprint' | 'task';
 interface TrashRowProps {
   icon: React.ElementType;
   name: string;
+  meta?: React.ReactNode;
   onRestore: () => void;
   onDelete: () => void;
   busy: boolean;
 }
 
-function TrashRow({ icon: Icon, name, onRestore, onDelete, busy }: TrashRowProps) {
+function TrashRow({ icon: Icon, name, meta, onRestore, onDelete, busy }: TrashRowProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 bg-surface border border-line rounded-lg">
       <Icon size={15} className="shrink-0 text-ink-muted" />
-      <span className="flex-1 truncate text-sm text-ink">{name || 'Sem nome'}</span>
+      <div className="flex-1 min-w-0">
+        <span className="block truncate text-sm text-ink">{name || 'Sem nome'}</span>
+        {meta && <span className="block truncate text-xs text-ink-muted">{meta}</span>}
+      </div>
       <button
         type="button"
         onClick={onRestore}
@@ -87,7 +91,22 @@ export function TrashPage() {
     onSuccess: invalidateAll,
   });
 
-  const busy = restore.isPending || purge.isPending;
+  const emptyTrash = useMutation({
+    mutationFn: () => tasksApi.emptyTaskTrash(spaceId!),
+    onSuccess: invalidateAll,
+  });
+
+  const busy = restore.isPending || purge.isPending || emptyTrash.isPending;
+
+  function handleEmptyTaskTrash() {
+    if (
+      window.confirm(
+        'Esvaziar a lixeira de tarefas? Esta ação não pode ser desfeita.',
+      )
+    ) {
+      emptyTrash.mutate();
+    }
+  }
 
   function handleDelete(kind: ItemKind, id: string, name: string) {
     if (
@@ -179,20 +198,40 @@ export function TrashPage() {
 
         {!isLoading && tasks.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted mb-2">
-              Tarefas
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-ink-muted">
+                Tarefas
+              </h2>
+              <button
+                type="button"
+                onClick={handleEmptyTaskTrash}
+                disabled={busy || tasks.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-ink-dim hover:text-danger hover:bg-danger/10 rounded-md transition-colors disabled:opacity-50"
+              >
+                <Trash2 size={13} /> Esvaziar lixeira
+              </button>
+            </div>
             <div className="space-y-1.5">
-              {tasks.map((t) => (
-                <TrashRow
-                  key={t._id}
-                  icon={CheckSquare}
-                  name={t.name}
-                  busy={busy}
-                  onRestore={() => restore.mutate({ kind: 'task', id: t._id })}
-                  onDelete={() => handleDelete('task', t._id, t.name)}
-                />
-              ))}
+              {tasks.map((t) => {
+                const date = t.archivedAt
+                  ? new Date(t.archivedAt).toLocaleDateString('pt-BR')
+                  : null;
+                const origin = t.sprintId
+                  ? t.sprintId.name || `Sprint ${t.sprintId.number}`
+                  : (t.listId?.name ?? '—');
+                const meta = [date, origin].filter(Boolean).join(' · ');
+                return (
+                  <TrashRow
+                    key={t._id}
+                    icon={CheckSquare}
+                    name={t.name}
+                    meta={meta}
+                    busy={busy}
+                    onRestore={() => restore.mutate({ kind: 'task', id: t._id })}
+                    onDelete={() => handleDelete('task', t._id, t.name)}
+                  />
+                );
+              })}
             </div>
           </section>
         )}

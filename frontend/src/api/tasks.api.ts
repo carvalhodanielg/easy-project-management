@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult, TaskStatus, TaskPriority, FibonacciPoint } from '../types/task.types';
+import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult, TaskStatus, TaskPriority } from '../types/task.types';
 
 interface ApiResponse<T> { data: T; }
 
@@ -62,8 +62,21 @@ export async function deleteTask(spaceId: string, taskId: string): Promise<void>
   await apiClient.delete(`/spaces/${spaceId}/tasks/${taskId}`);
 }
 
-export async function getArchivedTasks(spaceId: string): Promise<Task[]> {
-  const res = await apiClient.get<ApiResponse<Task[]>>(`/spaces/${spaceId}/tasks/trash`);
+// Archived tasks carry populated origin (list/sprint) for the trash history.
+export interface ArchivedTask extends Omit<Task, 'listId' | 'sprintId'> {
+  listId: { _id: string; name: string } | null;
+  sprintId: { _id: string; name: string; number?: number } | null;
+}
+
+export async function getArchivedTasks(spaceId: string): Promise<ArchivedTask[]> {
+  const res = await apiClient.get<ApiResponse<ArchivedTask[]>>(`/spaces/${spaceId}/tasks/trash`);
+  return res.data.data;
+}
+
+export async function emptyTaskTrash(spaceId: string): Promise<{ affected: number }> {
+  const res = await apiClient.delete<ApiResponse<{ affected: number }>>(
+    `/spaces/${spaceId}/tasks/trash`,
+  );
   return res.data.data;
 }
 

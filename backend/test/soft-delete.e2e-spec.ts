@@ -284,6 +284,46 @@ describe('Soft delete / archiving (e2e)', () => {
     });
   });
 
+  describe('Task trash history', () => {
+    it('lists an individually-archived subtask and empties the task trash', async () => {
+      const { spaceId, taskId } = await scaffold();
+
+      // Create a subtask under the scaffolded task.
+      const subtask = await http()
+        .post(`/spaces/${spaceId}/tasks`)
+        .set(auth(ownerToken))
+        .send({ name: 'Subtask', parentTask: taskId })
+        .expect(201);
+      const subtaskId = subtask.body.data._id as string;
+
+      // Archive ONLY the subtask.
+      await http()
+        .delete(`/spaces/${spaceId}/tasks/${subtaskId}`)
+        .set(auth(ownerToken))
+        .expect(200);
+
+      const trash = await http()
+        .get(`/spaces/${spaceId}/tasks/trash`)
+        .set(auth(ownerToken))
+        .expect(200);
+      expect(trash.body.data.map((t: { _id: string }) => t._id)).toContain(
+        subtaskId,
+      );
+
+      // Empty the task trash.
+      await http()
+        .delete(`/spaces/${spaceId}/tasks/trash`)
+        .set(auth(ownerToken))
+        .expect(200);
+
+      const afterEmpty = await http()
+        .get(`/spaces/${spaceId}/tasks/trash`)
+        .set(auth(ownerToken))
+        .expect(200);
+      expect(afterEmpty.body.data).toEqual([]);
+    });
+  });
+
   describe('Authorization', () => {
     it('forbids a viewer from archiving a task', async () => {
       const { spaceId, taskId } = await scaffold();

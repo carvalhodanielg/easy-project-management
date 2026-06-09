@@ -1,10 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { toast } from 'sonner';
 import { SelectionBar } from './SelectionBar';
 import * as tasksApi from '../../api/tasks.api';
 import type { Task } from '../../types/task.types';
 
+vi.mock('sonner', () => ({ toast: vi.fn() }));
 vi.mock('../../api/tasks.api');
 
 const bulkPatch = vi.mocked(tasksApi.bulkPatchTasks);
@@ -100,5 +102,23 @@ describe('SelectionBar', () => {
       });
     });
     await waitFor(() => expect(onClear).toHaveBeenCalled());
+  });
+
+  it('shows an undo toast whose action restores every deleted task', async () => {
+    vi.mocked(tasksApi.restoreTask).mockResolvedValue({} as Task);
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: /excluir/i }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+    const opts = vi.mocked(toast).mock.calls[0][1] as {
+      action: { label: string; onClick: () => void };
+    };
+    expect(opts.action.label).toMatch(/desfazer/i);
+
+    opts.action.onClick();
+    await waitFor(() => {
+      expect(tasksApi.restoreTask).toHaveBeenCalledWith('sp1', 't1');
+      expect(tasksApi.restoreTask).toHaveBeenCalledWith('sp1', 't2');
+    });
   });
 });

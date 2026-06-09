@@ -15,7 +15,7 @@ import { T } from '../../theme';
 import type { SpaceMember } from '../../types/space.types';
 import type { User } from '../../types/user.types';
 
-export const TASK_COLS = '48px 1fr 88px 52px 80px 90px 36px';
+export const TASK_COLS = '64px 1fr 88px 52px 80px 90px 36px';
 
 const STATUS_DOT: Record<TaskStatus, string> = {
   pendente:     'border-s-pending bg-transparent',
@@ -270,68 +270,20 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       className={`group cursor-pointer border-b border-line-dim hover:bg-lift/60 transition-colors ${isSelected ? 'bg-brand/8' : ''}`}
       style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: kind === 'subtask' ? '34px' : '42px' }}
     >
-      {/* Col 1 — normal content (drag + toggle + status) with checkbox overlay on hover */}
+      {/* Col 1 — drag handle + selection checkbox + expand toggle + status */}
       <div
-        className="relative flex items-center justify-center gap-0.5"
+        className="flex items-center gap-0.5"
         style={{ paddingLeft: depth > 0 ? `${depth * 16 + 4}px` : '4px' }}
       >
-        {/* Normal content — removed entirely while in selection mode so the
-            checkbox replaces the inline status button */}
-        {!selectionMode && (
-        <div className="flex items-center gap-0.5">
-          {dragHandle ?? <span className="w-3" />}
-          {onToggleExpand ? (
-            <button
-              aria-label={isExpanded ? 'Recolher' : 'Expandir'}
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-              className="w-4 h-4 flex items-center justify-center text-ink-muted hover:text-ink transition-colors shrink-0 opacity-50 group-hover:opacity-100"
-            >
-              {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            </button>
-          ) : (
-            <span className="w-4" />
-          )}
+        {dragHandle ?? <span className="w-3" />}
 
-          {/* Status picker */}
-          <div ref={statusRef} className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
-            <Tooltip content={STATUS_LABELS[localStatus]} disabled={statusOpen}>
-              <button
-                aria-label={`Status: ${STATUS_LABELS[localStatus]}`}
-                onClick={() => setStatusOpen((v) => !v)}
-                className={`rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[localStatus]} hover:scale-125 transition-transform ${kind === 'subtask' ? 'w-2.5 h-2.5' : 'w-3 h-3'}`}
-              />
-            </Tooltip>
-
-            {statusOpen && (
-              <div className="absolute top-full left-0 mt-1.5 z-50 min-w-[140px] bg-modal border border-line rounded-xl shadow-2xl py-1 flex flex-col">
-                {STATUSES.map((s) => {
-                  const isCurrent = s === localStatus;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => changeStatus(s)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-lift transition-colors"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[s]}`} />
-                      <span style={isCurrent ? { color: T.status[s] } : {}} className={isCurrent ? 'font-semibold' : 'text-ink'}>
-                        {STATUS_LABELS[s]}
-                      </span>
-                      {isCurrent && <span className="ml-auto text-[10px] text-ink-muted">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* Checkbox overlay — only visible in selection mode */}
-        {selectionMode && (
+        {/* Selection checkbox — sits beside the drag handle, visible only on
+            hover or when the row is selected / a selection is active. */}
+        {(onSelect || onStartSelect) && (
           <button
             aria-label={isSelected ? 'Desmarcar' : 'Selecionar'}
-            onClick={(e) => { e.stopPropagation(); onSelect!(task._id, kind); }}
-            className="absolute inset-0 flex items-center justify-center z-10"
+            onClick={(e) => { e.stopPropagation(); (onSelect ?? onStartSelect)!(task._id, kind); }}
+            className={`shrink-0 transition-opacity ${isSelected || selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
           >
             <span className={`w-4 h-4 flex items-center justify-center rounded shrink-0 transition-all border ${
               isSelected
@@ -346,6 +298,50 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             </span>
           </button>
         )}
+
+        {onToggleExpand ? (
+          <button
+            aria-label={isExpanded ? 'Recolher' : 'Expandir'}
+            onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+            className="w-4 h-4 flex items-center justify-center text-ink-muted hover:text-ink transition-colors shrink-0 opacity-50 group-hover:opacity-100"
+          >
+            {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
+
+        {/* Status picker */}
+        <div ref={statusRef} className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
+          <Tooltip content={STATUS_LABELS[localStatus]} disabled={statusOpen}>
+            <button
+              aria-label={`Status: ${STATUS_LABELS[localStatus]}`}
+              onClick={() => setStatusOpen((v) => !v)}
+              className={`rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[localStatus]} hover:scale-125 transition-transform ${kind === 'subtask' ? 'w-2.5 h-2.5' : 'w-3 h-3'}`}
+            />
+          </Tooltip>
+
+          {statusOpen && (
+            <div className="absolute top-full left-0 mt-1.5 z-50 min-w-[140px] bg-modal border border-line rounded-xl shadow-2xl py-1 flex flex-col">
+              {STATUSES.map((s) => {
+                const isCurrent = s === localStatus;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => changeStatus(s)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-lift transition-colors"
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px] ${STATUS_DOT[s]}`} />
+                    <span style={isCurrent ? { color: T.status[s] } : {}} className={isCurrent ? 'font-semibold' : 'text-ink'}>
+                      {STATUS_LABELS[s]}
+                    </span>
+                    {isCurrent && <span className="ml-auto text-[10px] text-ink-muted">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Col 2 — name + tags + subtask count */}

@@ -136,6 +136,32 @@ describe('TaskRow', () => {
     expect(screen.getByRole('button', { name: /desmarcar/i })).toBeInTheDocument();
   });
 
+  it('shows checkbox on hover entry when only onStartSelect is provided', () => {
+    const onStartSelect = vi.fn();
+    renderRow(TASK, { onStartSelect, isSelected: false });
+    expect(screen.getByRole('button', { name: /selecionar/i })).toBeInTheDocument();
+  });
+
+  it('calls onStartSelect when the hover checkbox is clicked', () => {
+    const onStartSelect = vi.fn();
+    renderRow(TASK, { onStartSelect, isSelected: false });
+    fireEvent.click(screen.getByRole('button', { name: /selecionar/i }));
+    expect(onStartSelect).toHaveBeenCalledWith('t1', 'main');
+  });
+
+  it('reports subtask kind when checkbox is clicked on a subtask row', () => {
+    const onStartSelect = vi.fn();
+    const subtask = { ...TASK, _id: 's1', parentTask: 't1' } as Task;
+    renderRow(subtask, { onStartSelect, isSelected: false });
+    fireEvent.click(screen.getByRole('button', { name: /selecionar/i }));
+    expect(onStartSelect).toHaveBeenCalledWith('s1', 'subtask');
+  });
+
+  it('keeps the status dot visible while a selection is active', () => {
+    renderRow(TASK, { onSelect: vi.fn(), isSelected: false });
+    expect(screen.getByRole('button', { name: /status/i })).toBeInTheDocument();
+  });
+
   describe('status picker', () => {
     it('status button is present in normal mode', () => {
       renderRow();
@@ -162,10 +188,6 @@ describe('TaskRow', () => {
       });
     });
 
-    it('does not show status button in selection mode', () => {
-      renderRow(TASK, { onSelect: vi.fn(), isSelected: false });
-      expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
-    });
   });
 
   describe('inline name edit', () => {

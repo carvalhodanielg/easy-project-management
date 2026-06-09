@@ -133,7 +133,7 @@ function SprintFolderItem({
           >
             <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
             <span className="truncate text-xs font-medium flex-1 min-w-0">
-              Sprint {sprint.folderNumber ?? sprint.number}{sprint.name ? ` · ${sprint.name}` : ''}
+              Sprint {sprint.folderNumber ?? sprint.number}
             </span>
             <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
               {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
@@ -546,7 +546,7 @@ export function SpaceLayout() {
                   >
                     <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
                     <span className="truncate text-xs font-medium flex-1 min-w-0">
-                      Sprint {sprint.number}{sprint.name ? ` · ${sprint.name}` : ''}
+                      Sprint {sprint.number}
                     </span>
                     <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
                       {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}

@@ -94,8 +94,8 @@ describe('SpaceLayout – sidebar sprint item', () => {
   it('renders a sprint on a single compact line with status and dates', async () => {
     renderLayout([ACTIVE_SPRINT]);
 
-    // name + number on one element
-    const label = await screen.findByText('Sprint 3 · Login');
+    // sprint number label (no name)
+    const label = await screen.findByText('Sprint 3');
     expect(label).toBeInTheDocument();
 
     // open–close date range in reduced dd/mm - dd/mm format on the same item

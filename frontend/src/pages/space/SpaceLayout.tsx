@@ -29,7 +29,7 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
 };
 
 function fmtShort(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 function NavItem({
@@ -135,9 +135,8 @@ function SprintFolderItem({
             <span className="truncate text-xs font-medium flex-1 min-w-0">
               Sprint {sprint.folderNumber ?? sprint.number}{sprint.name ? ` · ${sprint.name}` : ''}
             </span>
-            <span className={cn('shrink-0 text-[10px]', ds.color)}>{ds.shortLabel}</span>
             <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
-              {fmtShort(sprint.startDate)} – {fmtShort(sprint.endDate)}
+              {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
             </span>
           </NavLink>
         );
@@ -549,9 +548,8 @@ export function SpaceLayout() {
                     <span className="truncate text-xs font-medium flex-1 min-w-0">
                       Sprint {sprint.number}{sprint.name ? ` · ${sprint.name}` : ''}
                     </span>
-                    <span className={cn('shrink-0 text-[10px]', ds.color)}>{ds.shortLabel}</span>
                     <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
-                      {fmtShort(sprint.startDate)} – {fmtShort(sprint.endDate)}
+                      {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
                     </span>
                   </NavLink>
                 );

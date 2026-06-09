@@ -98,12 +98,9 @@ describe('SpaceLayout – sidebar sprint item', () => {
     const label = await screen.findByText('Sprint 3 · Login');
     expect(label).toBeInTheDocument();
 
-    // short status label for an in-progress sprint
-    expect(screen.getByText('Em prog.')).toBeInTheDocument();
-
-    // open–close date range on the same item
+    // open–close date range in reduced dd/mm - dd/mm format on the same item
     const row = label.closest('a');
     expect(row).not.toBeNull();
-    expect(row!.textContent).toMatch(/\d{2}.*–.*\d{2}/);
+    expect(row!.textContent).toMatch(/\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}/);
   });
 });

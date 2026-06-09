@@ -156,76 +156,60 @@ input, select, textarea, button { font-family: var(--font-sans); }
 }
 .obsidian-editor .wmde-markdown a { color: var(--color-brand-hi) !important; }
 
-/* MarkdownLiveEditor */
-.live-editor-body {
-  padding: 0.5rem 0.75rem;
-  font-size: 14px;
-  line-height: 1.7;
-  cursor: text;
-}
+/* MarkdownEditor (CodeMirror) */
+.markdown-editor .cm-editor { background: transparent; }
+.markdown-editor .cm-editor.cm-focused { outline: none; }
 
-/* Active line: a visible textarea that matches surrounding text */
-.line-active-textarea {
-  display: block;
-  width: 100%;
-  min-height: 1.7em;
-  background: transparent;
-  border: none;
-  border-left: 2px solid var(--color-brand);
-  border-radius: 0;
-  outline: none;
-  resize: none;
-  overflow: hidden;
-  padding: 0 0 0 0.5rem;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--color-ink);
-  caret-color: var(--color-ink);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-/* Rendered lines */
-.live-editor-body .line-rendered {
-  cursor: text;
-  min-height: 1.7em;
-  padding: 0 0.25rem 0 calc(0.5rem + 2px); /* match active line indent */
-  border-radius: 3px;
-}
-.live-editor-body .line-rendered:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* Empty lines — preserve height for click target */
-.live-editor-body .line-blank {
-  min-height: 1.7em;
-  cursor: text;
-  padding-left: calc(0.5rem + 2px);
-}
-
-/* ReactMarkdown element resets */
-.live-editor-body .line-rendered p,
-.live-editor-body .line-rendered h1,
-.live-editor-body .line-rendered h2,
-.live-editor-body .line-rendered h3,
-.live-editor-body .line-rendered ul,
-.live-editor-body .line-rendered ol,
-.live-editor-body .line-rendered blockquote {
-  margin: 0;
-  padding: 0;
-}
-
-.live-editor-body .line-rendered h1 { font-size: 1.3em; font-weight: 700; }
-.live-editor-body .line-rendered h2 { font-size: 1.15em; font-weight: 600; }
-.live-editor-body .line-rendered h3 { font-size: 1em; font-weight: 600; }
-.live-editor-body .line-rendered strong { font-weight: 700; }
-.live-editor-body .line-rendered em { font-style: italic; }
-.live-editor-body .line-rendered code {
+/* Reading mode — rendered markdown typography */
+.md-reading { font-size: 14px; line-height: 1.7; color: var(--color-ink); }
+.md-reading-empty { font-size: 12px; color: var(--color-ink-muted); }
+.md-reading > :first-child { margin-top: 0; }
+.md-reading > :last-child { margin-bottom: 0; }
+.md-reading h1 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.md-reading h2 { font-size: 1.3em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.md-reading h3 { font-size: 1.15em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.md-reading p { margin: 0.5em 0; }
+.md-reading ul, .md-reading ol { margin: 0.5em 0; padding-left: 1.4em; }
+.md-reading li { margin: 0.15em 0; }
+.md-reading strong { font-weight: 700; }
+.md-reading em { font-style: italic; }
+.md-reading del { text-decoration: line-through; color: var(--color-ink-dim); }
+.md-reading a { color: var(--color-brand-hi); text-decoration: underline; }
+.md-reading code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-lift);
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
-.live-editor-body .line-rendered a { color: var(--color-brand-hi); text-decoration: underline; }
+.md-reading pre {
+  background: var(--color-lift);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+.md-reading pre code { background: transparent; padding: 0; font-size: 0.85em; }
+.md-reading blockquote {
+  border-left: 3px solid var(--color-brand);
+  background: var(--color-lift);
+  border-radius: 0 6px 6px 0;
+  padding: 0.4em 0.9em;
+  margin: 0.5em 0;
+  color: var(--color-ink-dim);
+}
+.md-reading table { border-collapse: collapse; margin: 0.5em 0; }
+.md-reading th, .md-reading td { border: 1px solid var(--color-line); padding: 0.3em 0.6em; }
+.md-reading img { max-width: 100%; border-radius: 6px; }
+.md-reading hr { border: none; border-top: 1px solid var(--color-line); margin: 0.8em 0; }
+
+/* Mention / task reference chips (reading mode) */
+.md-ref {
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  text-decoration: none;
+}
+.md-ref-mention { color: var(--color-brand-hi); background: color-mix(in srgb, var(--color-brand) 14%, transparent); }
+.md-ref-task { color: var(--color-brand-hi); background: color-mix(in srgb, var(--color-brand) 14%, transparent); cursor: pointer; }
+.md-ref-task:hover { background: color-mix(in srgb, var(--color-brand) 24%, transparent); }

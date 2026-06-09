@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Home, List, Zap, Plus, LogOut, ChevronDown, ChevronRight,
   FolderOpen, X, Loader2, Users, Search, Folder, Trash2,
+  Pencil, Settings, FileText, FolderPlus,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useLogout } from '../../hooks/useAuth';
@@ -21,6 +22,7 @@ import { ShortcutsModal } from '../../components/ui/ShortcutsModal';
 import { cn } from '../../lib/utils';
 import { sprintDisplayStatus } from '../../lib/sprintStatus';
 import { Tooltip } from '../../components/ui/tooltip';
+import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
@@ -93,28 +95,106 @@ function SprintFolderItem({
   folder,
   sprints,
   spaceId,
+  onEditSettings,
 }: {
   folder: sprintFoldersApi.SprintFolder;
   sprints: sprintsApi.Sprint[];
   spaceId: string;
+  onEditSettings: (folder: sprintFoldersApi.SprintFolder) => void;
 }) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(true);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(folder.name);
+  const [error, setError] = useState('');
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) =>
+      sprintFoldersApi.updateSprintFolder(spaceId, folder._id, { name }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
+      setRenaming(false);
+    },
+  });
+
+  const createSprintMutation = useMutation({
+    mutationFn: () => sprintFoldersApi.createNextSprint(spaceId, folder._id),
+    onSuccess: () => {
+      setOpen(true);
+      void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
+    },
+    onError: () => setError('Não foi possível criar a sprint.'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => sprintFoldersApi.deleteSprintFolder(spaceId, folder._id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
+    },
+  });
+
+  function commitRename() {
+    const name = nameDraft.trim();
+    if (name && name !== folder.name) renameMutation.mutate(name);
+    else setRenaming(false);
+  }
 
   return (
     <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="group flex items-center gap-2 w-full px-2.5 py-[5px] rounded-lg text-sm text-ink-dim hover:bg-lift hover:text-ink transition-colors select-none"
-      >
-        {open
-          ? <ChevronDown size={10} className="text-ink-muted shrink-0" />
-          : <ChevronRight size={10} className="text-ink-muted shrink-0" />}
-        <Folder size={13} className="shrink-0 opacity-75" />
-        <span className="flex-1 truncate text-xs font-medium">{folder.name}</span>
-        {sprints.length > 0 && (
-          <span className="text-[10px] tabular-nums text-ink-muted">{sprints.length}</span>
+      <div className="group flex items-center gap-2 w-full px-2.5 py-[5px] rounded-lg text-sm text-ink-dim hover:bg-lift hover:text-ink transition-colors select-none">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+        >
+          {open
+            ? <ChevronDown size={10} className="text-ink-muted shrink-0" />
+            : <ChevronRight size={10} className="text-ink-muted shrink-0" />}
+          <Folder size={13} className="shrink-0 opacity-75" />
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') { setNameDraft(folder.name); setRenaming(false); }
+              }}
+              className="flex-1 min-w-0 bg-input border border-brand/40 rounded px-1.5 py-0.5 text-xs text-ink focus:outline-none"
+            />
+          ) : (
+            <span className="flex-1 truncate text-xs font-medium">{folder.name}</span>
+          )}
+        </button>
+        {!renaming && sprints.length > 0 && (
+          <span className="text-[10px] tabular-nums text-ink-muted group-hover:hidden">{sprints.length}</span>
         )}
-      </button>
+        <FolderMenu
+          label="Opções da pasta de sprints"
+          items={[
+            {
+              label: 'Criar sprint',
+              icon: Plus,
+              loading: createSprintMutation.isPending,
+              onClick: () => { setError(''); createSprintMutation.mutate(); },
+            },
+            { label: 'Editar nome', icon: Pencil, onClick: () => { setNameDraft(folder.name); setRenaming(true); } },
+            { label: 'Configurações da pasta', icon: Settings, onClick: () => onEditSettings(folder) },
+            {
+              label: 'Excluir pasta',
+              icon: Trash2,
+              danger: true,
+              onClick: () => {
+                if (window.confirm(`Excluir a pasta "${folder.name}" e suas sprints?`)) deleteMutation.mutate();
+              },
+            },
+          ]}
+        />
+      </div>
+
+      {error && <p className="pl-7 pr-2.5 text-[10px] text-danger">{error}</p>}
 
       {open && sprints.map((sprint) => {
         const ds = sprintDisplayStatus(sprint);
@@ -149,39 +229,143 @@ function SprintFolderItem({
   );
 }
 
+/** Document (wiki) folder row in the Documentos section, with options menu. */
+function DocFolderItem({
+  folder,
+  spaceId,
+}: {
+  folder: wikiApi.WikiFolder;
+  spaceId: string;
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(folder.name);
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => wikiApi.updateFolder(spaceId, folder._id, name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['wiki-folders', spaceId] });
+      setRenaming(false);
+    },
+  });
+
+  const createDocMutation = useMutation({
+    mutationFn: () => wikiApi.createDocument(spaceId, folder._id, 'Sem título'),
+    onSuccess: (doc) => {
+      void queryClient.invalidateQueries({ queryKey: ['wiki-documents', spaceId, folder._id] });
+      navigate(`/spaces/${spaceId}/wiki/documents/${doc._id}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => wikiApi.deleteFolder(spaceId, folder._id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['wiki-folders', spaceId] });
+    },
+  });
+
+  function commitRename() {
+    const name = nameDraft.trim();
+    if (name && name !== folder.name) renameMutation.mutate(name);
+    else setRenaming(false);
+  }
+
+  return (
+    <div className="group flex items-center gap-2.5 px-2.5 py-[5px] rounded-lg text-sm text-ink-dim hover:bg-lift hover:text-ink transition-colors select-none">
+      {renaming ? (
+        <>
+          <FolderOpen size={14} className="shrink-0 opacity-75" />
+          <input
+            autoFocus
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') { setNameDraft(folder.name); setRenaming(false); }
+            }}
+            className="flex-1 min-w-0 bg-input border border-brand/40 rounded px-1.5 py-0.5 text-xs text-ink focus:outline-none"
+          />
+        </>
+      ) : (
+        <NavLink
+          to={`/spaces/${spaceId}/wiki/folders/${folder._id}`}
+          className={({ isActive }) =>
+            cn('flex items-center gap-2.5 flex-1 min-w-0', isActive && 'text-brand font-medium')
+          }
+        >
+          <FolderOpen size={14} className="shrink-0 opacity-75" />
+          <span className="flex-1 truncate">{folder.name}</span>
+        </NavLink>
+      )}
+      <FolderMenu
+        label="Opções da pasta de documentos"
+        items={[
+          {
+            label: 'Criar documento',
+            icon: FileText,
+            loading: createDocMutation.isPending,
+            onClick: () => createDocMutation.mutate(),
+          },
+          { label: 'Editar nome', icon: Pencil, onClick: () => { setNameDraft(folder.name); setRenaming(true); } },
+          {
+            label: 'Excluir pasta',
+            icon: Trash2,
+            danger: true,
+            onClick: () => {
+              if (window.confirm(`Excluir a pasta "${folder.name}" e seus documentos?`)) deleteMutation.mutate();
+            },
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
 /* ── Create Sprint Folder Modal ── */
 function CreateSprintFolderModal({
   spaceId,
+  folder,
   onClose,
 }: {
   spaceId: string;
+  /** When provided the modal edits an existing folder instead of creating one. */
+  folder?: sprintFoldersApi.SprintFolder;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [startDay, setStartDay] = useState<DayOfWeek>(1);
-  const [durationWeeks, setDurationWeeks] = useState(2);
-  const [autoComplete, setAutoComplete] = useState(false);
-  const [openFuture, setOpenFuture] = useState(1);
-  const [folderEndDate, setFolderEndDate] = useState('');
+  const isEdit = !!folder;
+  const [name, setName] = useState(folder?.name ?? '');
+  const [startDay, setStartDay] = useState<DayOfWeek>(folder?.startDayOfWeek ?? 1);
+  const [durationWeeks, setDurationWeeks] = useState(folder?.durationWeeks ?? 2);
+  const [autoComplete, setAutoComplete] = useState(folder?.autoComplete ?? false);
+  const [openFuture, setOpenFuture] = useState(folder?.openFutureSprints ?? 1);
+  const [folderEndDate, setFolderEndDate] = useState(
+    folder?.folderEndDate ? folder.folderEndDate.slice(0, 10) : '',
+  );
   const [error, setError] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () =>
-      sprintFoldersApi.createSprintFolder(spaceId, {
+    mutationFn: () => {
+      const payload = {
         name,
         startDayOfWeek: startDay,
         durationWeeks,
         autoComplete,
         openFutureSprints: openFuture,
         folderEndDate: folderEndDate || null,
-      }),
+      };
+      return isEdit
+        ? sprintFoldersApi.updateSprintFolder(spaceId, folder._id, payload)
+        : sprintFoldersApi.createSprintFolder(spaceId, payload);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
       onClose();
     },
-    onError: () => setError('Falha ao criar pasta.'),
+    onError: () => setError(isEdit ? 'Falha ao salvar pasta.' : 'Falha ao criar pasta.'),
   });
 
   return (
@@ -198,7 +382,9 @@ function CreateSprintFolderModal({
             <div className="w-8 h-8 rounded-lg bg-brand/12 border border-brand/20 flex items-center justify-center">
               <Folder size={15} className="text-brand" />
             </div>
-            <h3 className="text-base font-semibold text-ink">Nova pasta de sprints</h3>
+            <h3 className="text-base font-semibold text-ink">
+              {isEdit ? 'Editar pasta de sprints' : 'Nova pasta de sprints'}
+            </h3>
           </div>
           <button onClick={onClose} className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors">
             <X size={15} />
@@ -322,7 +508,9 @@ function CreateSprintFolderModal({
               className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60"
             >
               {mutation.isPending && <Loader2 size={13} className="animate-spin" />}
-              {mutation.isPending ? 'Criando…' : 'Criar pasta'}
+              {mutation.isPending
+                ? (isEdit ? 'Salvando…' : 'Criando…')
+                : (isEdit ? 'Salvar' : 'Criar pasta')}
             </button>
           </div>
         </form>
@@ -344,6 +532,7 @@ export function SpaceLayout() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<sprintFoldersApi.SprintFolder | null>(null);
   const [sprintName,  setSprintName]  = useState('');
   const [sprintStart, setSprintStart] = useState('');
   const [sprintEnd,   setSprintEnd]   = useState('');
@@ -351,6 +540,8 @@ export function SpaceLayout() {
   const [listsOpen,   setListsOpen]   = useState(true);
   const [sprintsOpen, setSprintsOpen] = useState(true);
   const [wikiOpen,    setWikiOpen]    = useState(false);
+  const [creatingDocFolder, setCreatingDocFolder] = useState(false);
+  const [docFolderName, setDocFolderName] = useState('');
 
   const { data: space } = useQuery({
     queryKey: ['space', spaceId],
@@ -389,6 +580,22 @@ export function SpaceLayout() {
     onError: () => setSprintError('Falha ao criar sprint.'),
   });
 
+  const createDocFolderMutation = useMutation({
+    mutationFn: (name: string) => wikiApi.createFolder(spaceId!, name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['wiki-folders', spaceId] });
+      setWikiOpen(true);
+      setCreatingDocFolder(false);
+      setDocFolderName('');
+    },
+  });
+
+  function submitDocFolder() {
+    const name = docFolderName.trim();
+    if (name) createDocFolderMutation.mutate(name);
+    else { setCreatingDocFolder(false); setDocFolderName(''); }
+  }
+
   useEffect(() => {
     if (space) setCurrentSpace(space);
     return () => setCurrentSpace(null);
@@ -414,6 +621,8 @@ export function SpaceLayout() {
       setShowSearch(false);
       setShowCreateSprint(false);
       setShowCreateFolder(false);
+      setEditingFolder(null);
+      setCreatingDocFolder(false);
     },
   });
 
@@ -525,6 +734,7 @@ export function SpaceLayout() {
                   folder={folder}
                   sprints={sprints.filter((s) => s.folderId === folder._id)}
                   spaceId={spaceId!}
+                  onEditSettings={setEditingFolder}
                 />
               ))}
 
@@ -585,23 +795,45 @@ export function SpaceLayout() {
             </>
           )}
 
-          {/* Wiki */}
-          {wikiFolders.length > 0 && (
+          {/* Documentos */}
+          <SectionHeader
+            label="Documentos"
+            open={wikiOpen}
+            onToggle={() => setWikiOpen((v) => !v)}
+            onAdd={() => { setWikiOpen(true); setCreatingDocFolder(true); }}
+          />
+          {wikiOpen && (
             <>
-              <SectionHeader
-                label="Wiki"
-                open={wikiOpen}
-                onToggle={() => setWikiOpen((v) => !v)}
-              />
-              {wikiOpen && wikiFolders.map((folder) => (
-                <NavItem
-                  key={folder._id}
-                  to={`/spaces/${spaceId}/wiki/folders/${folder._id}`}
-                  icon={FolderOpen}
-                >
-                  {folder.name}
-                </NavItem>
+              {wikiFolders.map((folder) => (
+                <DocFolderItem key={folder._id} folder={folder} spaceId={spaceId!} />
               ))}
+
+              {creatingDocFolder && (
+                <div className="flex items-center gap-2.5 px-2.5 py-[5px]">
+                  <FolderOpen size={14} className="shrink-0 opacity-75 text-ink-muted" />
+                  <input
+                    autoFocus
+                    value={docFolderName}
+                    onChange={(e) => setDocFolderName(e.target.value)}
+                    onBlur={submitDocFolder}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') submitDocFolder();
+                      if (e.key === 'Escape') { setCreatingDocFolder(false); setDocFolderName(''); }
+                    }}
+                    placeholder="Nome da pasta…"
+                    className="flex-1 min-w-0 bg-input border border-brand/40 rounded px-1.5 py-0.5 text-xs text-ink placeholder:text-ink-muted focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {wikiFolders.length === 0 && !creatingDocFolder && (
+                <button
+                  onClick={() => { setWikiOpen(true); setCreatingDocFolder(true); }}
+                  className="flex items-center gap-2 w-full px-2.5 py-[5px] text-xs text-ink-muted hover:text-ink transition-colors rounded-lg hover:bg-lift"
+                >
+                  <FolderPlus size={13} /> Nova pasta de documentos
+                </button>
+              )}
             </>
           )}
         </nav>
@@ -648,6 +880,15 @@ export function SpaceLayout() {
       {/* ── Create sprint folder modal ── */}
       {showCreateFolder && spaceId && (
         <CreateSprintFolderModal spaceId={spaceId} onClose={() => setShowCreateFolder(false)} />
+      )}
+
+      {/* ── Edit sprint folder settings modal ── */}
+      {editingFolder && spaceId && (
+        <CreateSprintFolderModal
+          spaceId={spaceId}
+          folder={editingFolder}
+          onClose={() => setEditingFolder(null)}
+        />
       )}
 
       {/* ── Create sprint modal ── */}

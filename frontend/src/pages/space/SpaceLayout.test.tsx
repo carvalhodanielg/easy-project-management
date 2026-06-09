@@ -28,10 +28,10 @@ const SPACE: Space = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-function renderLayout() {
+function renderLayout(sprints: sprintsApi.Sprint[] = []) {
   vi.mocked(spacesApi.getSpace).mockResolvedValue(SPACE);
   vi.mocked(listsApi.getLists).mockResolvedValue([]);
-  vi.mocked(sprintsApi.getSprints).mockResolvedValue([]);
+  vi.mocked(sprintsApi.getSprints).mockResolvedValue(sprints);
   vi.mocked(sprintFoldersApi.getSprintFolders).mockResolvedValue([]);
   vi.mocked(wikiApi.getFolders).mockResolvedValue([]);
   vi.mocked(notifApi.getNotifications).mockResolvedValue([]);
@@ -72,5 +72,35 @@ describe('SpaceLayout – top bar', () => {
         screen.getByRole('button', { name: 'Notificações' }),
       ).toBeInTheDocument(),
     );
+  });
+});
+
+describe('SpaceLayout – sidebar sprint item', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const ACTIVE_SPRINT: sprintsApi.Sprint = {
+    _id: 'spr1',
+    spaceId: 'sp1',
+    folderId: null,
+    number: 3,
+    folderNumber: null,
+    name: 'Login',
+    // wide window so it is always "Em progresso" regardless of test clock
+    startDate: '2000-01-01T00:00:00.000Z',
+    endDate: '2099-12-31T00:00:00.000Z',
+    status: 'active',
+  };
+
+  it('renders a sprint on a single compact line with status and dates', async () => {
+    renderLayout([ACTIVE_SPRINT]);
+
+    // sprint number label (no name)
+    const label = await screen.findByText('Sprint 3');
+    expect(label).toBeInTheDocument();
+
+    // open–close date range in reduced dd/mm - dd/mm format on the same item
+    const row = label.closest('a');
+    expect(row).not.toBeNull();
+    expect(row!.textContent).toMatch(/\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}/);
   });
 });

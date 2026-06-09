@@ -19,6 +19,7 @@ import { NotificationBell } from '../../components/notifications/NotificationBel
 import { UserAvatar } from '../../components/ui/UserAvatar';
 import { ShortcutsModal } from '../../components/ui/ShortcutsModal';
 import { cn } from '../../lib/utils';
+import { sprintDisplayStatus } from '../../lib/sprintStatus';
 import { Tooltip } from '../../components/ui/tooltip';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 
@@ -27,17 +28,8 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   4: 'Quinta', 5: 'Sexta', 6: 'Sábado',
 };
 
-function sprintDisplayStatus(sprint: sprintsApi.Sprint): { label: string; color: string } {
-  const now = Date.now();
-  const start = new Date(sprint.startDate).getTime();
-  const end = new Date(sprint.endDate).getTime();
-  if (sprint.status === 'completed' || end < now) return { label: 'Concluída', color: 'text-ink-muted' };
-  if (start <= now && now <= end) return { label: 'Em progresso', color: 'text-s-done' };
-  return { label: 'Planejamento', color: 'text-s-review' };
-}
-
 function fmtShort(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 function NavItem({
@@ -132,23 +124,20 @@ function SprintFolderItem({
             to={`/spaces/${spaceId}/sprints/${sprint._id}`}
             className={({ isActive }) =>
               cn(
-                'flex items-start gap-2 pl-6 pr-2 py-1.5 rounded-lg text-sm transition-colors select-none',
+                'flex items-center gap-1.5 pl-6 pr-2 py-1 rounded-lg text-sm transition-colors select-none',
                 isActive
                   ? 'bg-brand/12 text-brand font-medium'
                   : 'text-ink-dim hover:bg-lift hover:text-ink',
               )
             }
           >
-            <Zap size={12} className="shrink-0 opacity-75 mt-[3px]" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="truncate text-xs font-medium">Sprint {sprint.folderNumber ?? sprint.number}</span>
-                <span className={cn('shrink-0 text-[10px]', ds.color)}>{ds.label}</span>
-              </div>
-              <div className="text-[10px] text-ink-muted mt-0.5">
-                {fmtShort(sprint.startDate)} → {fmtShort(sprint.endDate)}
-              </div>
-            </div>
+            <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
+            <span className="truncate text-xs font-medium flex-1 min-w-0">
+              Sprint {sprint.folderNumber ?? sprint.number}
+            </span>
+            <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
+              {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
+            </span>
           </NavLink>
         );
       })}
@@ -548,23 +537,20 @@ export function SpaceLayout() {
                     to={`/spaces/${spaceId}/sprints/${sprint._id}`}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-start gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-colors select-none',
+                        'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm transition-colors select-none',
                         isActive
                           ? 'bg-brand/12 text-brand font-medium'
                           : 'text-ink-dim hover:bg-lift hover:text-ink',
                       )
                     }
                   >
-                    <Zap size={12} className="shrink-0 opacity-75 mt-[3px]" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="truncate text-xs font-medium">Sprint {sprint.number}{sprint.name ? ` · ${sprint.name}` : ''}</span>
-                        <span className={cn('shrink-0 text-[10px]', ds.color)}>{ds.label}</span>
-                      </div>
-                      <div className="text-[10px] text-ink-muted mt-0.5">
-                        {fmtShort(sprint.startDate)} → {fmtShort(sprint.endDate)}
-                      </div>
-                    </div>
+                    <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
+                    <span className="truncate text-xs font-medium flex-1 min-w-0">
+                      Sprint {sprint.number}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
+                      {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
+                    </span>
                   </NavLink>
                 );
               })}

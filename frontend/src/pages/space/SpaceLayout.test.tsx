@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -102,5 +102,136 @@ describe('SpaceLayout – sidebar sprint item', () => {
     const row = label.closest('a');
     expect(row).not.toBeNull();
     expect(row!.textContent).toMatch(/\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}/);
+  });
+});
+
+/* ── folder options menu (sprints + documents) ── */
+
+const SPRINT_IN_FOLDER: sprintsApi.Sprint = {
+  _id: 's1', spaceId: 'sp1', folderId: 'f1', number: 1, folderNumber: 1, name: '',
+  startDate: '2026-03-01T00:00:00.000Z', endDate: '2026-03-14T00:00:00.000Z', status: 'planning',
+};
+
+const SPRINT_FOLDERS: sprintFoldersApi.SprintFolder[] = [
+  {
+    _id: 'f1', spaceId: 'sp1', name: 'Q1 Sprints',
+    startDayOfWeek: 1, durationWeeks: 2, autoComplete: false,
+    openFutureSprints: 1, folderEndDate: null, createdAt: '', updatedAt: '',
+  },
+];
+
+const DOC_FOLDERS: wikiApi.WikiFolder[] = [
+  { _id: 'w1', spaceId: 'sp1', name: 'Manuais', position: 0, createdAt: '', updatedAt: '' },
+];
+
+function renderSidebar(docFolders: wikiApi.WikiFolder[] = DOC_FOLDERS) {
+  vi.mocked(spacesApi.getSpace).mockResolvedValue(SPACE);
+  vi.mocked(listsApi.getLists).mockResolvedValue([]);
+  vi.mocked(sprintsApi.getSprints).mockResolvedValue([SPRINT_IN_FOLDER]);
+  vi.mocked(sprintFoldersApi.getSprintFolders).mockResolvedValue(SPRINT_FOLDERS);
+  vi.mocked(wikiApi.getFolders).mockResolvedValue(docFolders);
+  vi.mocked(notifApi.getNotifications).mockResolvedValue([]);
+
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={['/spaces/sp1']}>
+        <Routes>
+          <Route path="/spaces/:spaceId" element={<SpaceLayout />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe('SpaceLayout – sprint folder options menu', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows the contextual actions when opened', async () => {
+    renderSidebar();
+    await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
+    expect(screen.getByRole('menuitem', { name: /criar sprint/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /editar nome/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /configurações da pasta/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /excluir pasta/i })).toBeInTheDocument();
+  });
+
+  it('calls createNextSprint when "Criar sprint" is clicked', async () => {
+    vi.mocked(sprintFoldersApi.createNextSprint).mockResolvedValue(SPRINT_IN_FOLDER);
+    renderSidebar();
+    await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /criar sprint/i }));
+    await waitFor(() =>
+      expect(sprintFoldersApi.createNextSprint).toHaveBeenCalledWith('sp1', 'f1'),
+    );
+  });
+
+  it('renames the folder inline via "Editar nome"', async () => {
+    vi.mocked(sprintFoldersApi.updateSprintFolder).mockResolvedValue({ ...SPRINT_FOLDERS[0], name: 'Renomeada' });
+    renderSidebar();
+    await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /editar nome/i }));
+    const input = screen.getByDisplayValue('Q1 Sprints');
+    fireEvent.change(input, { target: { value: 'Renomeada' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(sprintFoldersApi.updateSprintFolder).toHaveBeenCalledWith('sp1', 'f1', { name: 'Renomeada' }),
+    );
+  });
+
+  it('opens the settings modal via "Configurações da pasta"', async () => {
+    renderSidebar();
+    await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /configurações da pasta/i }));
+    expect(screen.getByText('Editar pasta de sprints')).toBeInTheDocument();
+  });
+
+  it('deletes the folder via "Excluir pasta"', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(sprintFoldersApi.deleteSprintFolder).mockResolvedValue(undefined);
+    renderSidebar();
+    await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /excluir pasta/i }));
+    await waitFor(() =>
+      expect(sprintFoldersApi.deleteSprintFolder).toHaveBeenCalledWith('sp1', 'f1'),
+    );
+  });
+});
+
+describe('SpaceLayout – documents (wiki) folders', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('creates a document from the folder options menu', async () => {
+    vi.mocked(wikiApi.createDocument).mockResolvedValue(
+      { _id: 'd1' } as Awaited<ReturnType<typeof wikiApi.createDocument>>,
+    );
+    renderSidebar();
+    await waitFor(() => screen.getByText('Documentos'));
+    fireEvent.click(screen.getByText('Documentos')); // expand section
+    await waitFor(() => screen.getByLabelText('Opções da pasta de documentos'));
+    fireEvent.click(screen.getByLabelText('Opções da pasta de documentos'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /criar documento/i }));
+    await waitFor(() =>
+      expect(wikiApi.createDocument).toHaveBeenCalledWith('sp1', 'w1', 'Sem título'),
+    );
+  });
+
+  it('creates a new documents folder from the section', async () => {
+    vi.mocked(wikiApi.createFolder).mockResolvedValue(DOC_FOLDERS[0]);
+    renderSidebar([]); // no folders → empty-state create button shows
+    await waitFor(() => screen.getByText('Documentos'));
+    fireEvent.click(screen.getByText('Documentos')); // expand section
+    fireEvent.click(await screen.findByRole('button', { name: /nova pasta de documentos/i }));
+    const input = screen.getByPlaceholderText(/nome da pasta/i);
+    fireEvent.change(input, { target: { value: 'Especificações' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(wikiApi.createFolder).toHaveBeenCalledWith('sp1', 'Especificações'),
+    );
   });
 });

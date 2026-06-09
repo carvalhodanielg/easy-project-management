@@ -48,6 +48,15 @@ export class SprintFoldersController {
     return this.sprintFoldersService.create(spaceId, dto);
   }
 
+  @Post(':folderId/sprints')
+  @Roles(SpaceRole.Editor)
+  createSprint(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('folderId', ObjectIdValidationPipe) folderId: string,
+  ) {
+    return this.sprintFoldersService.createNextSprint(spaceId, folderId);
+  }
+
   @Patch(':folderId')
   @Roles(SpaceRole.Editor)
   update(

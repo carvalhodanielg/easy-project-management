@@ -321,7 +321,11 @@ describe('TasksService', () => {
         // Subtask whose parent is archived but at a different time → kept.
         { _id: loneSubId, parentTask: parentId, archivedAt: otherAt },
         // Subtask whose parent is NOT in the archived set → kept.
-        { _id: new Types.ObjectId(), parentTask: orphanParentId, archivedAt: otherAt },
+        {
+          _id: new Types.ObjectId(),
+          parentTask: orphanParentId,
+          archivedAt: otherAt,
+        },
       ];
       mockTaskModel.find.mockReturnValue(populateMock(docs));
 

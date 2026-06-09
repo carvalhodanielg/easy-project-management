@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { Sprint } from './sprints.api';
 
 interface ApiResponse<T> { data: T; }
 
@@ -59,4 +60,15 @@ export async function updateSprintFolder(
 
 export async function deleteSprintFolder(spaceId: string, folderId: string): Promise<void> {
   await apiClient.delete(`/spaces/${spaceId}/sprint-folders/${folderId}`);
+}
+
+/**
+ * Append the next sprint to a folder, following the folder's scheduling rule
+ * (start day of week + duration) and anchored right after the last sprint.
+ */
+export async function createNextSprint(spaceId: string, folderId: string): Promise<Sprint> {
+  const res = await apiClient.post<ApiResponse<Sprint>>(
+    `/spaces/${spaceId}/sprint-folders/${folderId}/sprints`,
+  );
+  return res.data.data;
 }

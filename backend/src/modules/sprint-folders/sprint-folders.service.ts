@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -155,29 +159,81 @@ export class SprintFoldersService {
       if (folder.folderEndDate && nextStart >= folder.folderEndDate) break;
 
       const nextEnd = addDays(nextStart, folder.durationWeeks * 7 - 1);
-
-      const lastSprintInSpace = await this.sprintModel
-        .findOne({ spaceId: folder.spaceId })
-        .sort({ number: -1 })
-        .select('number')
-        .exec();
-      const number = (lastSprintInSpace?.number ?? 0) + 1;
-
-      await this.sprintModel.create({
-        spaceId: folder.spaceId,
-        folderId: folder._id,
-        number,
-        folderNumber: nextFolderNumber,
-        name: folder.name,
-        startDate: nextStart,
-        endDate: nextEnd,
-        status: SprintStatus.Planning,
-      });
+      await this.createSprintInFolder(
+        folder,
+        nextStart,
+        nextEnd,
+        nextFolderNumber,
+      );
 
       nextStart = nextDayAfter(nextEnd, folder.startDayOfWeek);
       nextFolderNumber++;
       toCreate--;
     }
+  }
+
+  /**
+   * Manually append the next sprint to a folder, following the folder's
+   * scheduling rule (start day of week + duration) and anchored right after
+   * the last sprint. Unlike {@link fillOpenSprints}, this always creates one
+   * sprint regardless of how many open sprints the folder already has.
+   */
+  async createNextSprint(
+    spaceId: string,
+    folderId: string,
+  ): Promise<SprintDocument> {
+    const folder = await this.findById(spaceId, folderId);
+
+    const lastFolderSprint = await this.sprintModel
+      .findOne({ folderId: folder._id })
+      .sort({ folderNumber: -1 })
+      .exec();
+
+    const nextStart = lastFolderSprint
+      ? nextDayAfter(lastFolderSprint.endDate, folder.startDayOfWeek)
+      : nextOccurrence(new Date(), folder.startDayOfWeek);
+
+    if (folder.folderEndDate && nextStart >= folder.folderEndDate) {
+      throw new BadRequestException(
+        'A pasta já foi encerrada; não é possível criar novas sprints.',
+      );
+    }
+
+    const nextEnd = addDays(nextStart, folder.durationWeeks * 7 - 1);
+    const nextFolderNumber = (lastFolderSprint?.folderNumber ?? 0) + 1;
+
+    return this.createSprintInFolder(
+      folder,
+      nextStart,
+      nextEnd,
+      nextFolderNumber,
+    );
+  }
+
+  /** Create a single sprint inside a folder with the next global sprint number. */
+  private async createSprintInFolder(
+    folder: SprintFolderDocument,
+    startDate: Date,
+    endDate: Date,
+    folderNumber: number,
+  ): Promise<SprintDocument> {
+    const lastSprintInSpace = await this.sprintModel
+      .findOne({ spaceId: folder.spaceId })
+      .sort({ number: -1 })
+      .select('number')
+      .exec();
+    const number = (lastSprintInSpace?.number ?? 0) + 1;
+
+    return this.sprintModel.create({
+      spaceId: folder.spaceId,
+      folderId: folder._id,
+      number,
+      folderNumber,
+      name: folder.name,
+      startDate,
+      endDate,
+      status: SprintStatus.Planning,
+    });
   }
 }
 

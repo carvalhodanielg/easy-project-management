@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { SprintFoldersService } from './sprint-folders.service';
 import { SprintFolder } from './schemas/sprint-folder.schema';
@@ -230,6 +230,106 @@ describe('SprintFoldersService', () => {
 
       await service.fillOpenSprints(folder);
       expect(sprintModelMock.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  /* ── createNextSprint ── */
+  describe('createNextSprint', () => {
+    // findById → folderModel.findOne; anchor + space number → sprintModel.findOne
+    function mockSprintLookups(
+      lastFolderSprint: unknown,
+      lastInSpace: unknown,
+    ) {
+      sprintModelMock.findOne.mockReturnValue({
+        sort: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(lastFolderSprint),
+          select: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(lastInSpace),
+          }),
+        }),
+      });
+    }
+
+    it('throws NotFoundException when the folder does not exist', async () => {
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+      await expect(
+        service.createNextSprint(mockId(), mockId()),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('creates the next sprint anchored after the last folder sprint', async () => {
+      const folder = makeFolder({ startDayOfWeek: 1, durationWeeks: 2 });
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(folder),
+      });
+      // last sprint ends Sunday 2026-06-14 → next start is Monday 2026-06-15
+      mockSprintLookups(
+        { folderNumber: 3, endDate: new Date('2026-06-14T00:00:00') },
+        { number: 5 },
+      );
+      sprintModelMock.create.mockImplementation((doc: unknown) =>
+        Promise.resolve(doc),
+      );
+
+      await service.createNextSprint(mockId(), folder._id.toString());
+
+      expect(sprintModelMock.create).toHaveBeenCalledTimes(1);
+      const created = sprintModelMock.create.mock.calls[0][0] as {
+        folderNumber: number;
+        number: number;
+        status: SprintStatus;
+        startDate: Date;
+        endDate: Date;
+      };
+      expect(created.folderNumber).toBe(4);
+      expect(created.number).toBe(6);
+      expect(created.status).toBe(SprintStatus.Planning);
+      expect(new Date(created.startDate).getDay()).toBe(1); // Monday
+      // 2-week duration → end is 13 days after start
+      const days =
+        (new Date(created.endDate).getTime() -
+          new Date(created.startDate).getTime()) /
+        86_400_000;
+      expect(days).toBe(13);
+    });
+
+    it('creates the first sprint when the folder is empty', async () => {
+      const folder = makeFolder({ startDayOfWeek: 1 });
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(folder),
+      });
+      mockSprintLookups(null, null);
+      sprintModelMock.create.mockImplementation((doc: unknown) =>
+        Promise.resolve(doc),
+      );
+
+      await service.createNextSprint(mockId(), folder._id.toString());
+
+      const created = sprintModelMock.create.mock.calls[0][0] as {
+        folderNumber: number;
+        number: number;
+        status: SprintStatus;
+        startDate: Date;
+        endDate: Date;
+      };
+      expect(created.folderNumber).toBe(1);
+      expect(created.number).toBe(1);
+    });
+
+    it('throws BadRequestException when the folder end date has passed', async () => {
+      const past = new Date(Date.now() - 30 * 86_400_000);
+      const folder = makeFolder({ startDayOfWeek: 1, folderEndDate: past });
+      folderModelMock.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(folder),
+      });
+      mockSprintLookups(null, null);
+
+      await expect(
+        service.createNextSprint(mockId(), folder._id.toString()),
+      ).rejects.toThrow(BadRequestException);
+      expect(sprintModelMock.create).not.toHaveBeenCalled();
     });
   });
 });

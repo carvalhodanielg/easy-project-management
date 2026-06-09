@@ -90,4 +90,63 @@ describe('TrashPage', () => {
 
     expect(listsApi.permanentDeleteList).not.toHaveBeenCalled();
   });
+
+  it('renders an archived task with its deletion date and origin', async () => {
+    vi.mocked(tasksApi.getArchivedTasks).mockResolvedValue([
+      {
+        _id: 't1',
+        name: 'Deleted Task',
+        archivedAt: '2026-03-15T12:00:00Z',
+        listId: { _id: 'l1', name: 'Backlog' },
+        sprintId: null,
+      } as never,
+    ]);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Deleted Task')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(new Date('2026-03-15T12:00:00Z').toLocaleDateString('pt-BR'), {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Backlog', { exact: false })).toBeInTheDocument();
+  });
+
+  it('shows the sprint name as origin when the task came from a sprint', async () => {
+    vi.mocked(tasksApi.getArchivedTasks).mockResolvedValue([
+      {
+        _id: 't2',
+        name: 'Sprint Task',
+        archivedAt: '2026-03-15T12:00:00Z',
+        listId: null,
+        sprintId: { _id: 's1', name: 'Sprint 1', number: 1 },
+      } as never,
+    ]);
+    renderPage();
+    await waitFor(() => screen.getByText('Sprint Task'));
+    expect(screen.getByText('Sprint 1', { exact: false })).toBeInTheDocument();
+  });
+
+  it('empties the task trash after confirmation', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(tasksApi.getArchivedTasks).mockResolvedValue([
+      {
+        _id: 't1',
+        name: 'Deleted Task',
+        archivedAt: '2026-03-15T12:00:00Z',
+        listId: { _id: 'l1', name: 'Backlog' },
+        sprintId: null,
+      } as never,
+    ]);
+    vi.mocked(tasksApi.emptyTaskTrash).mockResolvedValue({ affected: 1 });
+    renderPage();
+    await waitFor(() => screen.getByText('Deleted Task'));
+
+    fireEvent.click(screen.getByRole('button', { name: /esvaziar lixeira/i }));
+
+    await waitFor(() => {
+      expect(tasksApi.emptyTaskTrash).toHaveBeenCalledWith('sp1');
+    });
+  });
 });

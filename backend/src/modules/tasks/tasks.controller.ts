@@ -161,6 +161,13 @@ export class TasksController {
     return this.tasksService.findArchivedBySpace(spaceId);
   }
 
+  // Permanently delete all archived tasks of the space (empty the task trash).
+  @Delete('trash')
+  @Roles(SpaceRole.Editor)
+  emptyTrash(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
+    return this.tasksService.emptyTaskTrash(spaceId);
+  }
+
   @Get(':taskId')
   findOne(@Param('taskId', ObjectIdValidationPipe) taskId: string) {
     return this.tasksService.findById(taskId);

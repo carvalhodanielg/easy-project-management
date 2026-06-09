@@ -304,6 +304,67 @@ describe('TasksService', () => {
     });
   });
 
+  describe('findArchivedBySpace', () => {
+    it('includes individually-archived subtasks but excludes subtasks cascade-archived with their parent', async () => {
+      const sharedAt = new Date('2026-01-01T10:00:00Z');
+      const otherAt = new Date('2026-02-02T10:00:00Z');
+      const parentId = new Types.ObjectId();
+      const cascadeSubId = new Types.ObjectId();
+      const loneSubId = new Types.ObjectId();
+      const orphanParentId = new Types.ObjectId();
+
+      const docs = [
+        // Top-level archived parent.
+        { _id: parentId, parentTask: null, archivedAt: sharedAt },
+        // Subtask archived together with its parent (same timestamp) → excluded.
+        { _id: cascadeSubId, parentTask: parentId, archivedAt: sharedAt },
+        // Subtask whose parent is archived but at a different time → kept.
+        { _id: loneSubId, parentTask: parentId, archivedAt: otherAt },
+        // Subtask whose parent is NOT in the archived set → kept.
+        { _id: new Types.ObjectId(), parentTask: orphanParentId, archivedAt: otherAt },
+      ];
+      mockTaskModel.find.mockReturnValue(populateMock(docs));
+
+      const result = await service.findArchivedBySpace(spaceId);
+      const ids = result.map((t: { _id: Types.ObjectId }) => t._id.toString());
+
+      expect(ids).toContain(parentId.toString());
+      expect(ids).toContain(loneSubId.toString());
+      expect(ids).not.toContain(cascadeSubId.toString());
+      // Filter is in-memory; query must not constrain to parentTask: null.
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.not.objectContaining({ parentTask: null }),
+      );
+    });
+  });
+
+  describe('emptyTaskTrash', () => {
+    it('deletes all archived tasks, cleans dependency arrays and returns the count', async () => {
+      const ids = [new Types.ObjectId(), new Types.ObjectId()];
+      mockTaskModel.find.mockReturnValue(
+        execMock(ids.map((id) => ({ _id: id }))),
+      );
+      mockTaskModel.deleteMany.mockReturnValue(execMock({ deletedCount: 2 }));
+      mockTaskModel.updateMany.mockReturnValue(execMock({}));
+
+      const result = await service.emptyTaskTrash(spaceId);
+
+      expect(mockTaskModel.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ archivedAt: { $ne: null } }),
+      );
+      expect(mockTaskModel.updateMany).toHaveBeenCalledWith(
+        { spaceId: expect.anything() },
+        {
+          $pull: {
+            blockedBy: { $in: expect.anything() },
+            blocks: { $in: expect.anything() },
+          },
+        },
+      );
+      expect(result).toEqual({ affected: 2 });
+    });
+  });
+
   describe('addDependency', () => {
     it('updates both sides when type is "blocks"', async () => {
       mockTaskModel.findOne.mockReturnValue(execMock(mockTask));

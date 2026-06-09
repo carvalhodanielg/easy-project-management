@@ -24,6 +24,7 @@ import {
   getArchivedTasks,
   restoreTask,
   permanentDeleteTask,
+  emptyTaskTrash,
 } from './tasks.api';
 
 const get = vi.mocked(apiClient.get);
@@ -114,6 +115,13 @@ describe('soft delete / trash api', () => {
       del.mockResolvedValue({} as never);
       await permanentDeleteTask('sp1', 't1');
       expect(del).toHaveBeenCalledWith('/spaces/sp1/tasks/t1/permanent');
+    });
+
+    it('emptyTaskTrash DELETEs the task trash endpoint and unwraps', async () => {
+      del.mockResolvedValue(wrap({ affected: 3 }));
+      const result = await emptyTaskTrash('sp1');
+      expect(del).toHaveBeenCalledWith('/spaces/sp1/tasks/trash');
+      expect(result).toEqual({ affected: 3 });
     });
   });
 });

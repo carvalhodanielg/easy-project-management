@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Trash2, MoveRight, Copy, ArrowUpFromLine, MoveUpRight, CornerDownRight, ChevronDown } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
 import { useBulkPatchTasks } from '../../hooks/useBulkPatchTasks';
+import { useDeleteTaskWithUndo } from '../../hooks/useDeleteTaskWithUndo';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
 import { ParentTaskPickerModal } from './ParentTaskPickerModal';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task.types';
@@ -86,14 +87,19 @@ export function SelectionBar({
   // status / priority / assignees / move / delete actions.
   const bulkPatch = useBulkPatchTasks(spaceId);
 
-  const deleteMutation = useMutation({
-    mutationFn: () =>
-      bulkPatch.mutateAsync({
-        taskIds: [...mainTaskIds, ...subtaskIds],
-        action: 'delete',
-      }),
-    onSuccess: () => { onClear(); },
-  });
+  const deleteWithUndo = useDeleteTaskWithUndo(spaceId);
+
+  function handleDelete() {
+    const ids = [...mainTaskIds, ...subtaskIds];
+    deleteWithUndo.run({
+      deleteFn: () => tasksApi.bulkPatchTasks(spaceId, { taskIds: ids, action: 'delete' }),
+      restoreFn: () => Promise.all(ids.map((id) => tasksApi.restoreTask(spaceId, id))),
+      message: ids.length === 1
+        ? 'Tarefa movida para a lixeira'
+        : `${ids.length} tarefas movidas para a lixeira`,
+      onDeleted: onClear,
+    });
+  }
 
   const moveMutation = useMutation({
     mutationFn: (dest: Destination) =>
@@ -142,7 +148,7 @@ export function SelectionBar({
     );
 
   const isPending =
-    deleteMutation.isPending ||
+    deleteWithUndo.isPending ||
     moveMutation.isPending ||
     duplicateMutation.isPending ||
     convertMutation.isPending ||
@@ -168,7 +174,7 @@ export function SelectionBar({
 
         {/* Delete — always */}
         <button
-          onClick={() => deleteMutation.mutate()}
+          onClick={handleDelete}
           disabled={isPending}
           title="Excluir"
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-danger hover:bg-danger/10 transition-colors disabled:opacity-50"

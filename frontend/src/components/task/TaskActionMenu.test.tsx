@@ -2,11 +2,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { toast } from 'sonner';
 import { TaskActionMenu } from './TaskActionMenu';
 import type { Task } from '../../types/task.types';
 
+vi.mock('sonner', () => ({ toast: vi.fn() }));
+
 vi.mock('../../api/tasks.api', () => ({
   deleteTask: vi.fn().mockResolvedValue(undefined),
+  restoreTask: vi.fn().mockResolvedValue(undefined),
   bulkMoveTasks: vi.fn().mockResolvedValue(undefined),
   bulkDuplicateTasks: vi.fn().mockResolvedValue(undefined),
   moveSubtask: vi.fn().mockResolvedValue(undefined),
@@ -85,38 +89,32 @@ describe('TaskActionMenu', () => {
     expect(screen.getByText('Duplicar')).toBeInTheDocument();
   });
 
-  it('shows confirmation dialog when clicking Apagar on main task without subtasks', () => {
-    renderMenu();
-    fireEvent.click(screen.getByRole('button', { name: /ações/i }));
-    fireEvent.click(screen.getByText('Apagar'));
-    expect(screen.getByText(/confirmar/i)).toBeInTheDocument();
-    expect(screen.queryByText(/subtarefa/i)).not.toBeInTheDocument();
-  });
-
-  it('shows subtask warning in confirmation when main task has subtasks', () => {
-    const taskWithSubs = { ...BASE_TASK, subtaskCount: 3 };
-    renderMenu(taskWithSubs);
-    fireEvent.click(screen.getByRole('button', { name: /ações/i }));
-    fireEvent.click(screen.getByText('Apagar'));
-    expect(screen.getByText(/3 subtarefa/i)).toBeInTheDocument();
-  });
-
-  it('calls deleteTask and onDone after confirming delete', async () => {
+  it('deletes immediately on Apagar without any confirmation dialog', async () => {
     const { onDone } = renderMenu();
     fireEvent.click(screen.getByRole('button', { name: /ações/i }));
     fireEvent.click(screen.getByText('Apagar'));
-    fireEvent.click(screen.getByRole('button', { name: /apagar/i }));
+    expect(screen.queryByText(/confirmar/i)).not.toBeInTheDocument();
     await waitFor(() => {
       expect(tasksApi.deleteTask).toHaveBeenCalledWith('sp1', 't1');
     });
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
-  it('cancels delete when clicking Cancelar', () => {
+  it('shows an undo toast whose action restores the task', async () => {
     renderMenu();
     fireEvent.click(screen.getByRole('button', { name: /ações/i }));
     fireEvent.click(screen.getByText('Apagar'));
-    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(tasksApi.deleteTask).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+    const opts = vi.mocked(toast).mock.calls[0][1] as {
+      action: { label: string; onClick: () => void };
+    };
+    expect(opts.action.label).toMatch(/desfazer/i);
+
+    opts.action.onClick();
+    await waitFor(() => {
+      expect(tasksApi.restoreTask).toHaveBeenCalledWith('sp1', 't1');
+    });
   });
 
   it('opens DestinationPickerModal when clicking Mover on main task', () => {

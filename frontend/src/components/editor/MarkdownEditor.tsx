@@ -22,6 +22,7 @@ import {
   slashCompletionSource,
   type MentionMember,
 } from './completions';
+import { renderCompletionBadge } from './completionBadge';
 import { ReadingView } from './ReadingView';
 
 export type EditorMode = 'live' | 'source' | 'reading';
@@ -104,6 +105,7 @@ export function MarkdownEditor({
       editorHighlight,
       autocompletion({
         icons: false,
+        addToOptions: [{ render: renderCompletionBadge, position: 20 }],
         override: [
           mentionCompletionSource(getMembers),
           taskCompletionSource(fetchTasks),

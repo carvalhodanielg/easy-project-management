@@ -41,26 +41,40 @@ describe('mentionCompletionSource', () => {
     const res = src(ctx('@', 1, true)) as CompletionResult;
     expect(res.options).toHaveLength(2);
   });
+
+  it('does not trigger on @@ (that is a task reference)', () => {
+    const src = mentionCompletionSource(() => MEMBERS);
+    expect(src(ctx('@@dan'))).toBeNull();
+  });
 });
 
 describe('taskCompletionSource', () => {
   const TASKS: TaskRef[] = [{ _id: 't1', name: 'Corrigir login' }];
 
-  it('does not trigger for a # at the start of a line (heading)', async () => {
+  it('does not trigger for a single @ (that is a user mention)', async () => {
     const fetchTasks = vi.fn(async () => TASKS);
     const src = taskCompletionSource(fetchTasks);
-    expect(await src(ctx('# Tit'))).toBeNull();
+    expect(await src(ctx('oi @dan'))).toBeNull();
     expect(fetchTasks).not.toHaveBeenCalled();
   });
 
-  it('fetches tasks for a mid-line # and inserts a task link', async () => {
+  it('triggers for @@ even at the start of a line', async () => {
+    const fetchTasks = vi.fn(async () => TASKS);
+    const src = taskCompletionSource(fetchTasks);
+    const res = (await src(ctx('@@', 2, true))) as CompletionResult;
+    expect(res).not.toBeNull();
+    expect(res.from).toBe(0);
+  });
+
+  it('fetches tasks for an @@ query and inserts a task link', async () => {
     const fetchTasks = vi.fn(async (q: string) => {
       expect(q).toBe('login');
       return TASKS;
     });
     const src = taskCompletionSource(fetchTasks);
-    const res = (await src(ctx('ver #login'))) as CompletionResult;
+    const res = (await src(ctx('ver @@login'))) as CompletionResult;
     expect(res).not.toBeNull();
+    expect(res.from).toBe(4);
     expect(res.options[0].apply).toBe('[Corrigir login](task:t1) ');
   });
 });
@@ -79,6 +93,21 @@ describe('slashCompletionSource', () => {
     const res = src(ctx('/cod')) as CompletionResult;
     expect(res.options).toHaveLength(1);
     expect(res.options[0].label).toBe('Código');
+  });
+
+  it('every block exposes a non-empty icon for the dropdown badge', () => {
+    for (const block of SLASH_BLOCKS) {
+      expect(Array.isArray(block.icon)).toBe(true);
+      expect(block.icon.length).toBeGreaterThan(0);
+      expect(block.icon.every((d) => typeof d === 'string' && d.length > 0)).toBe(true);
+    }
+  });
+
+  it('passes the block icon through to each completion option', () => {
+    const src = slashCompletionSource();
+    const res = src(ctx('/cod')) as CompletionResult;
+    const option = res.options[0] as CompletionResult['options'][number] & { icon?: string[] };
+    expect(option.icon).toEqual(SLASH_BLOCKS.find((b) => b.label === 'Código')?.icon);
   });
 });
 

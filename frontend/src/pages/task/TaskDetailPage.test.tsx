@@ -14,10 +14,10 @@ vi.mock('../../components/task/DependenciesSection', () => ({
   isTaskBlocked: () => false,
 }));
 vi.mock('../../components/task/AssigneeSelector', () => ({ AssigneeSelector: () => <div data-testid="assignee-selector" /> }));
-vi.mock('../../components/editor/MarkdownLiveEditor', () => ({
+vi.mock('../../components/editor/MarkdownEditor', () => ({
   // Forwards onChange/onBlur so tests can simulate an attachment insert, which the
   // real editor performs as `onChange(newValue)` immediately followed by `onBlur()`.
-  MarkdownLiveEditor: ({
+  MarkdownEditor: ({
     onChange,
     onBlur,
   }: {

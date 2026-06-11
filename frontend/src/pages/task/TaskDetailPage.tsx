@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
-import { MarkdownLiveEditor } from '../../components/editor/MarkdownLiveEditor';
+import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
@@ -324,7 +324,8 @@ export function TaskDetailPage() {
                 {/* Description */}
                 <div>
                   <label className={FIELD_LABEL}>Descrição</label>
-                  <MarkdownLiveEditor
+                  <MarkdownEditor
+                    spaceId={spaceId!}
                     value={description}
                     onChange={(v) => { setDescription(v); descriptionRef.current = v; }}
                     onBlur={() => updateMutation.mutate({ description: descriptionRef.current })}

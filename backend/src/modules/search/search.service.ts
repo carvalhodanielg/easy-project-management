@@ -38,22 +38,24 @@ export class SearchService {
       return { tasks: [], notes: [], wiki: [] };
     }
 
-    const regex = new RegExp(q.trim(), 'i');
+    // $text uses the per-collection text index (whole-word + stemming) instead
+    // of an unindexed $regex scan across every document.
+    const text = { $text: { $search: q.trim() } };
     const oid = new Types.ObjectId(spaceId);
 
     const [tasks, notes, wiki] = await Promise.all([
       this.taskModel
-        .find({ spaceId: oid, name: regex })
+        .find({ spaceId: oid, ...text })
         .select('_id name status sprintId listId')
         .limit(MAX_PER_TYPE)
         .exec(),
       this.noteModel
-        .find({ spaceId: oid, title: regex })
+        .find({ spaceId: oid, ...text })
         .select('_id title label')
         .limit(MAX_PER_TYPE)
         .exec(),
       this.wikiModel
-        .find({ spaceId: oid, title: regex })
+        .find({ spaceId: oid, ...text })
         .select('_id title folderId')
         .populate('folderId', 'name')
         .limit(MAX_PER_TYPE)

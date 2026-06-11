@@ -25,3 +25,5 @@ export class Note {
 }
 
 export const NoteSchema = SchemaFactory.createForClass(Note);
+// Full-text index for indexed search on the note title (replaces unindexed $regex).
+NoteSchema.index({ title: 'text' });

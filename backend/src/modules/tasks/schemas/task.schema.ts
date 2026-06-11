@@ -102,3 +102,5 @@ TaskSchema.index({ spaceId: 1, status: 1 });
 TaskSchema.index({ spaceId: 1, sprintId: 1, status: 1 });
 TaskSchema.index({ spaceId: 1, assignees: 1, status: 1 });
 TaskSchema.index({ spaceId: 1, listId: 1 });
+// Full-text index for indexed search on the task name (replaces unindexed $regex).
+TaskSchema.index({ name: 'text' });

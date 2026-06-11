@@ -27,3 +27,5 @@ export class WikiDocument {
 export const WikiDocumentSchema = SchemaFactory.createForClass(WikiDocument);
 WikiDocumentSchema.index({ folderId: 1 });
 WikiDocumentSchema.index({ spaceId: 1 });
+// Full-text index for indexed search on the document title (replaces unindexed $regex).
+WikiDocumentSchema.index({ title: 'text' });

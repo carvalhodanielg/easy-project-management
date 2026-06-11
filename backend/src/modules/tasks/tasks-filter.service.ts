@@ -131,8 +131,12 @@ export class TasksFilterService {
       };
     }
 
-    if (dto.q) {
-      match.name = { $regex: dto.q, $options: 'i' };
+    const term = dto.q?.trim();
+    if (term) {
+      // $text uses the `name` text index (whole-word + stemming) instead of an
+      // unindexed $regex scan. In aggregation it stays valid because `match` is
+      // the first $match stage of every grouped pipeline.
+      match.$text = { $search: term };
     }
 
     return match;

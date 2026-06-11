@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { FilterBar } from './FilterBar';
 import type { FilterState } from '../../hooks/useTaskFilter';
@@ -10,7 +10,7 @@ const DEFAULT_FILTERS: FilterState = {
   assignees: [],
   tags: [],
   groupBy: undefined,
-  includeSubtasks: false,
+  subtaskMode: 'collapsed',
 };
 
 const DEFAULT_PROPS = {
@@ -21,7 +21,7 @@ const DEFAULT_PROPS = {
   onToggleTag: vi.fn(),
   onSetGroupBy: vi.fn(),
   onSetSearch: vi.fn(),
-  onToggleSubtasks: vi.fn(),
+  onSetSubtaskMode: vi.fn(),
   onReset: vi.fn(),
   isActive: false,
 };
@@ -39,18 +39,30 @@ describe('FilterBar', () => {
     expect(screen.getByText('Filtros')).toBeInTheDocument();
   });
 
-  it('calls onSetSearch when user types', () => {
-    render(<FilterBar {...DEFAULT_PROPS} />);
-    fireEvent.change(screen.getByPlaceholderText(/buscar tarefas/i), {
-      target: { value: 'auth' },
-    });
-    expect(DEFAULT_PROPS.onSetSearch).toHaveBeenCalledWith('auth');
+  it('calls onSetSearch (debounced) when user types', () => {
+    vi.useFakeTimers();
+    try {
+      render(<FilterBar {...DEFAULT_PROPS} />);
+      fireEvent.change(screen.getByPlaceholderText(/buscar tarefas/i), {
+        target: { value: 'auth' },
+      });
+      // Debounced: not fired immediately.
+      expect(DEFAULT_PROPS.onSetSearch).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(DEFAULT_PROPS.onSetSearch).toHaveBeenCalledWith('auth');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('calls onToggleSubtasks when checkbox clicked', () => {
+  it('calls onSetSubtaskMode when subtask mode changes', () => {
     render(<FilterBar {...DEFAULT_PROPS} />);
-    fireEvent.click(screen.getByRole('checkbox'));
-    expect(DEFAULT_PROPS.onToggleSubtasks).toHaveBeenCalled();
+    fireEvent.change(screen.getByDisplayValue('Recolhidas'), {
+      target: { value: 'separated' },
+    });
+    expect(DEFAULT_PROPS.onSetSubtaskMode).toHaveBeenCalledWith('separated');
   });
 
   it('shows clear button when filters are active', () => {

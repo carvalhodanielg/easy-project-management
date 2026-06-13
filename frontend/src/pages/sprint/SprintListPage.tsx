@@ -39,6 +39,7 @@ function SprintCard({ sprint, spaceId, onDelete }: { sprint: Sprint; spaceId: st
   const meta      = STATUS_META[sprint.status];
   const StatusIcon = meta.icon;
   const days      = durationDays(sprint.startDate, sprint.endDate);
+  const sprintLabel = `Sprint ${sprint.folderNumber ?? sprint.number}`;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -63,9 +64,9 @@ function SprintCard({ sprint, spaceId, onDelete }: { sprint: Sprint; spaceId: st
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">
-              Sprint {sprint.folderNumber ?? sprint.number}
+              {sprintLabel}
             </p>
-            {sprint.name && (
+            {sprint.name && sprint.name !== sprintLabel && (
               <p className="text-xs text-ink-muted mt-0.5">{sprint.name}</p>
             )}
           </div>

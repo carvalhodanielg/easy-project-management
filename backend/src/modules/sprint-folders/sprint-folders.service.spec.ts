@@ -279,12 +279,14 @@ describe('SprintFoldersService', () => {
       const created = sprintModelMock.create.mock.calls[0][0] as {
         folderNumber: number;
         number: number;
+        name: string;
         status: SprintStatus;
         startDate: Date;
         endDate: Date;
       };
       expect(created.folderNumber).toBe(4);
       expect(created.number).toBe(6);
+      expect(created.name).toBe('Sprint 4');
       expect(created.status).toBe(SprintStatus.Planning);
       expect(new Date(created.startDate).getDay()).toBe(1); // Monday
       // 2-week duration → end is 13 days after start
@@ -310,12 +312,14 @@ describe('SprintFoldersService', () => {
       const created = sprintModelMock.create.mock.calls[0][0] as {
         folderNumber: number;
         number: number;
+        name: string;
         status: SprintStatus;
         startDate: Date;
         endDate: Date;
       };
       expect(created.folderNumber).toBe(1);
       expect(created.number).toBe(1);
+      expect(created.name).toBe('Sprint 1');
     });
 
     it('throws BadRequestException when the folder end date has passed', async () => {

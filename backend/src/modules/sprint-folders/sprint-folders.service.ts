@@ -229,7 +229,7 @@ export class SprintFoldersService {
       folderId: folder._id,
       number,
       folderNumber,
-      name: folder.name,
+      name: `Sprint ${folderNumber}`,
       startDate,
       endDate,
       status: SprintStatus.Planning,

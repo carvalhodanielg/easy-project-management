@@ -1,18 +1,9 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
+import { type DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
@@ -29,6 +20,7 @@ import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
 import { SprintDashboard } from '../../components/sprint/SprintDashboard';
+import { useTaskDrag } from '../../contexts/TaskDragContext';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
 import { useTaskSelection } from '../../hooks/useTaskSelection';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
@@ -149,11 +141,6 @@ export function SprintPage() {
     if (!isGrouped) setOrderedTasks(flatTasks);
   }, [flatTasks, isGrouped]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
   const reorderMutation = useMutation({
     mutationFn: ({ taskId, position }: { taskId: string; position: number }) =>
       tasksApi.updateTask(spaceId!, taskId, { position }),
@@ -227,6 +214,19 @@ export function SprintPage() {
 
     reorderMutation.mutate({ taskId: active.id as string, position: newPosition });
   }
+
+  // Plug in-sprint reordering into the app-wide DndContext (in SpaceLayout), which
+  // also owns dropping a task onto a sidebar sprint. A ref keeps the latest closure
+  // (handleDragEnd reads orderedTasks) without re-registering on every render.
+  const { setReorderHandler } = useTaskDrag();
+  const handleDragEndRef = useRef(handleDragEnd);
+  useEffect(() => {
+    handleDragEndRef.current = handleDragEnd;
+  });
+  useEffect(() => {
+    setReorderHandler((event) => handleDragEndRef.current(event));
+    return () => setReorderHandler(null);
+  }, [setReorderHandler]);
 
   return (
     <div className="h-full flex flex-col">
@@ -469,26 +469,20 @@ export function SprintPage() {
                 </div>
               ))
               : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext items={orderedTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
-                    {orderedTasks.map((task) => (
-                      <SortableTaskRow
-                        key={task._id}
-                        task={task}
-                        spaceId={spaceId!}
-                        subtaskMode={taskFilter.filters.subtaskMode}
-                        isSelected={selection.isSelected(task._id)}
-                        selectionMode={selection.count > 0}
-                        onSelect={selection.toggle}
-                        isSelectedFn={selection.isSelected}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
+                <SortableContext items={orderedTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
+                  {orderedTasks.map((task) => (
+                    <SortableTaskRow
+                      key={task._id}
+                      task={task}
+                      spaceId={spaceId!}
+                      subtaskMode={taskFilter.filters.subtaskMode}
+                      isSelected={selection.isSelected(task._id)}
+                      selectionMode={selection.count > 0}
+                      onSelect={selection.toggle}
+                      isSelectedFn={selection.isSelected}
+                    />
+                  ))}
+                </SortableContext>
               )
             }
 

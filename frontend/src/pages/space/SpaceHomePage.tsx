@@ -9,6 +9,7 @@ import * as sprintsApi from '../../api/sprints.api';
 import * as sprintFoldersApi from '../../api/sprint-folders.api';
 import type { DayOfWeek } from '../../api/sprint-folders.api';
 import { type Sprint } from '../../api/sprints.api';
+import { sprintStatusKey } from '../../lib/sprintStatus';
 import { cn } from '../../lib/utils';
 
 /* ── helpers ── */
@@ -23,15 +24,6 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   4: 'Quinta', 5: 'Sexta', 6: 'Sábado',
 };
 
-function displayStatus(sprint: Sprint): Sprint['status'] {
-  const now = Date.now();
-  const start = new Date(sprint.startDate).getTime();
-  const end = new Date(sprint.endDate).getTime();
-  if (sprint.status === 'completed' || end < now) return 'completed';
-  if (start <= now && now <= end) return 'active';
-  return 'planning';
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
@@ -43,7 +35,7 @@ function durationDays(start: string, end: string) {
 /* ── Sprint card ── */
 function SprintCard({ sprint, spaceId }: { sprint: Sprint; spaceId: string }) {
   const navigate = useNavigate();
-  const status   = displayStatus(sprint);
+  const status   = sprintStatusKey(sprint);
   const meta     = STATUS_META[status];
   const StatusIcon = meta.icon;
   const days     = durationDays(sprint.startDate, sprint.endDate);

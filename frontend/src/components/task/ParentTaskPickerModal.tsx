@@ -21,8 +21,15 @@ export function ParentTaskPickerModal({ title, tasks, excludeIds = [], onConfirm
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-surface border border-line rounded-xl shadow-2xl w-[420px] max-h-[520px] flex flex-col">
+    <div
+      data-testid="parent-task-picker-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-line rounded-xl shadow-2xl w-[420px] max-h-[520px] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
           <h3 className="text-sm font-semibold text-ink">{title}</h3>

@@ -9,6 +9,7 @@ import * as sprintsApi from '../../api/sprints.api';
 import * as sprintFoldersApi from '../../api/sprint-folders.api';
 import type { DayOfWeek } from '../../api/sprint-folders.api';
 import { type Sprint } from '../../api/sprints.api';
+import { sprintStatusKey } from '../../lib/sprintStatus';
 import { cn } from '../../lib/utils';
 
 /* ── helpers ── */
@@ -36,7 +37,7 @@ function durationDays(start: string, end: string) {
 /* ── Sprint card ── */
 function SprintCard({ sprint, spaceId, onDelete }: { sprint: Sprint; spaceId: string; onDelete: (id: string) => void }) {
   const navigate  = useNavigate();
-  const meta      = STATUS_META[sprint.status];
+  const meta      = STATUS_META[sprintStatusKey(sprint)];
   const StatusIcon = meta.icon;
   const days      = durationDays(sprint.startDate, sprint.endDate);
   const sprintLabel = `Sprint ${sprint.folderNumber ?? sprint.number}`;
@@ -146,7 +147,7 @@ function FolderSection({
   }, [menuOpen]);
 
   const grouped = STATUS_ORDER
-    .map((status) => ({ status, items: sprints.filter((s) => s.status === status) }))
+    .map((status) => ({ status, items: sprints.filter((s) => sprintStatusKey(s) === status) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -629,7 +630,7 @@ export function SprintListPage() {
   const unfiledSprints = sprints.filter((s) => !s.folderId);
 
   const unfiledGrouped = STATUS_ORDER
-    .map((status) => ({ status, items: unfiledSprints.filter((s) => s.status === status) }))
+    .map((status) => ({ status, items: unfiledSprints.filter((s) => sprintStatusKey(s) === status) }))
     .filter((g) => g.items.length > 0);
 
   const totalCount = sprints.length;

@@ -3,10 +3,43 @@ import { useQuery } from '@tanstack/react-query';
 import { X, LayoutList, Zap } from 'lucide-react';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
+import * as sprintFoldersApi from '../../api/sprint-folders.api';
+import type { Sprint } from '../../api/sprints.api';
+import { sprintDisplayStatus } from '../../lib/sprintStatus';
 
 export interface Destination {
   listId?: string;
   sprintId?: string;
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function SprintOption({
+  sprint,
+  selected,
+  onSelect,
+}: {
+  sprint: Sprint;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { Icon, color, label } = sprintDisplayStatus(sprint);
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+        selected ? 'bg-brand/15 text-brand' : 'text-ink hover:bg-lift'
+      }`}
+    >
+      <Icon size={13} className={`shrink-0 ${color}`} title={label} />
+      <span className="truncate">{sprint.name}</span>
+      <span className="ml-auto shrink-0 text-xs text-ink-muted">
+        {fmtDate(sprint.startDate)} - {fmtDate(sprint.endDate)}
+      </span>
+    </button>
+  );
 }
 
 interface Props {
@@ -30,10 +63,17 @@ export function DestinationPickerModal({ spaceId, title, onConfirm, onClose }: P
     queryFn: () => sprintsApi.getSprints(spaceId),
   });
 
+  const { data: folders = [] } = useQuery({
+    queryKey: ['sprint-folders', spaceId],
+    queryFn: () => sprintFoldersApi.getSprintFolders(spaceId),
+  });
+
   const { data: lists = [] } = useQuery({
     queryKey: ['lists', spaceId],
     queryFn: () => listsApi.getLists(spaceId),
   });
+
+  const unfiledSprints = sprints.filter((s) => !s.folderId);
 
   const canConfirm =
     (tab === 'sprint' && !!selectedSprintId) ||
@@ -48,8 +88,15 @@ export function DestinationPickerModal({ spaceId, title, onConfirm, onClose }: P
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-surface border border-line rounded-xl shadow-2xl w-[400px] max-h-[520px] flex flex-col">
+    <div
+      data-testid="destination-picker-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-line rounded-xl shadow-2xl w-[400px] max-h-[520px] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">
           <h3 className="text-sm font-semibold text-ink">{title}</h3>
@@ -82,29 +129,42 @@ export function DestinationPickerModal({ spaceId, title, onConfirm, onClose }: P
             sprints.length === 0 ? (
               <p className="text-xs text-ink-muted text-center py-8">Nenhuma sprint disponível</p>
             ) : (
-              sprints.map((s) => (
-                <button
-                  key={s._id}
-                  onClick={() => setSelectedSprintId(s._id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
-                    selectedSprintId === s._id
-                      ? 'bg-brand/15 text-brand'
-                      : 'text-ink hover:bg-lift'
-                  }`}
-                >
-                  <Zap size={13} className="shrink-0 text-ink-muted" />
-                  <span className="truncate">{s.name}</span>
-                  <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full ${
-                    s.status === 'active'
-                      ? 'bg-brand/20 text-brand'
-                      : s.status === 'planning'
-                      ? 'bg-yellow-500/20 text-yellow-400'
-                      : 'bg-lift text-ink-muted'
-                  }`}>
-                    {s.status === 'active' ? 'Ativo' : s.status === 'planning' ? 'Planejamento' : 'Concluído'}
-                  </span>
-                </button>
-              ))
+              <>
+                {folders.map((folder) => {
+                  const folderSprints = sprints.filter((s) => s.folderId === folder._id);
+                  if (folderSprints.length === 0) return null;
+                  return (
+                    <div key={folder._id} className="mb-2">
+                      <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                        {folder.name}
+                      </p>
+                      {folderSprints.map((s) => (
+                        <SprintOption
+                          key={s._id}
+                          sprint={s}
+                          selected={selectedSprintId === s._id}
+                          onSelect={() => setSelectedSprintId(s._id)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+                {unfiledSprints.length > 0 && (
+                  <div className="mb-2">
+                    <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                      Sprints avulsos
+                    </p>
+                    {unfiledSprints.map((s) => (
+                      <SprintOption
+                        key={s._id}
+                        sprint={s}
+                        selected={selectedSprintId === s._id}
+                        onSelect={() => setSelectedSprintId(s._id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )
           ) : (
             lists.length === 0 ? (

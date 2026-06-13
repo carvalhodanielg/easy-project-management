@@ -13,10 +13,19 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
+const DAY = 86_400_000;
+const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
+
+// Status is derived from the date window (see lib/sprintStatus), so the raw
+// `status` flag is deliberately 'planning' for all three to prove the display
+// reflects the dates, not the stored flag.
 const SPRINTS: sprintsApi.Sprint[] = [
-  { _id: 's1', spaceId: 'sp1', folderId: null, number: 1, folderNumber: null, name: 'Alpha', startDate: '2026-03-01T00:00:00.000Z', endDate: '2026-03-14T00:00:00.000Z', status: 'completed' },
-  { _id: 's2', spaceId: 'sp1', folderId: null, number: 2, folderNumber: null, name: 'Beta',  startDate: '2026-03-15T00:00:00.000Z', endDate: '2026-03-28T00:00:00.000Z', status: 'active' },
-  { _id: 's3', spaceId: 'sp1', folderId: null, number: 3, folderNumber: null, name: '',      startDate: '2026-04-01T00:00:00.000Z', endDate: '2026-04-14T00:00:00.000Z', status: 'planning' },
+  // past window → "Concluído"
+  { _id: 's1', spaceId: 'sp1', folderId: null, number: 1, folderNumber: null, name: 'Alpha', startDate: iso(-30), endDate: iso(-16), status: 'planning' },
+  // current window → "Ativo"
+  { _id: 's2', spaceId: 'sp1', folderId: null, number: 2, folderNumber: null, name: 'Beta',  startDate: iso(-3),  endDate: iso(11), status: 'planning' },
+  // future window → "Planejamento"
+  { _id: 's3', spaceId: 'sp1', folderId: null, number: 3, folderNumber: null, name: '',      startDate: iso(20),  endDate: iso(34), status: 'planning' },
 ];
 
 const FOLDERS: sprintFoldersApi.SprintFolder[] = [
@@ -69,6 +78,15 @@ describe('SprintListPage', () => {
       expect(screen.getAllByText('Planejamento').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Concluído').length).toBeGreaterThan(0);
     });
+  });
+
+  it('derives status from dates: a past sprint stored as planning shows "Concluído"', async () => {
+    renderPage([
+      { _id: 'p1', spaceId: 'sp1', folderId: null, number: 1, folderNumber: null, name: 'Vencida', startDate: iso(-30), endDate: iso(-16), status: 'planning' },
+    ]);
+    await waitFor(() => expect(screen.getByText('Vencida')).toBeInTheDocument());
+    expect(screen.getAllByText('Concluído').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Planejamento')).not.toBeInTheDocument();
   });
 
   it('shows empty state when no sprints', async () => {

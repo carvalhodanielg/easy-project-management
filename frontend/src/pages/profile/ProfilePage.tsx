@@ -177,8 +177,12 @@ export function ProfilePage() {
           role="dialog"
           aria-label="Preview de avatar"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={closeModal}
         >
-          <div className="bg-surface border border-line rounded-2xl p-6 w-80 flex flex-col items-center gap-4 shadow-xl">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface border border-line rounded-2xl p-6 w-80 flex flex-col items-center gap-4 shadow-xl"
+          >
             <div className="flex items-center justify-between w-full">
               <h2 className="text-sm font-semibold text-ink">Confirmar foto</h2>
               <button

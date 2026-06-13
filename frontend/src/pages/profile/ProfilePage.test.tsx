@@ -183,6 +183,23 @@ describe('ProfilePage', () => {
     expect(screen.queryByRole('dialog', { name: /preview/i })).not.toBeInTheDocument();
   });
 
+  it('closes modal without uploading when clicking the backdrop', () => {
+    renderPage();
+    selectFile();
+    fireEvent.click(screen.getByRole('dialog', { name: /preview/i }));
+
+    expect(usersApi.uploadAvatar).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: /preview/i })).not.toBeInTheDocument();
+  });
+
+  it('does not close modal when clicking inside its content', () => {
+    renderPage();
+    selectFile();
+    fireEvent.click(screen.getByRole('img', { name: /preview/i }));
+
+    expect(screen.getByRole('dialog', { name: /preview/i })).toBeInTheDocument();
+  });
+
   it('shows error in modal when upload fails', async () => {
     vi.mocked(usersApi.uploadAvatar).mockRejectedValue(new Error('Upload failed'));
     renderPage();

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CircleDot, CheckCircle2, Clock } from 'lucide-react';
-import { sprintDisplayStatus } from './sprintStatus';
+import { sprintDisplayStatus, sprintStatusKey } from './sprintStatus';
 import type { Sprint } from '../api/sprints.api';
 
 const NOW = new Date('2026-06-08T12:00:00.000Z').getTime();
@@ -66,5 +66,38 @@ describe('sprintDisplayStatus', () => {
     expect(ds.label).toBe('Planejamento');
     expect(ds.Icon).toBe(Clock);
     expect(ds.color).toBe('text-s-review');
+  });
+});
+
+describe('sprintStatusKey', () => {
+  it('derives "active" when now is inside the window, ignoring a raw planning flag', () => {
+    vi.setSystemTime(NOW);
+    expect(sprintStatusKey(makeSprint({ status: 'planning' }))).toBe('active');
+  });
+
+  it('derives "completed" when the end date is in the past, ignoring a raw planning flag', () => {
+    vi.setSystemTime(NOW);
+    expect(
+      sprintStatusKey(
+        makeSprint({
+          status: 'planning',
+          startDate: '2026-05-01T00:00:00.000Z',
+          endDate: '2026-05-20T00:00:00.000Z',
+        }),
+      ),
+    ).toBe('completed');
+  });
+
+  it('derives "planning" when the window is entirely in the future', () => {
+    vi.setSystemTime(NOW);
+    expect(
+      sprintStatusKey(
+        makeSprint({
+          status: 'planning',
+          startDate: '2026-07-01T00:00:00.000Z',
+          endDate: '2026-07-15T00:00:00.000Z',
+        }),
+      ),
+    ).toBe('planning');
   });
 });

@@ -474,4 +474,108 @@ describe('Tasks (e2e)', () => {
         .expect(204);
     });
   });
+
+  describe('Epics', () => {
+    let epicId: string;
+    let childAId: string;
+    let childBId: string;
+
+    it('creates an epic in a list', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Big Epic', listId, isEpic: true })
+        .expect(201);
+      expect(res.body.data.isEpic).toBe(true);
+      epicId = res.body.data._id as string;
+    });
+
+    it('rejects an epic without a list', async () => {
+      await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Orphan Epic', isEpic: true })
+        .expect(400);
+    });
+
+    it('creates epic children in the epic backlog, keeping epicId', async () => {
+      const a = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Child A', epicId, storyPoints: 5 })
+        .expect(201);
+      expect(a.body.data.epicId).toBe(epicId);
+      expect(a.body.data.listId).toBe(listId);
+      expect(a.body.data.sprintId).toBeNull();
+      expect(a.body.data.parentTask).toBeNull();
+      childAId = a.body.data._id as string;
+
+      const b = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Child B', epicId, storyPoints: 3 })
+        .expect(201);
+      childBId = b.body.data._id as string;
+    });
+
+    it('moves a child into a sprint independently, preserving the epic link', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/${childAId}/move`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ sprintId })
+        .expect(200);
+
+      const check = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${childAId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(check.body.data.sprintId).toBe(sprintId);
+      expect(check.body.data.listId).toBeNull();
+      expect(check.body.data.epicId).toBe(epicId);
+    });
+
+    it('shows the moved child on the sprint board', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?sprintId=${sprintId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const ids = (res.body.data as { _id: string }[]).map((t) => t._id);
+      expect(ids).toContain(childAId);
+    });
+
+    it('rolls up effort/progress across sprints and backlog', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${epicId}/rollup`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(res.body.data.totalPoints).toBe(8);
+      expect(res.body.data.totalTasks).toBe(2);
+      const bySprint = res.body.data.bySprint as {
+        sprintId: string | null;
+        points: number;
+      }[];
+      expect(bySprint.find((s) => s.sprintId === sprintId)?.points).toBe(5);
+      expect(bySprint.find((s) => s.sprintId === null)?.points).toBe(3);
+    });
+
+    it('detaches a child from the epic via PATCH epicId:null', async () => {
+      await request(app.getHttpServer())
+        .patch(`/spaces/${spaceId}/tasks/${childBId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ epicId: null })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${epicId}/rollup`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(res.body.data.totalTasks).toBe(1);
+    });
+
+    it('rejects rollup for a non-epic task', async () => {
+      await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${childAId}/rollup`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+    });
+  });
 });

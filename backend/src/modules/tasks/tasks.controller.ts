@@ -228,6 +228,23 @@ export class TasksController {
     return this.tasksService.findSubtasks(taskId);
   }
 
+  // Direct children of an epic (across sprints) plus aggregated effort/progress.
+  @Get(':taskId/epic-children')
+  getEpicChildren(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.findEpicChildren(spaceId, taskId);
+  }
+
+  @Get(':taskId/rollup')
+  getEpicRollup(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.getEpicRollup(spaceId, taskId);
+  }
+
   @Post(':taskId/dependencies')
   @Roles(SpaceRole.Editor)
   addDependency(

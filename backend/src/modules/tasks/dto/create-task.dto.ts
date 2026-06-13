@@ -7,9 +7,11 @@ import {
   IsNumber,
   IsIn,
   IsArray,
+  IsBoolean,
   ArrayNotEmpty,
   MinLength,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   TaskStatus,
@@ -70,6 +72,16 @@ export class CreateTaskDto {
   @IsMongoId()
   parentTask?: string;
 
+  /** Marks this task as an Epic (must live in a list; cannot be a subtask/child). */
+  @IsOptional()
+  @IsBoolean()
+  isEpic?: boolean;
+
+  /** Link this task to a parent Epic (planning axis). */
+  @IsOptional()
+  @IsMongoId()
+  epicId?: string;
+
   @IsOptional()
   @IsNumber()
   position?: number;
@@ -116,6 +128,12 @@ export class UpdateTaskDto {
   @IsNumber()
   @IsIn([...FIBONACCI_POINTS])
   storyPoints?: number;
+
+  /** Attach to (mongoId) or detach from (null) a parent Epic. */
+  @IsOptional()
+  @ValidateIf((o: UpdateTaskDto) => o.epicId !== null)
+  @IsMongoId()
+  epicId?: string | null;
 
   @IsOptional()
   @IsNumber()

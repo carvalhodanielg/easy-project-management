@@ -25,6 +25,24 @@ import { NotificationType } from '../notifications/schemas/notification.schema';
 import { TaskEventsService } from '../task-events/task-events.service';
 import { TaskEventType } from '../task-events/schemas/task-event.schema';
 
+export interface EpicRollup {
+  epicId: string;
+  totalTasks: number;
+  doneTasks: number;
+  totalPoints: number;
+  donePoints: number;
+  /** Progress by story points (falls back to task count when no points). */
+  progressPct: number;
+  byStatus: Record<TaskStatus, { count: number; points: number }>;
+  /** Distribution of the epic's children across sprints (null = still backlog). */
+  bySprint: Array<{
+    sprintId: string | null;
+    count: number;
+    points: number;
+    donePoints: number;
+  }>;
+}
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -40,6 +58,38 @@ export class TasksService {
   ): Promise<TaskDocument> {
     let resolvedListId = dto.listId;
     let resolvedSprintId = dto.sprintId;
+
+    // An epic is a planning container: it lives in a list (outside any sprint)
+    // and cannot itself be a subtask or a child of another epic.
+    if (dto.isEpic) {
+      if (dto.sprintId) {
+        throw new BadRequestException(
+          'An epic must live in a list, not a sprint',
+        );
+      }
+      if (dto.parentTask || dto.epicId) {
+        throw new BadRequestException(
+          'An epic cannot be a subtask or belong to another epic',
+        );
+      }
+      if (!dto.listId) {
+        throw new BadRequestException('An epic must belong to a list');
+      }
+    }
+
+    // A child of an epic keeps its own list/sprint container (planning axis is
+    // independent of execution axis). Default to the epic's list (the backlog)
+    // when no explicit container is given.
+    if (dto.epicId) {
+      const epic = await this.taskModel.findById(dto.epicId).exec();
+      if (!epic) throw new NotFoundException('Epic not found');
+      if (!epic.isEpic) {
+        throw new BadRequestException('Target task is not an epic');
+      }
+      if (!resolvedListId && !resolvedSprintId && !dto.parentTask) {
+        resolvedListId = epic.listId?.toString();
+      }
+    }
 
     if (dto.parentTask && !resolvedListId && !resolvedSprintId) {
       const parent = await this.taskModel.findById(dto.parentTask).exec();
@@ -88,6 +138,8 @@ export class TasksService {
       tags: (dto.tags ?? []).map((id) => new Types.ObjectId(id)),
       storyPoints: dto.storyPoints ?? null,
       parentTask: parentTaskOid,
+      isEpic: dto.isEpic ?? false,
+      epicId: dto.epicId ? new Types.ObjectId(dto.epicId) : null,
       position: dto.position ?? count,
       createdBy: new Types.ObjectId(userId),
     });
@@ -166,6 +218,104 @@ export class TasksService {
       .exec();
   }
 
+  /** Direct children of an epic (planning axis), across all sprints/lists. */
+  async findEpicChildren(
+    spaceId: string,
+    epicId: string,
+  ): Promise<TaskDocument[]> {
+    return this.taskModel
+      .find({
+        spaceId: new Types.ObjectId(spaceId),
+        epicId: new Types.ObjectId(epicId),
+        archivedAt: null,
+      })
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('sprintId', 'name number')
+      .sort({ position: 1, createdAt: 1 })
+      .exec();
+  }
+
+  /**
+   * Aggregate effort/progress of an epic from its children, regardless of which
+   * sprint each child sits in — the core value of epics that span sprints.
+   */
+  async getEpicRollup(spaceId: string, epicId: string): Promise<EpicRollup> {
+    const epic = await this.taskModel
+      .findOne({
+        _id: new Types.ObjectId(epicId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
+      .exec();
+    if (!epic) throw new NotFoundException('Task not found');
+    if (!epic.isEpic) throw new BadRequestException('Task is not an epic');
+
+    const children = await this.taskModel
+      .find({
+        spaceId: new Types.ObjectId(spaceId),
+        epicId: new Types.ObjectId(epicId),
+        archivedAt: null,
+      })
+      .exec();
+
+    const isDone = (s: TaskStatus) => s === TaskStatus.Feito;
+    const points = (t: TaskDocument) => t.storyPoints ?? 0;
+
+    const totalTasks = children.length;
+    const doneTasks = children.filter((c) => isDone(c.status)).length;
+    const totalPoints = children.reduce((sum, c) => sum + points(c), 0);
+    const donePoints = children
+      .filter((c) => isDone(c.status))
+      .reduce((sum, c) => sum + points(c), 0);
+
+    const progressPct =
+      totalPoints > 0
+        ? Math.round((donePoints / totalPoints) * 100)
+        : totalTasks > 0
+          ? Math.round((doneTasks / totalTasks) * 100)
+          : 0;
+
+    const byStatus = {} as EpicRollup['byStatus'];
+    for (const status of Object.values(TaskStatus)) {
+      const group = children.filter((c) => c.status === status);
+      byStatus[status] = {
+        count: group.length,
+        points: group.reduce((sum, c) => sum + points(c), 0),
+      };
+    }
+
+    const sprintMap = new Map<
+      string,
+      { count: number; points: number; donePoints: number }
+    >();
+    for (const c of children) {
+      const key = c.sprintId ? c.sprintId.toString() : 'backlog';
+      const entry = sprintMap.get(key) ?? {
+        count: 0,
+        points: 0,
+        donePoints: 0,
+      };
+      entry.count += 1;
+      entry.points += points(c);
+      if (isDone(c.status)) entry.donePoints += points(c);
+      sprintMap.set(key, entry);
+    }
+    const bySprint = [...sprintMap.entries()].map(([key, value]) => ({
+      sprintId: key === 'backlog' ? null : key,
+      ...value,
+    }));
+
+    return {
+      epicId,
+      totalTasks,
+      doneTasks,
+      totalPoints,
+      donePoints,
+      progressPct,
+      byStatus,
+      bySprint,
+    };
+  }
+
   async update(
     spaceId: string,
     taskId: string,
@@ -190,6 +340,23 @@ export class TasksService {
     }
     if (dto.dueDate !== undefined) {
       updates.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    }
+    if (dto.epicId !== undefined) {
+      if (dto.epicId === null) {
+        updates.epicId = null;
+      } else {
+        if (existing?.isEpic) {
+          throw new BadRequestException(
+            'An epic cannot belong to another epic',
+          );
+        }
+        const epic = await this.taskModel.findById(dto.epicId).exec();
+        if (!epic) throw new NotFoundException('Epic not found');
+        if (!epic.isEpic) {
+          throw new BadRequestException('Target task is not an epic');
+        }
+        updates.epicId = new Types.ObjectId(dto.epicId);
+      }
     }
 
     const isCompletingStatus = (s: TaskStatus) =>
@@ -489,6 +656,11 @@ export class TasksService {
         { spaceId: spaceOid },
         { $pull: { blockedBy: taskOid, blocks: taskOid } },
       ),
+      // Detach children that were grouped under this epic.
+      this.taskModel.updateMany(
+        { epicId: taskOid, spaceId: spaceOid },
+        { $set: { epicId: null } },
+      ),
     ]);
   }
 
@@ -535,12 +707,20 @@ export class TasksService {
 
     const { deletedCount } = await this.taskModel.deleteMany(filter).exec();
 
-    await this.taskModel
-      .updateMany(
-        { spaceId: spaceOid },
-        { $pull: { blockedBy: { $in: ids }, blocks: { $in: ids } } },
-      )
-      .exec();
+    await Promise.all([
+      this.taskModel
+        .updateMany(
+          { spaceId: spaceOid },
+          { $pull: { blockedBy: { $in: ids }, blocks: { $in: ids } } },
+        )
+        .exec(),
+      this.taskModel
+        .updateMany(
+          { epicId: { $in: ids }, spaceId: spaceOid },
+          { $set: { epicId: null } },
+        )
+        .exec(),
+    ]);
 
     return { affected: deletedCount ?? 0 };
   }

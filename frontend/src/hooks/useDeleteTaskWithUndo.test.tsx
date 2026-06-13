@@ -94,7 +94,7 @@ describe('useDeleteTaskWithUndo', () => {
 
     await waitFor(() => expect(mockToast).toHaveBeenCalled());
 
-    const opts = mockToast.mock.calls[0][1] as {
+    const opts = mockToast.mock.calls[0][1] as unknown as {
       action: { onClick: () => void };
     };
     act(() => opts.action.onClick());

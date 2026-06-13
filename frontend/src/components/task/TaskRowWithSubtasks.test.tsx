@@ -14,10 +14,12 @@ vi.mock('react-router-dom', async () => {
 
 const TASK: Task = {
   _id: 't1',
+  spaceId: 'sp1',
   name: 'Tarefa principal',
   status: 'pendente',
   priority: 'normal',
   storyPoints: null,
+  startDate: null,
   dueDate: null,
   assignees: [],
   tags: [],
@@ -28,6 +30,8 @@ const TASK: Task = {
   parentTask: null,
   listId: 'l1',
   sprintId: null,
+  position: 0,
+  createdBy: 'u1',
   createdAt: '',
   updatedAt: '',
 };

@@ -4,6 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ProfilePage } from './ProfilePage';
 import * as usersApi from '../../api/users.api';
 import * as authStore from '../../store/auth.store';
+import type { User } from '../../types/user.types';
 
 vi.mock('../../api/users.api');
 const mockNavigate = vi.fn();
@@ -13,7 +14,7 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockSetUser = vi.fn();
-const baseUser = {
+const baseUser: User = {
   _id: 'user-1',
   email: 'alice@example.com',
   displayName: 'Alice',

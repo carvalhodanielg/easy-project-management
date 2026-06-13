@@ -148,7 +148,9 @@ function SprintNavItem({
           )
         }
       >
-        <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
+        <span title={ds.label} className="shrink-0 flex">
+          <ds.Icon size={12} className={ds.color} />
+        </span>
         <span className="truncate text-xs font-medium flex-1 min-w-0">
           Sprint {indented ? (sprint.folderNumber ?? sprint.number) : sprint.number}
         </span>

@@ -19,10 +19,12 @@ vi.mock('../../api/tasks.api', () => ({
 
 const SUBTASK: Task = {
   _id: 's1',
+  spaceId: 'sp1',
   name: 'Subtarefa de teste',
   status: 'pendente',
   priority: 'normal',
   storyPoints: null,
+  startDate: null,
   dueDate: null,
   assignees: [],
   tags: [],

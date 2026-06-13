@@ -70,13 +70,17 @@ describe('SearchService', () => {
     expect(result).toEqual({ tasks: [], notes: [], wiki: [] });
   });
 
-  it('searches all three models in parallel for valid query', async () => {
+  it('searches all three models in parallel with a $text query', async () => {
     await service.search(spaceId, 'autenticação');
     expect(taskModel.find).toHaveBeenCalledWith(
-      expect.objectContaining({ name: expect.any(RegExp) }),
+      expect.objectContaining({ $text: { $search: 'autenticação' } }),
     );
-    expect(noteModel.find).toHaveBeenCalled();
-    expect(wikiModel.find).toHaveBeenCalled();
+    expect(noteModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({ $text: { $search: 'autenticação' } }),
+    );
+    expect(wikiModel.find).toHaveBeenCalledWith(
+      expect.objectContaining({ $text: { $search: 'autenticação' } }),
+    );
   });
 
   it('returns mapped task results with correct shape', async () => {
@@ -110,10 +114,10 @@ describe('SearchService', () => {
     });
   });
 
-  it('uses case-insensitive regex', async () => {
-    await service.search(spaceId, 'AUTENTICAÇÃO');
+  it('trims the search term before querying', async () => {
+    await service.search(spaceId, '  autenticação  ');
     const call = taskModel.find.mock.calls[0][0];
-    expect(call.name.flags).toContain('i');
+    expect(call.$text.$search).toBe('autenticação');
   });
 
   it('falls back to "nota" subtitle when note label is null', async () => {

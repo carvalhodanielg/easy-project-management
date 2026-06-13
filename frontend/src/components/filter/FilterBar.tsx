@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2 } from 'lucide-react';
 import type { FilterState } from '../../hooks/useTaskFilter';
+import { useDebounce } from '../../hooks/useDebounce';
 import { type TaskStatus, type TaskPriority, type SubtaskMode, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
 import type { SavedFilter } from '../../api/saved-filters.api';
 import { T } from '../../theme';
@@ -75,6 +76,20 @@ export function FilterBar({
   const [saveName, setSaveName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
 
+  // Keep the search input snappy locally, but only push the value up (which
+  // triggers a query / backend $text lookup) after the user stops typing.
+  const [searchInput, setSearchInput] = useState(filters.q);
+  const debouncedSearch = useDebounce(searchInput, 300);
+
+  useEffect(() => {
+    if (debouncedSearch !== filters.q) onSetSearch(debouncedSearch);
+  }, [debouncedSearch, filters.q, onSetSearch]);
+
+  // Sync local input when the filter is changed elsewhere (reset / saved filter).
+  useEffect(() => {
+    setSearchInput(filters.q);
+  }, [filters.q]);
+
   // Open the dropdown when the parent bumps `openSignal` (keyboard shortcut).
   const { setOpen: setFilterOpen } = filterDropdown;
   useEffect(() => {
@@ -97,8 +112,8 @@ export function FilterBar({
         <Search size={13} className="absolute left-2.5 text-ink-muted pointer-events-none" />
         <input
           type="text"
-          value={filters.q}
-          onChange={(e) => onSetSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Buscar tarefas…"
           className="pl-8 pr-3 py-1.5 bg-lift border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors w-44"
         />

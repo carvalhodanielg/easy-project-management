@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { MongooseModule } from '@nestjs/mongoose';
+import { MongooseModule, getModelToken } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { Task, TaskDocument } from '../src/modules/tasks/schemas/task.schema';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../src/modules/auth/auth.module';
 import { UsersModule } from '../src/modules/users/users.module';
@@ -53,6 +55,11 @@ describe('Tasks (e2e)', () => {
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
     app = await buildApp(mongod.getUri());
+
+    // Ensure the $text index on Task.name is built before any $text query runs,
+    // otherwise MongoDB throws "text index required for $text query".
+    const taskModel = app.get<Model<TaskDocument>>(getModelToken(Task.name));
+    await taskModel.init();
 
     const reg = await request(app.getHttpServer()).post('/auth/register').send({
       email: 'dev@test.com',
@@ -157,6 +164,64 @@ describe('Tasks (e2e)', () => {
         .expect(200);
 
       expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    it('filters tasks by text search (q) using the $text index', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?q=Sprint`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const names = (res.body.data as { name: string }[]).map((t) => t.name);
+      expect(names).toContain('Sprint Task');
+      expect(names).not.toContain('First Task');
+    });
+
+    it('returns no matches for a word that is not in any task name', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?q=nonexistentword`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(0);
+    });
+  });
+
+  describe('GET /spaces/:spaceId/tasks — contextual substring search', () => {
+    beforeAll(async () => {
+      const parent = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Amarração de cabos', sprintId });
+      const parentId = parent.body.data._id as string;
+
+      // Subtask inherits the parent's sprintId; "Tamanduá" contains "am" as a
+      // substring, which a whole-word $text search would never match.
+      await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Tamanduá listado', parentTask: parentId });
+    });
+
+    it('matches tasks and subtasks by substring within a sprint', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?sprintId=${sprintId}&q=am`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const names = (res.body.data as { name: string }[]).map((t) => t.name);
+      expect(names).toContain('Amarração de cabos');
+      expect(names).toContain('Tamanduá listado');
+    });
+
+    it('is case-insensitive', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?sprintId=${sprintId}&q=AM`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const names = (res.body.data as { name: string }[]).map((t) => t.name);
+      expect(names).toContain('Amarração de cabos');
     });
   });
 

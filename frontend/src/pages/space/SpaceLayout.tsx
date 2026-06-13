@@ -1,10 +1,25 @@
-import { useEffect, useState, useCallback, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, useRef, type FormEvent } from 'react';
 import { Outlet, useParams, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  pointerWithin,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+  type CollisionDetection,
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import {
   Home, List, Zap, Plus, LogOut, ChevronDown, ChevronRight,
   FolderOpen, X, Loader2, Users, Search, Folder, Trash2,
-  Pencil, Settings, FileText, FolderPlus,
+  Pencil, Settings, FileText, FolderPlus, GripVertical,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useLogout } from '../../hooks/useAuth';
@@ -12,6 +27,7 @@ import { useSpacesStore } from '../../store/spaces.store';
 import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
+import * as tasksApi from '../../api/tasks.api';
 import * as wikiApi from '../../api/wiki.api';
 import * as sprintFoldersApi from '../../api/sprint-folders.api';
 import type { DayOfWeek } from '../../api/sprint-folders.api';
@@ -24,6 +40,10 @@ import { sprintDisplayStatus } from '../../lib/sprintStatus';
 import { Tooltip } from '../../components/ui/tooltip';
 import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useMoveTaskWithUndo } from '../../hooks/useMoveTaskWithUndo';
+import { TaskDragProvider } from '../../contexts/TaskDragProvider';
+import type { ReorderHandler } from '../../contexts/TaskDragContext';
+import { resolveSprintDrop } from './resolveSprintDrop';
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
@@ -86,6 +106,54 @@ function SectionHeader({
           <Plus size={11} />
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * A sprint row in the sidebar. Doubles as a drop target: dragging a task from
+ * the open sprint and releasing it here moves the task to this sprint.
+ */
+function SprintNavItem({
+  sprint,
+  spaceId,
+  indented,
+}: {
+  sprint: sprintsApi.Sprint;
+  spaceId: string;
+  indented?: boolean;
+}) {
+  const ds = sprintDisplayStatus(sprint);
+  const { setNodeRef, isOver } = useDroppable({
+    id: `sprint-dz-${sprint._id}`,
+    data: { type: 'sprint-dropzone', sprintId: sprint._id },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn('rounded-lg transition-colors', isOver && 'ring-1 ring-brand/60 bg-brand/10')}
+    >
+      <NavLink
+        to={`/spaces/${spaceId}/sprints/${sprint._id}`}
+        className={({ isActive }) =>
+          cn(
+            'flex items-center gap-1.5 py-1 rounded-lg text-sm transition-colors select-none',
+            indented ? 'pl-6 pr-2' : 'px-2.5',
+            isActive
+              ? 'bg-brand/12 text-brand font-medium'
+              : 'text-ink-dim hover:bg-lift hover:text-ink',
+          )
+        }
+      >
+        <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
+        <span className="truncate text-xs font-medium flex-1 min-w-0">
+          Sprint {indented ? (sprint.folderNumber ?? sprint.number) : sprint.number}
+        </span>
+        <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
+          {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
+        </span>
+      </NavLink>
     </div>
   );
 }
@@ -196,31 +264,9 @@ function SprintFolderItem({
 
       {error && <p className="pl-7 pr-2.5 text-[10px] text-danger">{error}</p>}
 
-      {open && sprints.map((sprint) => {
-        const ds = sprintDisplayStatus(sprint);
-        return (
-          <NavLink
-            key={sprint._id}
-            to={`/spaces/${spaceId}/sprints/${sprint._id}`}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-1.5 pl-6 pr-2 py-1 rounded-lg text-sm transition-colors select-none',
-                isActive
-                  ? 'bg-brand/12 text-brand font-medium'
-                  : 'text-ink-dim hover:bg-lift hover:text-ink',
-              )
-            }
-          >
-            <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
-            <span className="truncate text-xs font-medium flex-1 min-w-0">
-              Sprint {sprint.folderNumber ?? sprint.number}
-            </span>
-            <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
-              {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
-            </span>
-          </NavLink>
-        );
-      })}
+      {open && sprints.map((sprint) => (
+        <SprintNavItem key={sprint._id} sprint={sprint} spaceId={spaceId} indented />
+      ))}
 
       {open && sprints.length === 0 && (
         <p className="pl-7 pr-2.5 py-[5px] text-xs text-ink-muted italic">Sem sprints</p>
@@ -632,6 +678,58 @@ export function SpaceLayout() {
   // Sprints that don't belong to any folder
   const unfiledSprints = sprints.filter((s) => !s.folderId);
 
+  // ── Drag-and-drop: a single DndContext spans the sidebar (drop targets) and
+  // the page outlet (drag sources). Pages register their own reorder handler;
+  // dropping a task onto a sidebar sprint moves it there with an undo toast.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const reorderHandlerRef = useRef<ReorderHandler | null>(null);
+  const moveWithUndo = useMoveTaskWithUndo(spaceId!);
+
+  // Name of the task currently being dragged — drives the floating DragOverlay
+  // cue that follows the cursor so it's clear a task is being carried.
+  const [draggingTaskName, setDraggingTaskName] = useState<string | null>(null);
+
+  function handleDragStart(event: DragStartEvent) {
+    if (event.active.data.current?.type === 'task') {
+      setDraggingTaskName((event.active.data.current.name as string) ?? 'Tarefa');
+    }
+  }
+
+  // The dragged task row is wide and lives in the main area, so its center rarely
+  // approaches a small sidebar sprint row — closestCenter alone would never pick
+  // it. Detect sidebar sprints by where the pointer is; fall back to closestCenter
+  // for in-list reordering.
+  const collisionDetection: CollisionDetection = (args) => {
+    const sprintHit = pointerWithin(args).filter(
+      (c) => c.data?.droppableContainer?.data?.current?.type === 'sprint-dropzone',
+    );
+    return sprintHit.length ? sprintHit : closestCenter(args);
+  };
+
+  const openSprintId = location.pathname.match(/\/sprints\/([^/]+)/)?.[1];
+
+  function rootDragEnd(event: DragEndEvent) {
+    setDraggingTaskName(null);
+    const drop = resolveSprintDrop(event, openSprintId);
+    if (drop) {
+      const target = sprints.find((s) => s._id === drop.targetSprintId);
+      const label = target ? `Sprint ${target.folderNumber ?? target.number}` : 'outra sprint';
+      moveWithUndo.run({
+        moveFn: () => tasksApi.bulkMoveTasks(spaceId!, [drop.taskId], { sprintId: drop.targetSprintId }),
+        undoFn: () =>
+          drop.sourceSprintId
+            ? tasksApi.bulkMoveTasks(spaceId!, [drop.taskId], { sprintId: drop.sourceSprintId })
+            : Promise.resolve(),
+        message: `Tarefa movida para ${label}`,
+      });
+      return;
+    }
+    reorderHandlerRef.current?.(event);
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
 
@@ -671,6 +769,14 @@ export function SpaceLayout() {
       </header>
 
       {/* ── Body: sidebar + main ── */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={handleDragStart}
+        onDragEnd={rootDragEnd}
+        onDragCancel={() => setDraggingTaskName(null)}
+      >
+      <TaskDragProvider reorderHandlerRef={reorderHandlerRef}>
       <div className="flex flex-1 overflow-hidden">
 
       {/* ── Sidebar ── */}
@@ -739,31 +845,9 @@ export function SpaceLayout() {
               ))}
 
               {/* Unfiled sprints (no folder) */}
-              {unfiledSprints.map((sprint) => {
-                const ds = sprintDisplayStatus(sprint);
-                return (
-                  <NavLink
-                    key={sprint._id}
-                    to={`/spaces/${spaceId}/sprints/${sprint._id}`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm transition-colors select-none',
-                        isActive
-                          ? 'bg-brand/12 text-brand font-medium'
-                          : 'text-ink-dim hover:bg-lift hover:text-ink',
-                      )
-                    }
-                  >
-                    <ds.Icon size={12} title={ds.label} className={cn('shrink-0', ds.color)} />
-                    <span className="truncate text-xs font-medium flex-1 min-w-0">
-                      Sprint {sprint.number}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
-                      {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
-                    </span>
-                  </NavLink>
-                );
-              })}
+              {unfiledSprints.map((sprint) => (
+                <SprintNavItem key={sprint._id} sprint={sprint} spaceId={spaceId!} />
+              ))}
 
               {/* Empty state actions */}
               {sprints.length === 0 && sprintFolders.length === 0 && (
@@ -866,6 +950,18 @@ export function SpaceLayout() {
         <Outlet />
       </main>
       </div>
+      </TaskDragProvider>
+
+      {/* Floating cue that follows the cursor while dragging a task */}
+      <DragOverlay dropAnimation={null}>
+        {draggingTaskName ? (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-brand/40 shadow-xl text-sm text-ink max-w-xs cursor-grabbing">
+            <GripVertical size={13} className="text-ink-muted shrink-0" />
+            <span className="truncate font-medium">{draggingTaskName}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
 
       {/* ── Global search ── */}
       {showSearch && spaceId && (

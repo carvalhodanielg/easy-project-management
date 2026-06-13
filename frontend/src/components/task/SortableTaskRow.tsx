@@ -23,7 +23,7 @@ export function SortableTaskRow({ task, selectionMode, ...rest }: Props) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task._id, data: { type: 'task' } });
+  } = useSortable({ id: task._id, data: { type: 'task', sprintId: task.sprintId, name: task.name } });
 
   const dragEnabled = !selectionMode;
 

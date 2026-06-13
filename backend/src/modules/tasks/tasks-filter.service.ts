@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, PipelineStage } from 'mongoose';
 import { Task, TaskDocument, TaskStatus } from './schemas/task.schema';
 import { TaskFilterQueryDto } from './dto/task-filter-query.dto';
+import { escapeRegExp } from '../../common/utils/escape-regexp';
 
 export interface GroupedResult {
   groupKey: string | null;
@@ -95,7 +96,13 @@ export class TasksFilterService {
       archivedAt: null,
     };
 
-    if (!dto.includeSubtasks) match.parentTask = null;
+    const term = dto.q?.trim();
+    const contextual = !!(dto.listId || dto.sprintId);
+    const substringSearch = !!term && contextual;
+
+    // During a contextual substring search, include subtasks so a matching
+    // subtask surfaces regardless of the subtask display mode.
+    if (!dto.includeSubtasks && !substringSearch) match.parentTask = null;
     if (dto.listId) match.listId = new Types.ObjectId(dto.listId);
     if (dto.sprintId) match.sprintId = new Types.ObjectId(dto.sprintId);
 
@@ -131,12 +138,18 @@ export class TasksFilterService {
       };
     }
 
-    const term = dto.q?.trim();
     if (term) {
-      // $text uses the `name` text index (whole-word + stemming) instead of an
-      // unindexed $regex scan. In aggregation it stays valid because `match` is
-      // the first $match stage of every grouped pipeline.
-      match.$text = { $search: term };
+      if (contextual) {
+        // Sprint/list views are bounded by the spaceId+sprintId / spaceId+listId
+        // index, so a substring regex scan is cheap and enables partial matches
+        // ("am" → "amar", "tamanduá", "duplicam"). Escaped to avoid ReDoS.
+        match.name = { $regex: escapeRegExp(term), $options: 'i' };
+      } else {
+        // Space-wide task filter keeps the indexed $text search (whole-word +
+        // stemming). In aggregation it stays valid because `match` is the first
+        // $match stage of every grouped pipeline.
+        match.$text = { $search: term };
+      }
     }
 
     return match;

@@ -150,6 +150,48 @@ describe('TasksFilterService', () => {
       >;
       expect(callArg).not.toHaveProperty('$text');
     });
+
+    it('uses a case-insensitive substring $regex when searching within a sprint', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { sprintId, q: 'am' }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        name: { $regex: string; $options: string };
+        $text?: unknown;
+      };
+      expect(callArg.name.$regex).toBe('am');
+      expect(callArg.name.$options).toBe('i');
+      expect(callArg).not.toHaveProperty('$text');
+    });
+
+    it('uses a substring $regex when searching within a list', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { listId, q: 'am' }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        name: { $regex: string; $options: string };
+        $text?: unknown;
+      };
+      expect(callArg.name.$regex).toBe('am');
+      expect(callArg).not.toHaveProperty('$text');
+    });
+
+    it('escapes regex metacharacters in the contextual search term', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { sprintId, q: 'a.b+' }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        name: { $regex: string };
+      };
+      expect(callArg.name.$regex).toBe('a\\.b\\+');
+    });
+
+    it('includes subtasks during a contextual search regardless of subtask mode', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { sprintId, q: 'am' }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as Record<
+        string,
+        unknown
+      >;
+      expect(callArg).not.toHaveProperty('parentTask');
+    });
   });
 
   describe('findFiltered — with groupBy', () => {

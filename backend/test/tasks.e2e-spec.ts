@@ -187,6 +187,44 @@ describe('Tasks (e2e)', () => {
     });
   });
 
+  describe('GET /spaces/:spaceId/tasks — contextual substring search', () => {
+    beforeAll(async () => {
+      const parent = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Amarração de cabos', sprintId });
+      const parentId = parent.body.data._id as string;
+
+      // Subtask inherits the parent's sprintId; "Tamanduá" contains "am" as a
+      // substring, which a whole-word $text search would never match.
+      await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Tamanduá listado', parentTask: parentId });
+    });
+
+    it('matches tasks and subtasks by substring within a sprint', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?sprintId=${sprintId}&q=am`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const names = (res.body.data as { name: string }[]).map((t) => t.name);
+      expect(names).toContain('Amarração de cabos');
+      expect(names).toContain('Tamanduá listado');
+    });
+
+    it('is case-insensitive', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?sprintId=${sprintId}&q=AM`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const names = (res.body.data as { name: string }[]).map((t) => t.name);
+      expect(names).toContain('Amarração de cabos');
+    });
+  });
+
   describe('GET /spaces/:spaceId/tasks/:taskId', () => {
     it('returns populated task', async () => {
       const res = await request(app.getHttpServer())

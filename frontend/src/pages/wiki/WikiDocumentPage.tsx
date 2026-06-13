@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import MDEditor from '@uiw/react-md-editor';
 import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
 import * as wikiApi from '../../api/wiki.api';
-
-const AUTOSAVE_DELAY_MS = 1500;
+import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 
 export function WikiDocumentPage() {
   const { spaceId, documentId } = useParams<{ spaceId: string; documentId: string }>();
@@ -15,7 +13,7 @@ export function WikiDocumentPage() {
   const [title,        setTitle]        = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
   const [saveStatus,   setSaveStatus]   = useState<'saved' | 'saving' | 'unsaved'>('saved');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentRef = useRef('');
 
   const { data: doc } = useQuery({
     queryKey: ['wiki-document', documentId],
@@ -27,6 +25,8 @@ export function WikiDocumentPage() {
     if (doc) {
       setContent(doc.content);
       setTitle(doc.title);
+      contentRef.current = doc.content;
+      setSaveStatus('saved');
     }
   }, [doc]);
 
@@ -40,17 +40,17 @@ export function WikiDocumentPage() {
     onError: () => setSaveStatus('unsaved'),
   });
 
-  const saveContent = useCallback((newContent: string) => {
+  // Save on blur, matching the task-description editor behavior.
+  const saveContent = useCallback(() => {
+    if (contentRef.current === doc?.content) return;
     setSaveStatus('saving');
-    updateMutation.mutate({ content: newContent });
-  }, [updateMutation]);
+    updateMutation.mutate({ content: contentRef.current });
+  }, [doc?.content, updateMutation]);
 
-  const handleContentChange = (value: string | undefined) => {
-    const newValue = value ?? '';
-    setContent(newValue);
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    contentRef.current = value;
     setSaveStatus('unsaved');
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => saveContent(newValue), AUTOSAVE_DELAY_MS);
   };
 
   const saveTitle = () => {
@@ -121,12 +121,14 @@ export function WikiDocumentPage() {
       </header>
 
       {/* Editor */}
-      <div className="flex-1 overflow-auto p-6" data-color-mode="dark">
-        <MDEditor
+      <div className="flex-1 overflow-auto p-6">
+        <MarkdownEditor
+          spaceId={spaceId!}
           value={content}
           onChange={handleContentChange}
-          height="100%"
-          style={{ minHeight: '400px' }}
+          onBlur={saveContent}
+          placeholder="Comece a escrever…"
+          minHeight={480}
         />
       </div>
     </div>

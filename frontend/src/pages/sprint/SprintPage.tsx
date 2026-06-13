@@ -46,6 +46,11 @@ const COL_LABELS: { label: string; align?: 'center' | 'right' }[] = [
   { label: '' },
 ];
 
+// Stable empty default for the tasks query: a fresh `[]` per render would make
+// `flatTasks` (and the effect syncing `orderedTasks`) change identity every
+// render while loading, spinning into an infinite re-render loop.
+const EMPTY_TASKS: (Task | GroupedTaskResult)[] = [];
+
 export function SprintPage() {
   const { spaceId, sprintId } = useParams<{ spaceId: string; sprintId: string }>();
   const navigate = useNavigate();
@@ -96,7 +101,7 @@ export function SprintPage() {
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
 
-  const { data: tasks = [], isLoading } = useQuery<Task[] | GroupedTaskResult[]>({
+  const { data: tasks = EMPTY_TASKS, isLoading } = useQuery<Task[] | GroupedTaskResult[]>({
     queryKey: ['tasks', spaceId, filterParams],
     queryFn: () =>
       isGrouped
@@ -112,7 +117,7 @@ export function SprintPage() {
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['notes', spaceId, sprintId],
     queryFn: () => notesApi.getNotes(spaceId!, sprintId!),
-    enabled: !!spaceId && !!sprintId && tab === 'notas',
+    enabled: !!spaceId && !!sprintId,
   });
 
   const createMutation = useMutation({
@@ -252,6 +257,11 @@ export function SprintPage() {
             >
               {icon}
               {label}
+              {key === 'notas' && notes.length > 0 && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-brand/15 text-brand tabular-nums leading-none">
+                  {notes.length}
+                </span>
+              )}
             </button>
           ))}
 

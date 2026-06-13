@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -58,8 +58,8 @@ describe('SprintPage – view toggle visibility', () => {
   it('shows Lista and Board buttons when tab is "tarefas" (default)', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /lista/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^lista$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^board$/i })).toBeInTheDocument();
     });
   });
 
@@ -94,8 +94,8 @@ describe('SprintPage – view toggle visibility', () => {
     fireEvent.click(screen.getByRole('button', { name: /tarefas/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /lista/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^lista$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^board$/i })).toBeInTheDocument();
     });
   });
 
@@ -104,5 +104,45 @@ describe('SprintPage – view toggle visibility', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Modo de visualização')).toBeInTheDocument(),
     );
+  });
+});
+
+describe('SprintPage – Notas tab count indicator', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function renderWithNotes(notes: unknown[]) {
+    vi.mocked(sprintsApi.getSprints).mockResolvedValue([SPRINT]);
+    vi.mocked(tasksApi.getTasks).mockResolvedValue([]);
+    vi.mocked(tasksApi.getGroupedTasks).mockResolvedValue([]);
+    vi.mocked(notesApi.getNotes).mockResolvedValue(notes as never);
+    vi.mocked(savedFiltersApi.getSavedFilters).mockResolvedValue([]);
+    vi.mocked(spacesApi.getSpaceMembers).mockResolvedValue([]);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1/sprints/s1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId/sprints/:sprintId" element={<SprintPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('shows the notes count on the Notas tab while still on the default Tarefas tab', async () => {
+    renderWithNotes([{ _id: 'n1' }, { _id: 'n2' }, { _id: 'n3' }]);
+    const notasTab = await screen.findByRole('button', { name: /notas/i });
+    await waitFor(() => {
+      expect(within(notasTab).getByText('3')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show a count indicator when the sprint has no notes', async () => {
+    renderWithNotes([]);
+    const notasTab = await screen.findByRole('button', { name: /notas/i });
+    // Give any async note fetch a chance to resolve before asserting absence.
+    await waitFor(() => expect(screen.getByLabelText('Modo de visualização')).toBeInTheDocument());
+    expect(within(notasTab).queryByText(/^\d+$/)).not.toBeInTheDocument();
   });
 });

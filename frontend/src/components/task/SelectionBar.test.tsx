@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { SelectionBar } from './SelectionBar';
 import * as tasksApi from '../../api/tasks.api';
 import type { Task } from '../../types/task.types';
+import type { SpaceMember } from '../../types/space.types';
 
 vi.mock('sonner', () => ({ toast: vi.fn() }));
 vi.mock('../../api/tasks.api');
@@ -33,6 +34,13 @@ const TASK: Task = {
   startDate: null,
   createdAt: '',
   updatedAt: '',
+};
+
+const MEMBER: SpaceMember = {
+  _id: 'm1',
+  spaceId: 'sp1',
+  role: 'editor',
+  userId: { _id: 'u9', email: 'a@b.c', displayName: 'Alice', avatarUrl: null },
 };
 
 function renderBar(props: Partial<React.ComponentProps<typeof SelectionBar>> = {}) {
@@ -120,5 +128,18 @@ describe('SelectionBar', () => {
       expect(tasksApi.restoreTask).toHaveBeenCalledWith('sp1', 't1');
       expect(tasksApi.restoreTask).toHaveBeenCalledWith('sp1', 't2');
     });
+  });
+
+  it('shows the assignee name next to the avatar in the picker', () => {
+    renderBar({ members: [MEMBER] });
+    fireEvent.click(screen.getByRole('button', { name: /responsável/i }));
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+  });
+
+  it('renders status dots with colors coherent with the task list', () => {
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: /status/i }));
+    const dot = screen.getByText('Feito').querySelector('span');
+    expect(dot?.className).toContain('bg-s-done');
   });
 });

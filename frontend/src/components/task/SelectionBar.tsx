@@ -33,11 +33,11 @@ interface Props {
 }
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string; color: string }[] = [
-  { value: 'pendente', label: 'Pendente', color: 'bg-ink-muted' },
-  { value: 'em_progresso', label: 'Em progresso', color: 'bg-brand' },
-  { value: 'em_review', label: 'Em review', color: 'bg-warning' },
-  { value: 'feito', label: 'Feito', color: 'bg-success' },
-  { value: 'fechado', label: 'Fechado', color: 'bg-ink-muted/40' },
+  { value: 'pendente', label: 'Pendente', color: 'bg-s-pending' },
+  { value: 'em_progresso', label: 'Em progresso', color: 'bg-s-progress' },
+  { value: 'em_review', label: 'Em review', color: 'bg-s-review' },
+  { value: 'feito', label: 'Feito', color: 'bg-s-done' },
+  { value: 'fechado', label: 'Fechado', color: 'bg-s-closed' },
 ];
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string; color: string }[] = [
@@ -268,10 +268,10 @@ export function SelectionBar({
                         <img src={u.avatarUrl} className="w-5 h-5 rounded-full object-cover shrink-0" />
                       ) : (
                         <span className="w-5 h-5 rounded-full bg-brand/20 text-brand text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {u.name?.[0]?.toUpperCase() ?? '?'}
+                          {u.displayName?.[0]?.toUpperCase() ?? '?'}
                         </span>
                       )}
-                      {u.name}
+                      {u.displayName}
                     </button>
                   );
                 })}

@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SpaceLayout } from './SpaceLayout';
+import { useUiStore } from '../../store/ui.store';
 import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
@@ -72,6 +73,31 @@ describe('SpaceLayout – top bar', () => {
         screen.getByRole('button', { name: 'Notificações' }),
       ).toBeInTheDocument(),
     );
+  });
+});
+
+describe('SpaceLayout – collapsible sidebar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    useUiStore.setState({ sidebarCollapsed: false });
+  });
+
+  it('renders the sidebar expanded by default', async () => {
+    renderLayout();
+    await waitFor(() => expect(screen.getByText('Meu Espaço')).toBeInTheDocument());
+    expect(screen.getByRole('complementary').className).toContain('w-58');
+  });
+
+  it('collapses the sidebar when the toggle button is clicked', async () => {
+    renderLayout();
+    const toggle = await screen.findByRole('button', { name: /barra lateral/i });
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole('complementary').className).toContain('w-0');
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole('complementary').className).toContain('w-58');
   });
 });
 

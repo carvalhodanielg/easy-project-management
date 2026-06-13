@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, LogOut, Layers, Loader2, X, Home, ChevronRight, LayoutGrid, Trash2, RotateCcw, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import { useUiStore } from '../../store/ui.store';
 import { useLogout } from '../../hooks/useAuth';
 import * as spacesApi from '../../api/spaces.api';
 import type { Space } from '../../types/space.types';
 import { UserAvatar } from '../../components/ui/UserAvatar';
+import { cn } from '../../lib/utils';
 
 const PRESET_COLORS = [
   '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
@@ -19,6 +21,8 @@ export function HomePage() {
   const logout      = useLogout();
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar    = useUiStore((s) => s.toggleSidebar);
 
   const [showCreate, setShowCreate] = useState(false);
   const [name,  setName]  = useState('');
@@ -75,10 +79,15 @@ export function HomePage() {
     <div className="flex h-screen overflow-hidden bg-base">
 
       {/* ── Sidebar ── */}
-      <aside className="w-58 shrink-0 bg-sidebar border-r border-line flex flex-col overflow-hidden">
+      <aside
+        className={cn(
+          'shrink-0 bg-sidebar flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out',
+          sidebarCollapsed ? 'w-0 border-r-0' : 'w-58 border-r border-line',
+        )}
+      >
 
         {/* Logo */}
-        <div className="px-3 py-3 border-b border-line shrink-0">
+        <div className="w-58 px-3 py-3 border-b border-line shrink-0">
           <div className="flex items-center gap-2.5 px-2 py-2">
             <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-brand/40">
               C
@@ -88,7 +97,7 @@ export function HomePage() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+        <nav className="w-58 flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
           <div className="flex items-center gap-2.5 px-2.5 py-[5px] rounded-lg bg-brand/12 text-brand text-sm font-medium select-none">
             <Home size={14} className="shrink-0" />
             <span>Início</span>
@@ -122,7 +131,7 @@ export function HomePage() {
         </nav>
 
         {/* User footer */}
-        <div className="px-2 py-2.5 border-t border-line shrink-0">
+        <div className="w-58 px-2 py-2.5 border-t border-line shrink-0">
           <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-lift transition-colors group">
             <button
               type="button"
@@ -149,6 +158,16 @@ export function HomePage() {
         {/* Topbar */}
         <header className="h-12 border-b border-line px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs text-ink-muted">
+            <button
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+              title={sidebarCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+              className="p-1 -ml-1 rounded-lg text-ink-muted hover:text-ink hover:bg-lift transition-colors shrink-0"
+            >
+              {sidebarCollapsed
+                ? <PanelLeftOpen size={16} />
+                : <PanelLeftClose size={16} />}
+            </button>
             <LayoutGrid size={13} />
             <span>Seus espaços</span>
           </div>

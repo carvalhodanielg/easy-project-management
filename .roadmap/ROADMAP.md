@@ -38,6 +38,9 @@ Em telas pequenas a interface corta conteúdo (overflow). Revisar larguras fixas
 
 ## Alta prioridade
 
+### Busca global por equivalência (substring + sem acento)
+A busca global (`Cmd/Ctrl+K`) e o filtro de tarefas espaço-amplo usam o índice `$text`, que só casa **palavra inteira** — "amarr" não encontra "Amarração" e "amarracao" (sem acento) também não. Plano: campo normalizado persistido `searchText` (minúsculas + sem acento, nome+descrição) mantido por um plugin de schema, com `$regex` de substring sobre ele. Plano detalhado, trade-offs e alternativas (n-gram, Atlas Search): [`global-search-substring-accent.md`](./global-search-substring-accent.md).
+
 ### Melhorias de header (redução de altura e espaço)
 O header atual ocupa espaço demais. Quatro ajustes planejados:
 1. **Notificações integradas ao nome** — remover a barra superior dedicada e mover o sino de notificações para junto do nome/avatar do usuário.
@@ -110,5 +113,5 @@ Tornar o frontend instalável como Progressive Web App com service worker e cach
 - Cron jobs: `@nestjs/schedule` para lembretes de prazo e tarefas recorrentes
 - Real-time: `@nestjs/websockets` + `socket.io`
 - E-mail: `@nestjs/mailer` + Nodemailer
-- Busca: o módulo atual usa `$regex`; para escala considerar índices `$text` ou Atlas Search
+- Busca: a global usa `$text` (palavra inteira); plano de evolução para substring+sem acento em [`global-search-substring-accent.md`](./global-search-substring-accent.md). Para escala alta, avaliar índice n-gram ou Atlas Search
 - Time tracking: duração em minutos no MongoDB, aggregation pipeline para relatórios

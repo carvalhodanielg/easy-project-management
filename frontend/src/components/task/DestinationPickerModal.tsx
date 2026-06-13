@@ -33,7 +33,9 @@ function SprintOption({
         selected ? 'bg-brand/15 text-brand' : 'text-ink hover:bg-lift'
       }`}
     >
-      <Icon size={13} className={`shrink-0 ${color}`} title={label} />
+      <span title={label} className="shrink-0 flex">
+        <Icon size={13} className={color} />
+      </span>
       <span className="truncate">{sprint.name}</span>
       <span className="ml-auto shrink-0 text-xs text-ink-muted">
         {fmtDate(sprint.startDate)} - {fmtDate(sprint.endDate)}

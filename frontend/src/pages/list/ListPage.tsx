@@ -86,7 +86,7 @@ export function ListPage() {
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading } = useQuery<Task[] | GroupedTaskResult[]>({
     queryKey: ['tasks', spaceId, filterParams],
     queryFn: () =>
       isGrouped

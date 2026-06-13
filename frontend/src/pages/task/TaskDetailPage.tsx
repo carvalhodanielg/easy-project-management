@@ -92,8 +92,8 @@ export function TaskDetailPage() {
   const blocked = isTaskBlocked(task);
 
   function handleClose() {
-    const listId = task.listId ?? parentTask?.listId ?? null;
-    const sprintId = task.sprintId ?? parentTask?.sprintId ?? null;
+    const listId = task?.listId ?? parentTask?.listId ?? null;
+    const sprintId = task?.sprintId ?? parentTask?.sprintId ?? null;
     if (listId) navigate(`/spaces/${spaceId}/lists/${listId}`);
     else if (sprintId) navigate(`/spaces/${spaceId}/sprints/${sprintId}`);
     else navigate(`/spaces/${spaceId}`);

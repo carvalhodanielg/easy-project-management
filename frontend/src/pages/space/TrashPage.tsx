@@ -73,8 +73,8 @@ export function TrashPage() {
     void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
   }
 
-  const restore = useMutation({
-    mutationFn: ({ kind, id }: { kind: ItemKind; id: string }) => {
+  const restore = useMutation<unknown, Error, { kind: ItemKind; id: string }>({
+    mutationFn: ({ kind, id }) => {
       if (kind === 'list') return listsApi.restoreList(spaceId!, id);
       if (kind === 'sprint') return sprintsApi.restoreSprint(spaceId!, id);
       return tasksApi.restoreTask(spaceId!, id);

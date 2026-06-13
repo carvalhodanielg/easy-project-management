@@ -55,7 +55,7 @@ export function useCurrentUser() {
   const token = useAuthStore((s) => s.token);
   return useQuery({
     queryKey: ['me'],
-    queryFn: authApi.getMe,
+    queryFn: () => authApi.getMe(),
     enabled: !!token,
     staleTime: 5 * 60 * 1000,
   });

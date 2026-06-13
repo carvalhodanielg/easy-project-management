@@ -18,10 +18,12 @@ vi.mock('../../api/tasks.api', () => ({
 
 const TASK: Task = {
   _id: 't1',
+  spaceId: 'sp1',
   name: 'Implementar autenticação',
   status: 'em_progresso',
   priority: 'alta',
   storyPoints: 5,
+  startDate: null,
   dueDate: null,
   assignees: [],
   tags: [],

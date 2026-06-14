@@ -44,6 +44,8 @@ export interface Task {
   tags: Tag[];
   storyPoints: FibonacciPoint | null;
   parentTask: string | null;
+  isEpic: boolean;
+  epicId: string | null;
   blockedBy: { _id: string; name: string; status: TaskStatus }[];
   blocks: { _id: string; name: string; status: TaskStatus }[];
   position: number;
@@ -67,6 +69,8 @@ export interface CreateTaskPayload {
   tags?: string[];
   storyPoints?: number;
   parentTask?: string;
+  isEpic?: boolean;
+  epicId?: string;
 }
 
 export interface UpdateTaskPayload {
@@ -80,6 +84,19 @@ export interface UpdateTaskPayload {
   tags?: string[];
   storyPoints?: number | null;
   position?: number;
+  /** Attach to (id) or detach from (null) a parent epic. */
+  epicId?: string | null;
+}
+
+export interface EpicRollup {
+  epicId: string;
+  totalTasks: number;
+  doneTasks: number;
+  totalPoints: number;
+  donePoints: number;
+  progressPct: number;
+  byStatus: Record<TaskStatus, { count: number; points: number }>;
+  bySprint: { sprintId: string | null; count: number; points: number; donePoints: number }[];
 }
 
 export interface TaskFilterParams {

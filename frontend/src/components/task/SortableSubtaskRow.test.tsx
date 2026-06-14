@@ -33,6 +33,8 @@ const SUBTASK: Task = {
   blocks: [],
   description: '',
   parentTask: 't1',
+  isEpic: false,
+  epicId: null,
   listId: 'l1',
   sprintId: null,
   position: 0,

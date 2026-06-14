@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, ChevronDown, Pencil, Check, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask } from '../../api/tasks.api';
@@ -385,6 +385,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           />
         ) : (
           <>
+            {task.isEpic && (
+              <Tooltip content="Épico — grande tarefa que atravessa sprints">
+                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-brand/15 text-brand">
+                  <Layers size={10} /> Épico
+                </span>
+              </Tooltip>
+            )}
             <span className={`truncate leading-tight flex-1 min-w-0 ${kind === 'subtask' ? 'text-xs text-ink-dim' : 'text-sm text-ink font-medium'}`}>
               {task.name}
             </span>

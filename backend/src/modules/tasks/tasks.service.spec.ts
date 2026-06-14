@@ -115,6 +115,119 @@ describe('TasksService', () => {
     });
   });
 
+  describe('epics', () => {
+    const epicId = new Types.ObjectId().toString();
+
+    it('creates an epic in a list (isEpic, no sprint/parent)', async () => {
+      mockTaskModel.countDocuments.mockReturnValue(countMock(0));
+      mockTaskModel.create.mockResolvedValue({ ...mockTask, isEpic: true });
+
+      await service.create(spaceId, userId, {
+        name: 'Epic',
+        listId,
+        isEpic: true,
+      });
+
+      expect(mockTaskModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ isEpic: true, epicId: null }),
+      );
+    });
+
+    it('rejects an epic without a list', async () => {
+      await expect(
+        service.create(spaceId, userId, { name: 'Epic', isEpic: true }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an epic placed in a sprint', async () => {
+      await expect(
+        service.create(spaceId, userId, {
+          name: 'Epic',
+          listId,
+          sprintId: new Types.ObjectId().toString(),
+          isEpic: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates an epic child in the epic backlog while keeping epicId', async () => {
+      mockTaskModel.findById.mockReturnValue(
+        execMock({
+          _id: new Types.ObjectId(epicId),
+          isEpic: true,
+          listId: new Types.ObjectId(listId),
+          sprintId: null,
+        }),
+      );
+      mockTaskModel.countDocuments.mockReturnValue(countMock(0));
+      mockTaskModel.create.mockResolvedValue(mockTask);
+
+      await service.create(spaceId, userId, { name: 'Child', epicId });
+
+      expect(mockTaskModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          epicId: expect.anything(),
+          listId: expect.anything(),
+          sprintId: null,
+          parentTask: null,
+        }),
+      );
+    });
+
+    it('rejects linking a child to a task that is not an epic', async () => {
+      mockTaskModel.findById.mockReturnValue(
+        execMock({
+          _id: new Types.ObjectId(epicId),
+          isEpic: false,
+          listId: new Types.ObjectId(listId),
+        }),
+      );
+      await expect(
+        service.create(spaceId, userId, { name: 'Child', epicId }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rolls up children effort/progress across sprints', async () => {
+      const sprintA = new Types.ObjectId();
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(epicId), isEpic: true }),
+      );
+      mockTaskModel.find.mockReturnValue(
+        execMock([
+          { status: TaskStatus.Feito, storyPoints: 5, sprintId: sprintA },
+          { status: TaskStatus.Pendente, storyPoints: 3, sprintId: sprintA },
+          { status: TaskStatus.Pendente, storyPoints: 2, sprintId: null },
+        ]),
+      );
+
+      const rollup = await service.getEpicRollup(spaceId, epicId);
+
+      expect(rollup.totalPoints).toBe(10);
+      expect(rollup.donePoints).toBe(5);
+      expect(rollup.progressPct).toBe(50);
+      expect(rollup.totalTasks).toBe(3);
+      expect(rollup.bySprint).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            sprintId: sprintA.toString(),
+            points: 8,
+            donePoints: 5,
+          }),
+          expect.objectContaining({ sprintId: null, points: 2 }),
+        ]),
+      );
+    });
+
+    it('rejects rollup for a non-epic task', async () => {
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(epicId), isEpic: false }),
+      );
+      await expect(service.getEpicRollup(spaceId, epicId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
   describe('findById', () => {
     it('returns populated task when found', async () => {
       mockTaskModel.findById.mockReturnValue(populateMock(mockTask));

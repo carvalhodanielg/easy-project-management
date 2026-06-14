@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
+import { X, Pencil, Check, Loader2, CornerLeftUp, Layers } from 'lucide-react';
 import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
 import { SubtaskList } from '../../components/task/SubtaskList';
+import { EpicRollupPanel } from '../../components/epic/EpicRollupPanel';
 import { DependenciesSection, isTaskBlocked } from '../../components/task/DependenciesSection';
 import {
   type TaskStatus, type TaskPriority,
@@ -51,6 +52,12 @@ export function TaskDetailPage() {
     queryKey: ['subtasks', task?.parentTask],
     queryFn: () => tasksApi.getSubtasks(spaceId!, task!.parentTask!),
     enabled: !!spaceId && !!task?.parentTask,
+  });
+
+  const { data: epic } = useQuery({
+    queryKey: ['task', task?.epicId],
+    queryFn: () => tasksApi.getTask(spaceId!, task!.epicId!),
+    enabled: !!spaceId && !!task?.epicId,
   });
 
   useEffect(() => {
@@ -127,6 +134,16 @@ export function TaskDetailPage() {
                 <span className="truncate">{parentTask.name}</span>
               </button>
             )}
+            {task.epicId && epic && (
+              <button
+                data-testid="epic-breadcrumb"
+                onClick={() => navigate(`/spaces/${spaceId}/tasks/${epic._id}`)}
+                className="flex items-center gap-1.5 mb-2 text-xs text-brand/80 hover:text-brand transition-colors max-w-full"
+              >
+                <Layers size={11} className="shrink-0" />
+                <span className="truncate">Épico: {epic.name}</span>
+              </button>
+            )}
             {editingTitle ? (
               <div className="flex items-center gap-2">
                 <input
@@ -174,7 +191,9 @@ export function TaskDetailPage() {
             className="w-[280px] shrink-0 border-r border-line flex flex-col overflow-hidden"
           >
             <div className="flex-1 overflow-y-auto">
-              {task.parentTask ? (
+              {task.isEpic ? (
+                <EpicRollupPanel spaceId={spaceId!} epicId={taskId!} />
+              ) : task.parentTask ? (
                 <>
                   {parentTask && (
                     <button

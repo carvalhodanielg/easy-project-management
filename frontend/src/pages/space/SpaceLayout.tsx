@@ -594,6 +594,8 @@ export function SpaceLayout() {
   const [wikiOpen,    setWikiOpen]    = useState(false);
   const [creatingDocFolder, setCreatingDocFolder] = useState(false);
   const [docFolderName, setDocFolderName] = useState('');
+  const [creatingList, setCreatingList] = useState(false);
+  const [listName, setListName] = useState('');
 
   const { data: space } = useQuery({
     queryKey: ['space', spaceId],
@@ -646,6 +648,22 @@ export function SpaceLayout() {
     const name = docFolderName.trim();
     if (name) createDocFolderMutation.mutate(name);
     else { setCreatingDocFolder(false); setDocFolderName(''); }
+  }
+
+  const createListMutation = useMutation({
+    mutationFn: (name: string) => listsApi.createList(spaceId!, name),
+    onSuccess: (list) => {
+      void queryClient.invalidateQueries({ queryKey: ['lists', spaceId] });
+      setCreatingList(false);
+      setListName('');
+      navigate(`/spaces/${spaceId}/lists/${list._id}`);
+    },
+  });
+
+  function submitList() {
+    const name = listName.trim();
+    if (name) createListMutation.mutate(name);
+    else { setCreatingList(false); setListName(''); }
   }
 
   useEffect(() => {
@@ -813,14 +831,15 @@ export function SpaceLayout() {
           <NavItem to={`/spaces/${spaceId}/trash`} icon={Trash2}>Lixeira</NavItem>
 
           {/* Lists */}
-          {lists.length > 0 && (
+          <SectionHeader
+            label="Listas"
+            open={listsOpen}
+            onToggle={() => setListsOpen((v) => !v)}
+            onAdd={() => { setListsOpen(true); setCreatingList(true); }}
+          />
+          {listsOpen && (
             <>
-              <SectionHeader
-                label="Listas"
-                open={listsOpen}
-                onToggle={() => setListsOpen((v) => !v)}
-              />
-              {listsOpen && lists.map((list) => (
+              {lists.map((list) => (
                 <NavItem
                   key={list._id}
                   to={`/spaces/${spaceId}/lists/${list._id}`}
@@ -829,6 +848,33 @@ export function SpaceLayout() {
                   {list.name}
                 </NavItem>
               ))}
+
+              {creatingList && (
+                <div className="flex items-center gap-2.5 px-2.5 py-[5px]">
+                  <List size={14} className="shrink-0 opacity-75 text-ink-muted" />
+                  <input
+                    autoFocus
+                    value={listName}
+                    onChange={(e) => setListName(e.target.value)}
+                    onBlur={submitList}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') submitList();
+                      if (e.key === 'Escape') { setCreatingList(false); setListName(''); }
+                    }}
+                    placeholder="Nome da lista…"
+                    className="flex-1 min-w-0 bg-input border border-brand/40 rounded px-1.5 py-0.5 text-xs text-ink placeholder:text-ink-muted focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {lists.length === 0 && !creatingList && (
+                <button
+                  onClick={() => { setListsOpen(true); setCreatingList(true); }}
+                  className="flex items-center gap-2 w-full px-2.5 py-[5px] text-xs text-ink-muted hover:text-ink transition-colors rounded-lg hover:bg-lift"
+                >
+                  <Plus size={13} /> Nova lista
+                </button>
+              )}
             </>
           )}
 

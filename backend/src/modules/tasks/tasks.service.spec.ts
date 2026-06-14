@@ -196,9 +196,24 @@ describe('TasksService', () => {
       );
       mockTaskModel.find.mockReturnValue(
         execMock([
-          { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 5, sprintId: sprintA },
-          { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 3, sprintId: sprintA },
-          { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 2, sprintId: null },
+          {
+            _id: new Types.ObjectId(),
+            status: TaskStatus.Feito,
+            storyPoints: 5,
+            sprintId: sprintA,
+          },
+          {
+            _id: new Types.ObjectId(),
+            status: TaskStatus.Pendente,
+            storyPoints: 3,
+            sprintId: sprintA,
+          },
+          {
+            _id: new Types.ObjectId(),
+            status: TaskStatus.Pendente,
+            storyPoints: 2,
+            sprintId: null,
+          },
         ]),
       );
 
@@ -236,7 +251,12 @@ describe('TasksService', () => {
       );
       mockTaskModel.find.mockReturnValue(
         execMock([
-          { _id: childId, status: TaskStatus.Pendente, storyPoints: 3, sprintId: null },
+          {
+            _id: childId,
+            status: TaskStatus.Pendente,
+            storyPoints: 3,
+            sprintId: null,
+          },
         ]),
       );
       // The child's own subtasks roll up to 13 points, 8 of them done.
@@ -620,6 +640,23 @@ describe('TasksService', () => {
       mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
       const result = await service.findSubtasks(taskId);
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('findEpicChildren', () => {
+    it('attaches subtask counts so children can reveal a third level', async () => {
+      const childId = new Types.ObjectId();
+      const child = { _id: childId, subtaskCount: 0, subtaskPoints: 0 };
+      mockTaskModel.find.mockReturnValue(populateMock([child]));
+      // The child has 2 subtasks summing 8 points.
+      mockTaskModel.aggregate.mockResolvedValue([
+        { _id: childId, count: 2, points: 8 },
+      ]);
+
+      const result = await service.findEpicChildren(spaceId, taskId);
+
+      expect(result[0].subtaskCount).toBe(2);
+      expect(result[0].subtaskPoints).toBe(8);
     });
   });
 

@@ -557,6 +557,29 @@ describe('Tasks (e2e)', () => {
       expect(bySprint.find((s) => s.sprintId === null)?.points).toBe(3);
     });
 
+    it('groups list tasks by epic, labelling the group with the epic name', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks?listId=${listId}&groupBy=epic`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const groups = res.body.data as {
+        groupKey: string | null;
+        tasks: { _id: string }[];
+        count: number;
+      }[];
+
+      // Child B lives in the list backlog and is linked to the epic.
+      const epicGroup = groups.find((g) => g.groupKey === 'Big Epic');
+      expect(epicGroup).toBeDefined();
+      expect(epicGroup!.tasks.map((t) => t._id)).toContain(childBId);
+
+      // The epic task itself has no epicId, so it falls under the null group.
+      const noEpicGroup = groups.find((g) => g.groupKey === null);
+      expect(noEpicGroup).toBeDefined();
+      expect(noEpicGroup!.tasks.map((t) => t._id)).toContain(epicId);
+    });
+
     it('detaches a child from the epic via PATCH epicId:null', async () => {
       await request(app.getHttpServer())
         .patch(`/spaces/${spaceId}/tasks/${childBId}`)
@@ -587,7 +610,11 @@ describe('Tasks (e2e)', () => {
       const sp = await request(app.getHttpServer())
         .post(`/spaces/${spaceId}/sprints`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Rollup Sprint', startDate: '2025-02-01', endDate: '2025-02-14' })
+        .send({
+          name: 'Rollup Sprint',
+          startDate: '2025-02-01',
+          endDate: '2025-02-14',
+        })
         .expect(201);
       rSprintId = sp.body.data._id as string;
 
@@ -607,7 +634,12 @@ describe('Tasks (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/spaces/${spaceId}/tasks`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ name: 'Sub 2', parentTask: parentId, storyPoints: 2, status: 'feito' })
+        .send({
+          name: 'Sub 2',
+          parentTask: parentId,
+          storyPoints: 2,
+          status: 'feito',
+        })
         .expect(201);
     });
 

@@ -45,8 +45,8 @@ export class TaskFilterQueryDto {
   tags?: string[];
 
   @IsOptional()
-  @IsEnum(['status', 'assignee', 'sprint', 'priority'])
-  groupBy?: 'status' | 'assignee' | 'sprint' | 'priority';
+  @IsEnum(['status', 'assignee', 'sprint', 'priority', 'epic'])
+  groupBy?: 'status' | 'assignee' | 'sprint' | 'priority' | 'epic';
 
   @IsOptional()
   @Transform(({ value }: { value: string }) => value === 'true')

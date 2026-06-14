@@ -44,7 +44,7 @@ const SUBTASKS = [
   { ...TASK, _id: 's2', name: 'Subtarefa 2', subtaskCount: 0, parentTask: 't1' },
 ];
 
-function renderComponent(task = TASK) {
+function renderComponent(task = TASK, props: { epicDefaultExpanded?: boolean; depth?: number } = {}) {
   vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SUBTASKS as never);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -53,7 +53,7 @@ function renderComponent(task = TASK) {
         <Routes>
           <Route
             path="/spaces/:spaceId"
-            element={<TaskRowWithSubtasks task={task} spaceId="sp1" />}
+            element={<TaskRowWithSubtasks task={task} spaceId="sp1" {...props} />}
           />
         </Routes>
       </MemoryRouter>
@@ -76,6 +76,14 @@ describe('TaskRowWithSubtasks', () => {
 
   it('shows subtasks when expanded (default for tasks with subtasks)', async () => {
     renderComponent();
+    await waitFor(() => {
+      expect(screen.getByText('Subtarefa 1')).toBeInTheDocument();
+      expect(screen.getByText('Subtarefa 2')).toBeInTheDocument();
+    });
+  });
+
+  it('still reveals subtasks when nested under a depth (third level inside an epic)', async () => {
+    renderComponent(TASK, { depth: 1 });
     await waitFor(() => {
       expect(screen.getByText('Subtarefa 1')).toBeInTheDocument();
       expect(screen.getByText('Subtarefa 2')).toBeInTheDocument();
@@ -114,6 +122,39 @@ describe('TaskRowWithSubtasks', () => {
     fireEvent.click(screen.getByRole('button', { name: /adicionar subtarefa/i }));
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/nome da subtarefa/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('epic rows', () => {
+    const EPIC = { ...TASK, _id: 'e1', name: 'Autenticação', isEpic: true, subtaskCount: 0 };
+
+    it('shows an expand toggle for epics even without subtasks', () => {
+      renderComponent(EPIC);
+      expect(screen.getByRole('button', { name: /expandir|recolher/i })).toBeInTheDocument();
+    });
+
+    it('reveals the epic children when expanded', async () => {
+      vi.mocked(tasksApi.getEpicChildren).mockResolvedValue([
+        { ...TASK, _id: 'k1', name: 'Filha do épico', epicId: 'e1', isEpic: false },
+      ] as never);
+      renderComponent(EPIC);
+      fireEvent.click(screen.getByRole('button', { name: /expandir/i }));
+      await waitFor(() => expect(screen.getByText('Filha do épico')).toBeInTheDocument());
+      expect(tasksApi.getEpicChildren).toHaveBeenCalledWith('sp1', 'e1');
+    });
+
+    it('does not fetch epic children until expanded', () => {
+      renderComponent(EPIC);
+      expect(tasksApi.getEpicChildren).not.toHaveBeenCalled();
+    });
+
+    it('auto-expands and reveals children when epicDefaultExpanded is set', async () => {
+      vi.mocked(tasksApi.getEpicChildren).mockResolvedValue([
+        { ...TASK, _id: 'k1', name: 'Filha do épico', epicId: 'e1', isEpic: false },
+      ] as never);
+      renderComponent(EPIC, { epicDefaultExpanded: true });
+      await waitFor(() => expect(screen.getByText('Filha do épico')).toBeInTheDocument());
+      expect(tasksApi.getEpicChildren).toHaveBeenCalledWith('sp1', 'e1');
     });
   });
 

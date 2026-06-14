@@ -12,6 +12,7 @@ interface Props {
   selectionMode?: boolean;
   onSelect?: (id: string, kind: 'main' | 'subtask') => void;
   isSelectedFn?: (id: string) => boolean;
+  epicDefaultExpanded?: boolean;
 }
 
 export function SortableTaskRow({ task, selectionMode, ...rest }: Props) {

@@ -39,6 +39,7 @@ const GROUP_OPTIONS: { value: FilterState['groupBy']; label: string }[] = [
   { value: undefined,  label: 'Sem agrupamento' },
   { value: 'status',   label: 'Por status' },
   { value: 'assignee', label: 'Por responsável' },
+  { value: 'epic',     label: 'Por épico' },
 ];
 
 const SUBTASK_MODES: { value: SubtaskMode; label: string }[] = [

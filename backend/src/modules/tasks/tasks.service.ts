@@ -233,7 +233,7 @@ export class TasksService {
     spaceId: string,
     epicId: string,
   ): Promise<TaskDocument[]> {
-    return this.taskModel
+    const children = await this.taskModel
       .find({
         spaceId: new Types.ObjectId(spaceId),
         epicId: new Types.ObjectId(epicId),
@@ -243,6 +243,10 @@ export class TasksService {
       .populate('sprintId', 'name number')
       .sort({ position: 1, createdAt: 1 })
       .exec();
+    // Tells the list view which children carry subtasks, so each can reveal a
+    // third level (epic → task → subtask).
+    await this.attachSubtaskCounts(children);
+    return children;
   }
 
   /**
@@ -292,7 +296,11 @@ export class TasksService {
               points: { $sum: '$storyPoints' },
               donePoints: {
                 $sum: {
-                  $cond: [{ $eq: ['$status', TaskStatus.Feito] }, '$storyPoints', 0],
+                  $cond: [
+                    { $eq: ['$status', TaskStatus.Feito] },
+                    '$storyPoints',
+                    0,
+                  ],
                 },
               },
             },

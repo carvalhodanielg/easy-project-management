@@ -7,6 +7,7 @@ import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask, getTask } from '../../api/tasks.api';
 import { TaskActionMenu } from './TaskActionMenu';
+import { epicColor } from '../../lib/epicColor';
 import { getSpaceMembers } from '../../api/spaces.api';
 import { PriorityIcon } from '../ui/PriorityIcon';
 import { Tooltip } from '../ui/tooltip';
@@ -62,6 +63,9 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
   const isRolledUp = (task.subtaskPoints ?? 0) > 0;
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
   const selectionMode = !!onSelect;
+  // Signature colour shared by this epic's row, its group header and the
+  // membership chips on its child rows — the visual "thread" tying them together.
+  const epicAccent = task.isEpic ? epicColor(task.name) : null;
 
   // Resolve the parent epic's name for the membership chip. Keyed by epic id so
   // many children of the same epic share a single (cached) request.
@@ -280,7 +284,13 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       role="row"
       onClick={() => !editingName && navigate(`/spaces/${spaceId}/tasks/${task._id}`)}
       className={`group cursor-pointer border-b border-line-dim hover:bg-lift/60 transition-colors ${isSelected ? 'bg-brand/8' : ''}`}
-      style={{ display: 'grid', gridTemplateColumns: TASK_COLS, alignItems: 'center', minHeight: kind === 'subtask' ? '34px' : '42px' }}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: TASK_COLS,
+        alignItems: 'center',
+        minHeight: task.isEpic ? '48px' : kind === 'subtask' ? '34px' : '42px',
+        ...(epicAccent ? { borderLeft: `3px solid ${epicAccent}`, background: epicAccent + '14' } : {}),
+      }}
     >
       {/* Col 1 — drag handle + selection checkbox + expand toggle + status */}
       <div
@@ -399,12 +409,23 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           <>
             {task.isEpic && (
               <Tooltip content="Épico — grande tarefa que atravessa sprints">
-                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-brand/15 text-brand">
+                <span
+                  className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ background: (epicAccent ?? '') + '26', color: epicAccent ?? undefined }}
+                >
                   <Layers size={10} /> Épico
                 </span>
               </Tooltip>
             )}
-            <span className={`truncate leading-tight flex-1 min-w-0 ${kind === 'subtask' ? 'text-xs text-ink-dim' : 'text-sm text-ink font-medium'}`}>
+            <span
+              className={`truncate leading-tight flex-1 min-w-0 ${
+                task.isEpic
+                  ? 'text-[15px] text-ink font-bold'
+                  : kind === 'subtask'
+                    ? 'text-xs text-ink-dim'
+                    : 'text-sm text-ink font-medium'
+              }`}
+            >
               {task.name}
             </span>
             <button
@@ -422,7 +443,8 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             <button
               aria-label={`Épico: ${epic.name}`}
               onClick={(e) => { e.stopPropagation(); navigate(`/spaces/${spaceId}/tasks/${epic._id}`); }}
-              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-brand/10 text-brand/90 hover:bg-brand/20 transition-colors max-w-[140px]"
+              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors max-w-[140px]"
+              style={{ background: epicColor(epic.name) + '1A', color: epicColor(epic.name) }}
             >
               <Layers size={10} className="shrink-0" />
               <span className="truncate">{epic.name}</span>

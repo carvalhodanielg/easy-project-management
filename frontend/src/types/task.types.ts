@@ -108,7 +108,7 @@ export interface TaskFilterParams {
   priority?: TaskPriority[];
   assignees?: string[];
   tags?: string[];
-  groupBy?: 'status' | 'assignee';
+  groupBy?: 'status' | 'assignee' | 'epic';
   subtaskMode?: SubtaskMode;
   q?: string;
 }

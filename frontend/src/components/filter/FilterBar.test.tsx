@@ -76,6 +76,16 @@ describe('FilterBar', () => {
     expect(DEFAULT_PROPS.onReset).toHaveBeenCalled();
   });
 
+  it('offers a "Por épico" grouping option and reports it on change', () => {
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    const groupSelect = screen.getByDisplayValue('Sem agrupamento');
+    expect(
+      screen.getByRole('option', { name: 'Por épico' }),
+    ).toBeInTheDocument();
+    fireEvent.change(groupSelect, { target: { value: 'epic' } });
+    expect(DEFAULT_PROPS.onSetGroupBy).toHaveBeenCalledWith('epic');
+  });
+
   it('shows active status chips', () => {
     render(
       <FilterBar

@@ -1,5 +1,5 @@
 export type ThemeMode = 'light' | 'dark';
-export type TaskGroupByPref = 'none' | 'status' | 'assignee';
+export type TaskGroupByPref = 'none' | 'status' | 'assignee' | 'epic';
 export type TaskSubtaskModePref = 'collapsed' | 'expanded' | 'separated';
 
 export interface UserPreferences {

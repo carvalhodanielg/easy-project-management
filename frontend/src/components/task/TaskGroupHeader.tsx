@@ -1,18 +1,19 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Layers } from 'lucide-react';
 import { TaskStatus, TaskPriority, STATUS_LABELS, PRIORITY_LABELS } from '../../types/task.types';
 import { TASK_COLS } from './TaskRow';
+import { epicColor } from '../../lib/epicColor';
 import { T } from '../../theme';
 
 interface Props {
   groupKey: string | null;
-  groupBy: 'status' | 'assignee' | 'sprint' | 'priority';
+  groupBy: 'status' | 'assignee' | 'sprint' | 'priority' | 'epic';
   count: number;
   totalStoryPoints: number;
   onAddTask?: () => void;
 }
 
 function groupLabel(groupKey: string | null, groupBy: Props['groupBy']): string {
-  if (!groupKey) return 'Sem responsável';
+  if (!groupKey) return groupBy === 'epic' ? 'Sem épico' : 'Sem responsável';
   if (groupBy === 'status')   return STATUS_LABELS[groupKey as TaskStatus]   ?? groupKey;
   if (groupBy === 'priority') return PRIORITY_LABELS[groupKey as TaskPriority] ?? groupKey;
   return groupKey;
@@ -21,6 +22,7 @@ function groupLabel(groupKey: string | null, groupBy: Props['groupBy']): string 
 function accentColor(groupKey: string | null, groupBy: Props['groupBy']): string {
   if (groupBy === 'status' && groupKey)   return T.status[groupKey]   ?? T.text3;
   if (groupBy === 'priority' && groupKey) return T.priority[groupKey] ?? T.text3;
+  if (groupBy === 'epic')                 return groupKey ? epicColor(groupKey) : T.text3;
   return T.accent;
 }
 
@@ -46,6 +48,7 @@ export function TaskGroupHeader({ groupKey, groupBy, count, totalStoryPoints }: 
       </div>
 
       <div className="flex items-center gap-2">
+        {groupBy === 'epic' && <Layers size={11} style={{ color: accent }} />}
         <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accent }}>
           {label}
         </span>

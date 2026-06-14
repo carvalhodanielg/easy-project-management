@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LayoutList, Kanban, Plus, X, Layers } from 'lucide-react';
@@ -25,6 +25,8 @@ import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { SelectionBar } from '../../components/task/SelectionBar';
 import { TASK_COLS } from '../../components/task/TaskRow';
 import { TaskGroupHeader } from '../../components/task/TaskGroupHeader';
+import { EpicBlockSeparator } from '../../components/task/EpicBlockSeparator';
+import { buildEpicLayout } from '../../lib/epicLayout';
 import { KanbanView } from '../../components/kanban/KanbanView';
 import { FilterBar } from '../../components/filter/FilterBar';
 import { useTaskFilter } from '../../hooks/useTaskFilter';
@@ -106,6 +108,15 @@ export function ListPage() {
     if (!isGrouped) setOrderedTasks(tasks as Task[]);
   }, [tasks, isGrouped]);
 
+  // Restructure the flat list so epic member-tasks nest under their epic and a
+  // clear separator bounds each epic block. `displayTasks` are the sortable
+  // top-level rows (in-list epic children are dropped — shown nested instead).
+  const layout = useMemo(() => buildEpicLayout(orderedTasks), [orderedTasks]);
+  const displayTasks = useMemo(
+    () => layout.flatMap((i) => (i.kind === 'task' ? [i.task] : [])),
+    [layout],
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -166,21 +177,28 @@ export function ListPage() {
       return;
     }
 
-    // Main task reorder
-    const oldIndex = orderedTasks.findIndex((t) => t._id === active.id);
-    const newIndex = orderedTasks.findIndex((t) => t._id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+    // Main task reorder. Both active and over are top-level display rows;
+    // compute the new position from the displayed neighbours (orderedTasks may
+    // interleave dropped epic children whose position is irrelevant here).
+    const dispOld = displayTasks.findIndex((t) => t._id === active.id);
+    const dispNew = displayTasks.findIndex((t) => t._id === over.id);
+    if (dispOld === -1 || dispNew === -1) return;
 
-    const reordered = arrayMove(orderedTasks, oldIndex, newIndex);
-    setOrderedTasks(reordered);
-
-    const prev = reordered[newIndex - 1];
-    const next = reordered[newIndex + 1];
+    const reorderedDisplay = arrayMove(displayTasks, dispOld, dispNew);
+    const prev = reorderedDisplay[dispNew - 1];
+    const next = reorderedDisplay[dispNew + 1];
     const newPosition = !prev
       ? (next?.position ?? 0) - 1
       : !next
         ? prev.position + 1
         : (prev.position + next.position) / 2;
+
+    // Optimistic update on the full list so the dropped children stay attached.
+    const oldIndex = orderedTasks.findIndex((t) => t._id === active.id);
+    const newIndex = orderedTasks.findIndex((t) => t._id === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      setOrderedTasks(arrayMove(orderedTasks, oldIndex, newIndex));
+    }
 
     reorderMutation.mutate({ taskId: active.id as string, position: newPosition });
   }
@@ -318,19 +336,24 @@ export function ListPage() {
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
-                  <SortableContext items={orderedTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
-                    {orderedTasks.map((task) => (
-                      <SortableTaskRow
-                        key={task._id}
-                        task={task}
-                        spaceId={spaceId!}
-                        subtaskMode={taskFilter.filters.subtaskMode}
-                        isSelected={selection.isSelected(task._id)}
-                        selectionMode={selection.count > 0}
-                        onSelect={selection.toggle}
-                        isSelectedFn={selection.isSelected}
-                      />
-                    ))}
+                  <SortableContext items={displayTasks.map((t) => t._id)} strategy={verticalListSortingStrategy}>
+                    {layout.map((item) =>
+                      item.kind === 'separator' ? (
+                        <EpicBlockSeparator key={item.key} />
+                      ) : (
+                        <SortableTaskRow
+                          key={item.task._id}
+                          task={item.task}
+                          spaceId={spaceId!}
+                          subtaskMode={taskFilter.filters.subtaskMode}
+                          isSelected={selection.isSelected(item.task._id)}
+                          selectionMode={selection.count > 0}
+                          onSelect={selection.toggle}
+                          isSelectedFn={selection.isSelected}
+                          epicDefaultExpanded
+                        />
+                      ),
+                    )}
                   </SortableContext>
                 </DndContext>
               )}

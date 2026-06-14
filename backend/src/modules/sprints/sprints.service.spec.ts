@@ -170,7 +170,11 @@ describe('SprintsService', () => {
     const prevTasks = [
       { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 8 },
       { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 5 },
-      { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 3 },
+      {
+        _id: new Types.ObjectId(),
+        status: TaskStatus.Pendente,
+        storyPoints: 3,
+      },
     ];
 
     function populateChain<T>(value: T) {

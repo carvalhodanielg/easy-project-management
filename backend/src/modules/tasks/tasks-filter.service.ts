@@ -187,10 +187,14 @@ export class TasksFilterService {
 
   private async buildGroupedResult(
     match: Record<string, unknown>,
-    groupBy: 'status' | 'assignee' | 'sprint' | 'priority',
+    groupBy: 'status' | 'assignee' | 'sprint' | 'priority' | 'epic',
   ): Promise<GroupedResult[]> {
     if (groupBy === 'assignee') {
       return this.groupByAssignee(match);
+    }
+
+    if (groupBy === 'epic') {
+      return this.groupByEpic(match);
     }
 
     const groupField = {
@@ -292,6 +296,69 @@ export class TasksFilterService {
     ];
     const populated = (await this.taskModel
       .find({ _id: { $in: uniqueIds } })
+      .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
+      .sort({ position: 1, createdAt: 1 })
+      .exec()) as unknown as TaskDocument[];
+
+    const taskMap = new Map(populated.map((t) => [t._id.toString(), t]));
+
+    return raw.map((r) => ({
+      groupKey: r._groupName ?? null,
+      tasks: r.taskIds
+        .map((id) => taskMap.get(id.toString()))
+        .filter((t): t is TaskDocument => t !== undefined),
+      totalStoryPoints: r.totalStoryPoints,
+      count: r.count,
+    }));
+  }
+
+  private async groupByEpic(
+    match: Record<string, unknown>,
+  ): Promise<GroupedResult[]> {
+    // Group by the planning axis (epicId). A self-$lookup on the tasks
+    // collection resolves the parent epic's name for the group header.
+    // Tasks without an epic (epicId null) collapse into a single null group.
+    const pipeline: PipelineStage[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: 'tasks',
+          localField: 'epicId',
+          foreignField: '_id',
+          as: '_epicDocs',
+        },
+      },
+      {
+        $addFields: {
+          _epicName: { $first: '$_epicDocs.name' },
+        },
+      },
+      {
+        $group: {
+          _id: '$epicId',
+          _groupName: { $first: '$_epicName' },
+          taskIds: { $push: '$_id' },
+          totalStoryPoints: { $sum: { $ifNull: ['$storyPoints', 0] } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _groupName: 1 } },
+    ];
+
+    const raw = await this.taskModel.aggregate<{
+      _id: Types.ObjectId | null;
+      _groupName: string | null;
+      taskIds: Types.ObjectId[];
+      totalStoryPoints: number;
+      count: number;
+    }>(pipeline);
+
+    if (raw.length === 0) return [];
+
+    const allTaskIds = raw.flatMap((r) => r.taskIds);
+    const populated = (await this.taskModel
+      .find({ _id: { $in: allTaskIds } })
       .populate('assignees', 'email displayName avatarUrl')
       .populate('tags')
       .sort({ position: 1, createdAt: 1 })

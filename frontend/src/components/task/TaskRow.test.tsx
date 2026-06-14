@@ -105,6 +105,29 @@ describe('TaskRow', () => {
     expect(screen.queryByRole('button', { name: /épico:/i })).not.toBeInTheDocument();
   });
 
+  it('colours the epic membership chip with the epic colour', async () => {
+    vi.mocked(tasksApi.getTask).mockResolvedValue({ _id: 'e1', name: 'Onboarding' } as never);
+    renderRow({ ...TASK, epicId: 'e1' });
+    const chip = await screen.findByRole('button', { name: /épico: onboarding/i });
+    expect(chip.style.color).not.toBe('');
+  });
+
+  describe('epic row', () => {
+    it('shows the Épico badge and a coloured left accent for epics', () => {
+      renderRow({ ...TASK, isEpic: true });
+      expect(screen.getByText('Épico')).toBeInTheDocument();
+      const row = screen.getByRole('row');
+      expect(row.style.borderLeftStyle).toBe('solid');
+      expect(row.style.borderLeftColor).not.toBe('');
+    });
+
+    it('does not give a normal task the epic accent', () => {
+      renderRow();
+      const row = screen.getByRole('row');
+      expect(row.style.borderLeftStyle).toBe('');
+    });
+  });
+
   it('renders story points', () => {
     renderRow();
     expect(screen.getByRole('button', { name: /pontos: 5/i })).toBeInTheDocument();

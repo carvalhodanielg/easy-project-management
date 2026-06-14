@@ -286,6 +286,64 @@ describe('TasksFilterService', () => {
       const groupStage = pipeline.find((s) => s.$group);
       expect(groupStage?.$group?._id).toBe('$priority');
     });
+
+    it('groupBy=epic groups by epicId and resolves the epic name as groupKey', async () => {
+      const epicObjId = new Types.ObjectId();
+      const child = mockTasks[0];
+      mockTaskModel.aggregate.mockResolvedValueOnce([
+        {
+          _id: epicObjId,
+          _groupName: 'Auth',
+          taskIds: [child._id],
+          totalStoryPoints: 5,
+          count: 1,
+        },
+      ]);
+      mockTaskModel.find.mockReturnValue(makeChain([child]));
+
+      const result = (await service.findFiltered(
+        spaceId,
+        { groupBy: 'epic' },
+        userId,
+      )) as GroupedResult[];
+
+      // Pipeline groups by $epicId and looks up the parent epic's name.
+      const pipeline = mockTaskModel.aggregate.mock.calls[0][0] as {
+        $group?: { _id: string };
+        $lookup?: { from: string };
+      }[];
+      const groupStage = pipeline.find((s) => s.$group);
+      expect(groupStage?.$group?._id).toBe('$epicId');
+      const lookupStage = pipeline.find((s) => s.$lookup);
+      expect(lookupStage?.$lookup?.from).toBe('tasks');
+
+      expect(result[0].groupKey).toBe('Auth');
+      expect(result[0].totalStoryPoints).toBe(5);
+      expect(result[0].tasks).toHaveLength(1);
+    });
+
+    it('groupBy=epic returns groupKey null for tasks without an epic', async () => {
+      const task = mockTasks[1];
+      mockTaskModel.aggregate.mockResolvedValueOnce([
+        {
+          _id: null,
+          _groupName: null,
+          taskIds: [task._id],
+          totalStoryPoints: 3,
+          count: 1,
+        },
+      ]);
+      mockTaskModel.find.mockReturnValue(makeChain([task]));
+
+      const result = (await service.findFiltered(
+        spaceId,
+        { groupBy: 'epic' },
+        userId,
+      )) as GroupedResult[];
+
+      expect(result[0].groupKey).toBeNull();
+      expect(result[0].count).toBe(1);
+    });
   });
 
   describe('getSprintPointSums', () => {

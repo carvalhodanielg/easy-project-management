@@ -109,6 +109,22 @@ describe('TaskRow', () => {
     expect(screen.getByRole('button', { name: /pontos: 5/i })).toBeInTheDocument();
   });
 
+  it('offers a "Remover" option in the points popover that clears points', async () => {
+    renderRow();
+    fireEvent.click(screen.getByRole('button', { name: /pontos: 5/i }));
+    const remove = screen.getByRole('button', { name: /remover pontos/i });
+    fireEvent.click(remove);
+    await waitFor(() =>
+      expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { storyPoints: null }),
+    );
+  });
+
+  it('hides the "Remover" option when the task has no points', () => {
+    renderRow({ ...TASK, storyPoints: null });
+    fireEvent.click(screen.getByRole('button', { name: /adicionar pontos/i }));
+    expect(screen.queryByRole('button', { name: /remover pontos/i })).not.toBeInTheDocument();
+  });
+
   it('shows expand button when onToggleExpand is provided', () => {
     const onToggle = vi.fn();
     renderRow({ ...TASK, subtaskCount: 2 }, { onToggleExpand: onToggle });

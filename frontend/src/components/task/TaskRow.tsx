@@ -537,6 +537,16 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             className="z-[9999] bg-modal border border-line rounded-xl shadow-2xl py-1 min-w-[96px] overflow-y-auto"
           >
             <div className="flex flex-col">
+              {localPoints !== null && (
+                <button
+                  aria-label="Remover pontos"
+                  onClick={() => changePoints(null)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors rounded-lg text-ink-muted hover:bg-lift border-b border-line-dim mb-1"
+                >
+                  <span className="tabular-nums w-6 text-right">—</span>
+                  <span className="text-xs">Remover</span>
+                </button>
+              )}
               {FIBONACCI_POINTS.map((pt) => (
                 <button
                   key={pt}

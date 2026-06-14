@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { resolveSprintDrop } from './resolveSprintDrop';
+import { resolveSprintDrop, isSprintDropzone } from './resolveSprintDrop';
 
 /** Build a minimal DragEndEvent shaped object for the helper. */
 function event(
@@ -62,5 +62,21 @@ describe('resolveSprintDrop', () => {
   it('returns null when there is no drop target', () => {
     const e = event({ id: 'task1', data: { type: 'task', sprintId: 'sprintA' } }, null);
     expect(resolveSprintDrop(e, 'sprintA')).toBeNull();
+  });
+});
+
+describe('isSprintDropzone', () => {
+  it('is true when the drop target is a sprint dropzone', () => {
+    const over = { data: { current: { type: 'sprint-dropzone', sprintId: 'sprintB' } } };
+    expect(isSprintDropzone(over)).toBe(true);
+  });
+
+  it('is false when there is no drop target', () => {
+    expect(isSprintDropzone(null)).toBe(false);
+  });
+
+  it('is false for a non-sprint-dropzone target', () => {
+    const over = { data: { current: { type: 'task' } } };
+    expect(isSprintDropzone(over)).toBe(false);
   });
 });

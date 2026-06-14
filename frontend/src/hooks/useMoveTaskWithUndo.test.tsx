@@ -99,6 +99,47 @@ describe('useMoveTaskWithUndo', () => {
     await waitFor(() => expect(undoFn).toHaveBeenCalled());
   });
 
+  it('calls onSettled after a successful move', async () => {
+    const onSettled = vi.fn();
+    const qc = newClient();
+
+    const { result } = renderHook(() => useMoveTaskWithUndo('sp1'), {
+      wrapper: wrapperWith(qc),
+    });
+
+    act(() => {
+      result.current.run({
+        moveFn: vi.fn().mockResolvedValue(undefined),
+        undoFn: vi.fn().mockResolvedValue(undefined),
+        message: 'x',
+        onSettled,
+      });
+    });
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled());
+  });
+
+  it('calls onSettled even when the move fails', async () => {
+    const onSettled = vi.fn();
+    const qc = newClient();
+
+    const { result } = renderHook(() => useMoveTaskWithUndo('sp1'), {
+      wrapper: wrapperWith(qc),
+    });
+
+    act(() => {
+      result.current.run({
+        moveFn: vi.fn().mockRejectedValue(new Error('boom')),
+        undoFn: vi.fn(),
+        message: 'x',
+        onSettled,
+      });
+    });
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled());
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   it('does not show a toast when the move fails', async () => {
     const qc = newClient();
     const { result } = renderHook(() => useMoveTaskWithUndo('sp1'), {

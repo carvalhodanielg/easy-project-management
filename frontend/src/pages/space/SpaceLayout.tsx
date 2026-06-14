@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, useContext, useRef, type FormEvent } from 'react';
 import { Outlet, useParams, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,8 +44,9 @@ import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useMoveTaskWithUndo } from '../../hooks/useMoveTaskWithUndo';
 import { TaskDragProvider } from '../../contexts/TaskDragProvider';
+import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import type { ReorderHandler } from '../../contexts/TaskDragContext';
-import { resolveSprintDrop } from './resolveSprintDrop';
+import { resolveSprintDrop, isSprintDropzone } from './resolveSprintDrop';
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   0: 'Domingo', 1: 'Segunda', 2: 'Terça', 3: 'Quarta',
@@ -116,7 +117,7 @@ function SectionHeader({
  * A sprint row in the sidebar. Doubles as a drop target: dragging a task from
  * the open sprint and releasing it here moves the task to this sprint.
  */
-function SprintNavItem({
+export function SprintNavItem({
   sprint,
   spaceId,
   indented,
@@ -126,6 +127,8 @@ function SprintNavItem({
   indented?: boolean;
 }) {
   const ds = sprintDisplayStatus(sprint);
+  const movingToSprintId = useContext(MovingSprintContext);
+  const isMoving = movingToSprintId === sprint._id;
   const { setNodeRef, isOver } = useDroppable({
     id: `sprint-dz-${sprint._id}`,
     data: { type: 'sprint-dropzone', sprintId: sprint._id },
@@ -134,7 +137,10 @@ function SprintNavItem({
   return (
     <div
       ref={setNodeRef}
-      className={cn('rounded-lg transition-colors', isOver && 'ring-1 ring-brand/60 bg-brand/10')}
+      className={cn(
+        'rounded-lg transition-colors',
+        (isOver || isMoving) && 'ring-1 ring-brand/60 bg-brand/10',
+      )}
     >
       <NavLink
         to={`/spaces/${spaceId}/sprints/${sprint._id}`}
@@ -154,9 +160,16 @@ function SprintNavItem({
         <span className="truncate text-xs font-medium flex-1 min-w-0">
           Sprint {indented ? (sprint.folderNumber ?? sprint.number) : sprint.number}
         </span>
-        <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
-          {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
-        </span>
+        {isMoving ? (
+          <span className="shrink-0 flex items-center gap-1 text-[10px] text-brand">
+            <Loader2 size={10} className="animate-spin" />
+            movendo…
+          </span>
+        ) : (
+          <span className="shrink-0 text-[10px] text-ink-muted tabular-nums">
+            {fmtShort(sprint.startDate)} - {fmtShort(sprint.endDate)}
+          </span>
+        )}
       </NavLink>
     </div>
   );
@@ -698,6 +711,12 @@ export function SpaceLayout() {
   // Name of the task currently being dragged — drives the floating DragOverlay
   // cue that follows the cursor so it's clear a task is being carried.
   const [draggingTaskName, setDraggingTaskName] = useState<string | null>(null);
+  // Whether the dragged task is currently over a sidebar sprint dropzone — the
+  // floating cue only shows then, so in-list reordering keeps its native visual.
+  const [overSprintDropzone, setOverSprintDropzone] = useState(false);
+  // Sprint a task is being moved into while the API call is in flight — drives
+  // the per-sprint "movendo…" indicator in the sidebar.
+  const [movingToSprintId, setMovingToSprintId] = useState<string | null>(null);
 
   function handleDragStart(event: DragStartEvent) {
     if (event.active.data.current?.type === 'task') {
@@ -720,10 +739,12 @@ export function SpaceLayout() {
 
   function rootDragEnd(event: DragEndEvent) {
     setDraggingTaskName(null);
+    setOverSprintDropzone(false);
     const drop = resolveSprintDrop(event, openSprintId);
     if (drop) {
       const target = sprints.find((s) => s._id === drop.targetSprintId);
       const label = target ? `Sprint ${target.folderNumber ?? target.number}` : 'outra sprint';
+      setMovingToSprintId(drop.targetSprintId);
       moveWithUndo.run({
         moveFn: () => tasksApi.bulkMoveTasks(spaceId!, [drop.taskId], { sprintId: drop.targetSprintId }),
         undoFn: () =>
@@ -731,6 +752,7 @@ export function SpaceLayout() {
             ? tasksApi.bulkMoveTasks(spaceId!, [drop.taskId], { sprintId: drop.sourceSprintId })
             : Promise.resolve(),
         message: `Tarefa movida para ${label}`,
+        onSettled: () => setMovingToSprintId(null),
       });
       return;
     }
@@ -791,9 +813,11 @@ export function SpaceLayout() {
         sensors={sensors}
         collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
+        onDragOver={(e) => setOverSprintDropzone(isSprintDropzone(e.over))}
         onDragEnd={rootDragEnd}
-        onDragCancel={() => setDraggingTaskName(null)}
+        onDragCancel={() => { setDraggingTaskName(null); setOverSprintDropzone(false); }}
       >
+      <MovingSprintContext.Provider value={movingToSprintId}>
       <TaskDragProvider reorderHandlerRef={reorderHandlerRef}>
       <div className="flex flex-1 overflow-hidden">
 
@@ -974,10 +998,12 @@ export function SpaceLayout() {
       </main>
       </div>
       </TaskDragProvider>
+      </MovingSprintContext.Provider>
 
-      {/* Floating cue that follows the cursor while dragging a task */}
+      {/* Floating cue that follows the cursor — only while carrying a task over
+          the sidebar sprint list; in-list reordering keeps its native visual. */}
       <DragOverlay dropAnimation={null}>
-        {draggingTaskName ? (
+        {draggingTaskName && overSprintDropzone ? (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-brand/40 shadow-xl text-sm text-ink max-w-xs cursor-grabbing">
             <GripVertical size={13} className="text-ink-muted shrink-0" />
             <span className="truncate font-medium">{draggingTaskName}</span>

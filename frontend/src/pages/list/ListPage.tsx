@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { LayoutList, Kanban, Plus, X } from 'lucide-react';
+import { LayoutList, Kanban, Plus, X, Layers } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -47,12 +47,13 @@ export function ListPage() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showCreate, setShowCreate] = useState(false);
+  const [createMode, setCreateMode] = useState<'task' | 'epic'>('task');
   const [newTaskName, setNewTaskName] = useState('');
   const [openFiltersSignal, setOpenFiltersSignal] = useState(0);
 
   // Page-local shortcuts: N → new task, F → open filters.
   useKeyboardShortcuts({
-    n: () => setShowCreate(true),
+    n: () => startCreate('task'),
     f: () => setOpenFiltersSignal((v) => v + 1),
   });
 
@@ -185,14 +186,21 @@ export function ListPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => tasksApi.createTask(spaceId!, { name, listId }),
+    mutationFn: (name: string) =>
+      tasksApi.createTask(spaceId!, { name, listId, isEpic: createMode === 'epic' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       setNewTaskName('');
       setShowCreate(false);
+      setCreateMode('task');
     },
     onError: () => alert('Falha ao criar tarefa. Tente novamente.'),
   });
+
+  function startCreate(mode: 'task' | 'epic') {
+    setCreateMode(mode);
+    setShowCreate(true);
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -237,8 +245,15 @@ export function ListPage() {
             openSignal={openFiltersSignal}
           />
           <button
-            onClick={() => setShowCreate(true)}
-            className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
+            onClick={() => startCreate('epic')}
+            className="ml-auto shrink-0 flex items-center gap-1.5 px-3 py-2 bg-lift hover:bg-line text-ink-dim text-sm font-medium rounded-lg border border-line transition-all"
+            title="Planejar uma grande tarefa que atravessa sprints"
+          >
+            <Layers size={13} /> Novo épico
+          </button>
+          <button
+            onClick={() => startCreate('task')}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-medium rounded-lg transition-all"
           >
             <Plus size={13} /> Nova tarefa
           </button>
@@ -346,7 +361,7 @@ export function ListPage() {
                     if (e.key === 'Enter' && newTaskName.trim()) createMutation.mutate(newTaskName.trim());
                     if (e.key === 'Escape') { setShowCreate(false); setNewTaskName(''); }
                   }}
-                  placeholder="Nome da tarefa…"
+                  placeholder={createMode === 'epic' ? 'Nome do épico…' : 'Nome da tarefa…'}
                   className="bg-transparent border-b border-brand text-sm text-ink placeholder:text-ink-muted focus:outline-none py-1 pr-2"
                 />
                 <div className="col-span-5 flex gap-1.5 pl-2">
@@ -369,7 +384,7 @@ export function ListPage() {
 
             {!showCreate && (
               <button
-                onClick={() => setShowCreate(true)}
+                onClick={() => startCreate('task')}
                 className="flex items-center gap-2 px-5 py-3 w-full text-sm text-ink-muted hover:text-ink hover:bg-lift/40 transition-colors"
               >
                 <Plus size={13} /> Adicionar tarefa

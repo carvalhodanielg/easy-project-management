@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult, TaskStatus, TaskPriority } from '../types/task.types';
+import { Task, CreateTaskPayload, UpdateTaskPayload, TaskFilterParams, GroupedTaskResult, TaskStatus, TaskPriority, EpicRollup } from '../types/task.types';
 
 interface ApiResponse<T> { data: T; }
 
@@ -92,6 +92,21 @@ export async function permanentDeleteTask(spaceId: string, taskId: string): Prom
 export async function getSubtasks(spaceId: string, taskId: string): Promise<Task[]> {
   const res = await apiClient.get<ApiResponse<Task[]>>(
     `/spaces/${spaceId}/tasks/${taskId}/subtasks`,
+  );
+  return res.data.data;
+}
+
+// ── Epics ─────────────────────────────────────────────────────────────────────
+export async function getEpicChildren(spaceId: string, epicId: string): Promise<Task[]> {
+  const res = await apiClient.get<ApiResponse<Task[]>>(
+    `/spaces/${spaceId}/tasks/${epicId}/epic-children`,
+  );
+  return res.data.data;
+}
+
+export async function getEpicRollup(spaceId: string, epicId: string): Promise<EpicRollup> {
+  const res = await apiClient.get<ApiResponse<EpicRollup>>(
+    `/spaces/${spaceId}/tasks/${epicId}/rollup`,
   );
   return res.data.data;
 }

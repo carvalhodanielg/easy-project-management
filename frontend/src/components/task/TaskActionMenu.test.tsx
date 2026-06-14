@@ -50,6 +50,8 @@ const BASE_TASK: Task = {
   blocks: [],
   description: '',
   parentTask: null,
+  isEpic: false,
+  epicId: null,
   listId: 'l1',
   sprintId: null,
   spaceId: 'sp1',

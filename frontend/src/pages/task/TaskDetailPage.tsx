@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Pencil, Check, Loader2, CornerLeftUp, Layers } from 'lucide-react';
+import { X, Pencil, Check, Loader2, CornerLeftUp, Layers, Sigma } from 'lucide-react';
 import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 import * as tasksApi from '../../api/tasks.api';
 import { CommentThread } from '../../components/task/CommentThread';
@@ -288,14 +288,24 @@ export function TaskDetailPage() {
                     ))}
                   </select>
 
-                  <select
-                    value={task.storyPoints ?? ''}
-                    onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
-                    className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
-                  >
-                    <option value="">— pts</option>
-                    {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
-                  </select>
+                  {task.subtaskPoints > 0 ? (
+                    <span
+                      title={`Soma das ${task.subtaskCount} subtarefas`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs border border-line bg-lift text-ink-dim"
+                    >
+                      <Sigma size={11} className="opacity-60" />
+                      {task.subtaskPoints} pts
+                    </span>
+                  ) : (
+                    <select
+                      value={task.storyPoints ?? ''}
+                      onChange={(e) => updateMutation.mutate({ storyPoints: e.target.value ? Number(e.target.value) : null })}
+                      className="appearance-none px-2.5 py-1.5 rounded-lg text-xs cursor-pointer focus:outline-none border border-line bg-lift text-ink-dim"
+                    >
+                      <option value="">— pts</option>
+                      {FIBONACCI_POINTS.map((p) => <option key={p} value={p}>{p} pts</option>)}
+                    </select>
+                  )}
 
                   <input
                     type="date"

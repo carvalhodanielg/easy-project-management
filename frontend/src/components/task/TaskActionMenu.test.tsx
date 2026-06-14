@@ -51,6 +51,7 @@ const BASE_TASK: Task = {
   description: '',
   parentTask: null,
   isEpic: false,
+  subtaskPoints: 0,
   epicId: null,
   listId: 'l1',
   sprintId: null,

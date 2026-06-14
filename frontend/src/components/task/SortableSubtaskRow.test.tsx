@@ -34,6 +34,7 @@ const SUBTASK: Task = {
   description: '',
   parentTask: 't1',
   isEpic: false,
+  subtaskPoints: 0,
   epicId: null,
   listId: 'l1',
   sprintId: null,

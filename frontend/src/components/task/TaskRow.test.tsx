@@ -39,6 +39,7 @@ const TASK: Task = {
   description: '',
   parentTask: null,
   isEpic: false,
+  subtaskPoints: 0,
   epicId: null,
   listId: 'l1',
   sprintId: null,
@@ -107,6 +108,13 @@ describe('TaskRow', () => {
   it('renders story points', () => {
     renderRow();
     expect(screen.getByRole('button', { name: /pontos: 5/i })).toBeInTheDocument();
+  });
+
+  it('shows read-only rolled-up points (no picker) when the task has pointed subtasks', () => {
+    renderRow({ ...TASK, subtaskCount: 2, subtaskPoints: 13 });
+    expect(screen.getByLabelText(/soma das subtarefas\): 13/i)).toBeInTheDocument();
+    // The editable points button is replaced by the read-only sum.
+    expect(screen.queryByRole('button', { name: /pontos:/i })).not.toBeInTheDocument();
   });
 
   it('offers a "Remover" option in the points popover that clears points', async () => {

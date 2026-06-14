@@ -50,6 +50,8 @@ export interface Task {
   blocks: { _id: string; name: string; status: TaskStatus }[];
   position: number;
   subtaskCount: number;
+  /** Sum of this task's subtasks' points; when > 0 the task is a rolled-up parent. */
+  subtaskPoints: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

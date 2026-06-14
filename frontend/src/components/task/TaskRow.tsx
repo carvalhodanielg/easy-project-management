@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers, Sigma } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask, getTask } from '../../api/tasks.api';
@@ -57,6 +57,9 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
+  // A task whose subtasks carry points is a rolled-up parent: its points are the
+  // sum of its subtasks (read-only) instead of an editable own estimate.
+  const isRolledUp = (task.subtaskPoints ?? 0) > 0;
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
   const selectionMode = !!onSelect;
 
@@ -501,7 +504,17 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
         className="relative flex justify-center"
         onClick={(e) => e.stopPropagation()}
       >
-        {localPoints !== null ? (
+        {isRolledUp ? (
+          <Tooltip content={`Soma das ${task.subtaskCount} subtarefas`}>
+            <span
+              aria-label={`Pontos (soma das subtarefas): ${task.subtaskPoints}`}
+              className="text-xs font-medium text-ink-dim tabular-nums bg-lift px-1.5 py-0.5 rounded inline-flex items-center gap-0.5"
+            >
+              <Sigma size={9} className="opacity-60" />
+              {task.subtaskPoints}
+            </span>
+          </Tooltip>
+        ) : localPoints !== null ? (
           <button
             ref={pointsBtnRef}
             aria-label={`Pontos: ${localPoints}`}

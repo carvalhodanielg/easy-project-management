@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers, Sigma } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers, Sigma, Zap } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask, getTask } from '../../api/tasks.api';
@@ -51,9 +51,16 @@ interface Props {
   onStartSelect?: (id: string, kind: 'main' | 'subtask') => void;
   onAddSubtask?: () => void;
   dragHandle?: React.ReactNode;
+  /**
+   * In the epic list, where children span sprints, mark each row with the sprint
+   * it is scheduled into — or "Backlog" when it has none. Off by default so other
+   * views (e.g. the sprint board, where it would be redundant) stay unchanged.
+   */
+  showSprintChip?: boolean;
+  sprint?: { name: string; number?: number } | null;
 }
 
-export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect, onStartSelect, onAddSubtask, dragHandle }: Props) {
+export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelected, onSelect, onStartSelect, onAddSubtask, dragHandle, showSprintChip, sprint }: Props) {
   const navigate  = useNavigate();
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
@@ -451,6 +458,24 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
             </button>
           </Tooltip>
         )}
+
+        {!editingName && showSprintChip && (sprint ? (
+          <Tooltip content={`Já está no sprint: ${sprint.name}`}>
+            <span
+              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium max-w-[140px]"
+              style={{ background: '#0EA5E91A', color: '#0EA5E9' }}
+            >
+              <Zap size={10} className="shrink-0" />
+              <span className="truncate">{sprint.name}</span>
+            </span>
+          </Tooltip>
+        ) : (
+          <Tooltip content="Ainda no backlog (sem sprint)">
+            <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-lift text-ink-muted">
+              Backlog
+            </span>
+          </Tooltip>
+        ))}
 
         {!editingName && task.tags.slice(0, 2).map((tag) => (
           <span

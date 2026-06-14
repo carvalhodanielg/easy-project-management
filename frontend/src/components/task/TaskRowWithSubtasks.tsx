@@ -20,9 +20,12 @@ interface Props {
   /** Indentation level of this row. 0 = top level; 1 when nested under an epic,
    *  so its subtasks form a visible third level (epic → task → subtask). */
   depth?: number;
+  /** In the epic list, mark each child with its sprint (or Backlog). */
+  showSprintChip?: boolean;
+  sprint?: { name: string; number?: number } | null;
 }
 
-export function TaskRowWithSubtasks({ task, spaceId, subtaskMode = 'collapsed', isSelected, selectionMode, onSelect, isSelectedFn, subtaskSortable, dragHandle, epicDefaultExpanded, depth = 0 }: Props) {
+export function TaskRowWithSubtasks({ task, spaceId, subtaskMode = 'collapsed', isSelected, selectionMode, onSelect, isSelectedFn, subtaskSortable, dragHandle, epicDefaultExpanded, depth = 0, showSprintChip, sprint }: Props) {
   const forceExpanded = subtaskMode === 'expanded';
   const [expanded, setExpanded] = useState(
     task.isEpic ? !!epicDefaultExpanded : subtaskMode === 'expanded' || task.subtaskCount > 0,
@@ -70,6 +73,8 @@ export function TaskRowWithSubtasks({ task, spaceId, subtaskMode = 'collapsed', 
       <TaskRow
         task={task}
         depth={depth}
+        showSprintChip={showSprintChip}
+        sprint={sprint}
         onToggleExpand={!selectionMode && hasSubtasks && !forceExpanded ? () => setExpanded((e) => !e) : undefined}
         isExpanded={forceExpanded || expanded}
         isSelected={isSelected}

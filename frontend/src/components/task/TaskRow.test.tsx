@@ -93,6 +93,21 @@ describe('TaskRow', () => {
     expect(screen.getByText('Backend')).toBeInTheDocument();
   });
 
+  it('shows the sprint name chip when in a sprint (showSprintChip)', () => {
+    renderRow(TASK, { showSprintChip: true, sprint: { name: 'Sprint 3', number: 3 } });
+    expect(screen.getByText('Sprint 3')).toBeInTheDocument();
+  });
+
+  it('shows a Backlog chip when not in a sprint (showSprintChip)', () => {
+    renderRow(TASK, { showSprintChip: true, sprint: null });
+    expect(screen.getByText('Backlog')).toBeInTheDocument();
+  });
+
+  it('shows no sprint/Backlog chip by default (showSprintChip absent)', () => {
+    renderRow();
+    expect(screen.queryByText('Backlog')).not.toBeInTheDocument();
+  });
+
   it('shows epic chip when the task belongs to an epic', async () => {
     vi.mocked(tasksApi.getTask).mockResolvedValue({ _id: 'e1', name: 'Onboarding' } as never);
     renderRow({ ...TASK, epicId: 'e1' });

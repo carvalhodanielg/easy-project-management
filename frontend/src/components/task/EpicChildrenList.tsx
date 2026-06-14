@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
 import { TaskRowWithSubtasks } from './TaskRowWithSubtasks';
+import type { Task } from '../../types/task.types';
 
 interface Props {
   spaceId: string;
@@ -29,18 +30,26 @@ export function EpicChildrenList({ spaceId, epicId, onSelect, isSelectedFn, sele
 
   return (
     <div>
-      {children.map((child) => (
-        <TaskRowWithSubtasks
-          key={child._id}
-          task={child}
-          spaceId={spaceId}
-          depth={1}
-          isSelected={isSelectedFn?.(child._id)}
-          isSelectedFn={isSelectedFn}
-          selectionMode={selectionMode}
-          onSelect={onSelect}
-        />
-      ))}
+      {children.map((child) => {
+        // The endpoint populates the origin sprint; split it back out so the row
+        // gets a plain Task while still showing where the child is scheduled.
+        const { sprintId, ...rest } = child;
+        const task: Task = { ...rest, sprintId: sprintId?._id ?? null };
+        return (
+          <TaskRowWithSubtasks
+            key={child._id}
+            task={task}
+            spaceId={spaceId}
+            depth={1}
+            showSprintChip
+            sprint={sprintId}
+            isSelected={isSelectedFn?.(child._id)}
+            isSelectedFn={isSelectedFn}
+            selectionMode={selectionMode}
+            onSelect={onSelect}
+          />
+        );
+      })}
     </div>
   );
 }

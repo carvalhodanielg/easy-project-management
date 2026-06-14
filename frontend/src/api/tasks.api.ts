@@ -97,8 +97,14 @@ export async function getSubtasks(spaceId: string, taskId: string): Promise<Task
 }
 
 // ── Epics ─────────────────────────────────────────────────────────────────────
-export async function getEpicChildren(spaceId: string, epicId: string): Promise<Task[]> {
-  const res = await apiClient.get<ApiResponse<Task[]>>(
+// Epic children may live in any sprint (the cross-sprint reach is the point of
+// an epic), so the endpoint populates the origin sprint for each child.
+export interface EpicChildTask extends Omit<Task, 'sprintId'> {
+  sprintId: { _id: string; name: string; number?: number } | null;
+}
+
+export async function getEpicChildren(spaceId: string, epicId: string): Promise<EpicChildTask[]> {
+  const res = await apiClient.get<ApiResponse<EpicChildTask[]>>(
     `/spaces/${spaceId}/tasks/${epicId}/epic-children`,
   );
   return res.data.data;

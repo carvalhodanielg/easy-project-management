@@ -5,7 +5,7 @@ import { Loader2, Plus, Layers } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip as RTooltip } from 'recharts';
 import * as tasksApi from '../../api/tasks.api';
 import * as sprintsApi from '../../api/sprints.api';
-import type { Task, TaskStatus } from '../../types/task.types';
+import type { TaskStatus } from '../../types/task.types';
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
   pendente: '#52525B',
@@ -78,7 +78,7 @@ export function EpicRollupPanel({ spaceId, epicId }: Props) {
       label: sprintLabel(bucket.sprintId),
       points: bucket.points,
       donePoints: bucket.donePoints,
-      tasks: children.filter((c) => (c.sprintId ?? null) === bucket.sprintId),
+      tasks: children.filter((c) => (c.sprintId?._id ?? null) === bucket.sprintId),
     }));
 
   const chartData = groups.map((g) => ({
@@ -151,7 +151,7 @@ export function EpicRollupPanel({ spaceId, epicId }: Props) {
                 {g.donePoints}/{g.points} pts
               </span>
             </div>
-            {g.tasks.map((child: Task) => (
+            {g.tasks.map((child) => (
               <button
                 key={child._id}
                 onClick={() => navigate(`/spaces/${spaceId}/tasks/${child._id}`)}

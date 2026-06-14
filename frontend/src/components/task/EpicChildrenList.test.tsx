@@ -16,8 +16,8 @@ const CHILDREN = [
   { _id: 'c1', name: 'Tela de login', status: 'pendente', priority: 'normal', storyPoints: null,
     dueDate: null, assignees: [], tags: [], subtaskCount: 0, blockedBy: [], blocks: [],
     description: '', parentTask: null, isEpic: false, subtaskPoints: 0, epicId: 'e1',
-    listId: 'l1', sprintId: null, spaceId: 'sp1', position: 0, createdBy: 'u1',
-    startDate: null, createdAt: '', updatedAt: '' },
+    listId: 'l1', sprintId: { _id: 's1', name: 'Sprint 3', number: 3 }, spaceId: 'sp1',
+    position: 0, createdBy: 'u1', startDate: null, createdAt: '', updatedAt: '' },
   { _id: 'c2', name: 'Endpoint de token', status: 'feito', priority: 'normal', storyPoints: 3,
     dueDate: null, assignees: [], tags: [], subtaskCount: 0, blockedBy: [], blocks: [],
     description: '', parentTask: null, isEpic: false, subtaskPoints: 0, epicId: 'e1',
@@ -47,6 +47,13 @@ describe('EpicChildrenList', () => {
     await waitFor(() => expect(screen.getByText('Tela de login')).toBeInTheDocument());
     expect(screen.getByText('Endpoint de token')).toBeInTheDocument();
     expect(tasksApi.getEpicChildren).toHaveBeenCalledWith('sp1', 'e1');
+  });
+
+  it('flags whether each child is in a sprint or in the backlog', async () => {
+    renderList();
+    // Child scheduled into a sprint shows the sprint name; backlog child is labelled.
+    await waitFor(() => expect(screen.getByText('Sprint 3')).toBeInTheDocument());
+    expect(screen.getByText('Backlog')).toBeInTheDocument();
   });
 
   it('reveals a child\'s subtasks (third level: epic → task → subtask)', async () => {

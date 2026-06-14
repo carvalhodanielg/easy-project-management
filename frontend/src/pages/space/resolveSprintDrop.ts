@@ -1,5 +1,17 @@
 import type { DragEndEvent } from '@dnd-kit/core';
 
+/** Minimal shape of @dnd-kit's `over` needed to identify a sprint dropzone. */
+type DroppableLike = { data: { current?: { type?: string } } } | null | undefined;
+
+/**
+ * Whether a drag is currently over a sidebar sprint dropzone. Used to gate the
+ * floating drag cue so it only appears when carrying a task toward the sidebar,
+ * not during in-list reordering.
+ */
+export function isSprintDropzone(over: DroppableLike): boolean {
+  return over?.data.current?.type === 'sprint-dropzone';
+}
+
 export interface SprintDropResult {
   taskId: string;
   targetSprintId: string;
@@ -23,9 +35,9 @@ export function resolveSprintDrop(
   if (!over) return null;
 
   if (active.data.current?.type !== 'task') return null;
-  if (over.data.current?.type !== 'sprint-dropzone') return null;
+  if (!isSprintDropzone(over)) return null;
 
-  const targetSprintId = over.data.current.sprintId as string | undefined;
+  const targetSprintId = over.data.current?.sprintId as string | undefined;
   if (!targetSprintId) return null;
 
   const sourceSprintId = active.data.current.sprintId as string | undefined;

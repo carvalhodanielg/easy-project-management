@@ -10,6 +10,8 @@ export interface MoveWithUndoParams {
   message: string;
   /** Optional side effect after a successful move. */
   onMoved?: () => void;
+  /** Optional side effect once the move settles — runs on success *and* failure. */
+  onSettled?: () => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function useMoveTaskWithUndo(spaceId: string) {
         duration: 6000,
       });
     },
+    onSettled: (_data, _error, params) => params.onSettled?.(),
   });
 
   return {

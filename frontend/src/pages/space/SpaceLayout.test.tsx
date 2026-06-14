@@ -2,7 +2,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { SpaceLayout } from './SpaceLayout';
+import { SpaceLayout, SprintNavItem } from './SpaceLayout';
+import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import { useUiStore } from '../../store/ui.store';
 import * as spacesApi from '../../api/spaces.api';
 import * as listsApi from '../../api/lists.api';
@@ -128,6 +129,45 @@ describe('SpaceLayout – sidebar sprint item', () => {
     const row = label.closest('a');
     expect(row).not.toBeNull();
     expect(row!.textContent).toMatch(/\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}/);
+  });
+});
+
+describe('SpaceLayout – sprint move-in-progress indicator', () => {
+  const SPRINT: sprintsApi.Sprint = {
+    _id: 'spr1',
+    spaceId: 'sp1',
+    folderId: null,
+    number: 3,
+    folderNumber: null,
+    name: 'Login',
+    startDate: '2000-01-01T00:00:00.000Z',
+    endDate: '2099-12-31T00:00:00.000Z',
+    status: 'active',
+  };
+
+  function renderNavItem(movingToSprintId: string | null) {
+    return render(
+      <MemoryRouter>
+        <MovingSprintContext.Provider value={movingToSprintId}>
+          <SprintNavItem sprint={SPRINT} spaceId="sp1" />
+        </MovingSprintContext.Provider>
+      </MemoryRouter>,
+    );
+  }
+
+  it('shows "movendo…" when this sprint is the move target', () => {
+    renderNavItem('spr1');
+    expect(screen.getByText('movendo…')).toBeInTheDocument();
+  });
+
+  it('does not show "movendo…" when no move is in progress', () => {
+    renderNavItem(null);
+    expect(screen.queryByText('movendo…')).not.toBeInTheDocument();
+  });
+
+  it('does not show "movendo…" when another sprint is the target', () => {
+    renderNavItem('spr-other');
+    expect(screen.queryByText('movendo…')).not.toBeInTheDocument();
   });
 });
 

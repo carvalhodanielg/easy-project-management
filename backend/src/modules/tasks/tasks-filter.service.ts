@@ -42,23 +42,52 @@ export class TasksFilterService {
   private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
     if (tasks.length === 0) return;
     const ids = tasks.map((t) => t._id);
-    const counts = await this.taskModel.aggregate<{
+    const rows = await this.taskModel.aggregate<{
       _id: Types.ObjectId;
       count: number;
+      points: number;
     }>([
       { $match: { parentTask: { $in: ids }, archivedAt: null } },
-      { $group: { _id: '$parentTask', count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: '$parentTask',
+          count: { $sum: 1 },
+          points: { $sum: { $ifNull: ['$storyPoints', 0] } },
+        },
+      },
     ]);
-    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+    const byId = new Map(rows.map((r) => [r._id.toString(), r]));
     for (const task of tasks) {
-      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
+      const e = byId.get(task._id.toString());
+      task.subtaskCount = e?.count ?? 0;
+      task.subtaskPoints = e?.points ?? 0;
     }
+  }
+
+  /** Ids of tasks that have a non-archived subtask carrying story points. */
+  private async rolledUpParentIds(spaceId: string): Promise<Types.ObjectId[]> {
+    const rows = await this.taskModel.aggregate<{ _id: Types.ObjectId }>([
+      {
+        $match: {
+          spaceId: new Types.ObjectId(spaceId),
+          archivedAt: null,
+          parentTask: { $ne: null },
+          storyPoints: { $ne: null },
+        },
+      },
+      { $group: { _id: '$parentTask' } },
+    ]);
+    return rows.map((r) => r._id);
   }
 
   async getSprintPointSums(
     spaceId: string,
     sprintIds?: string[],
   ): Promise<{ sprintId: string; total: number }[]> {
+    // Exclude rolled-up parents so a parent's estimate never double-counts with
+    // its subtasks (story-point Option A): only "leaves" contribute.
+    const rolledUp = await this.rolledUpParentIds(spaceId);
+
     const matchStage: PipelineStage.Match = {
       $match: {
         spaceId: new Types.ObjectId(spaceId),
@@ -66,6 +95,7 @@ export class TasksFilterService {
         sprintId: { $ne: null },
         storyPoints: { $ne: null },
         status: { $ne: TaskStatus.Fechado },
+        ...(rolledUp.length ? { _id: { $nin: rolledUp } } : {}),
         ...(sprintIds?.length
           ? { sprintId: { $in: sprintIds.map((id) => new Types.ObjectId(id)) } }
           : {}),

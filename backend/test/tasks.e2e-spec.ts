@@ -578,4 +578,55 @@ describe('Tasks (e2e)', () => {
         .expect(400);
     });
   });
+
+  describe('Story-point rollup (Option A)', () => {
+    let rSprintId: string;
+    let parentId: string;
+
+    it('sets up a parent with pointed subtasks in a sprint', async () => {
+      const sp = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/sprints`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Rollup Sprint', startDate: '2025-02-01', endDate: '2025-02-14' })
+        .expect(201);
+      rSprintId = sp.body.data._id as string;
+
+      const parent = await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Parent', sprintId: rSprintId, storyPoints: 5 })
+        .expect(201);
+      parentId = parent.body.data._id as string;
+
+      // Subtasks inherit the parent's sprint.
+      await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Sub 1', parentTask: parentId, storyPoints: 8 })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/spaces/${spaceId}/tasks`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Sub 2', parentTask: parentId, storyPoints: 2, status: 'feito' })
+        .expect(201);
+    });
+
+    it('reports the parent points as the rolled-up sum of subtasks', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/tasks/${parentId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(res.body.data.subtaskPoints).toBe(10);
+    });
+
+    it('counts leaves only in sprint stats (no double count with the parent)', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/spaces/${spaceId}/sprints/${rSprintId}/stats`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      // Σ subtasks (8 + 2) — the parent's own 5 is excluded as a rolled-up parent.
+      expect(res.body.data.totalPoints).toBe(10);
+      expect(res.body.data.donePoints).toBe(2);
+    });
+  });
 });

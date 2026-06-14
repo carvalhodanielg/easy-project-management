@@ -164,6 +164,7 @@ export class TasksService {
       .exec();
 
     if (!task) throw new NotFoundException('Task not found');
+    await this.attachSubtaskCounts([task]);
     return task;
   }
 
@@ -197,16 +198,25 @@ export class TasksService {
   private async attachSubtaskCounts(tasks: TaskDocument[]): Promise<void> {
     if (tasks.length === 0) return;
     const ids = tasks.map((t) => t._id);
-    const counts = await this.taskModel.aggregate<{
+    const rows = await this.taskModel.aggregate<{
       _id: Types.ObjectId;
       count: number;
+      points: number;
     }>([
       { $match: { parentTask: { $in: ids }, archivedAt: null } },
-      { $group: { _id: '$parentTask', count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: '$parentTask',
+          count: { $sum: 1 },
+          points: { $sum: { $ifNull: ['$storyPoints', 0] } },
+        },
+      },
     ]);
-    const countMap = new Map(counts.map((c) => [c._id.toString(), c.count]));
+    const byId = new Map(rows.map((r) => [r._id.toString(), r]));
     for (const task of tasks) {
-      task.subtaskCount = countMap.get(task._id.toString()) ?? 0;
+      const e = byId.get(task._id.toString());
+      task.subtaskCount = e?.count ?? 0;
+      task.subtaskPoints = e?.points ?? 0;
     }
   }
 
@@ -258,14 +268,53 @@ export class TasksService {
       .exec();
 
     const isDone = (s: TaskStatus) => s === TaskStatus.Feito;
-    const points = (t: TaskDocument) => t.storyPoints ?? 0;
+
+    // Effective points (story-point Option A): a child whose own subtasks carry
+    // points is a rolled-up parent — use the sum of its subtasks instead of its
+    // own estimate, and derive "done" from the subtasks' statuses.
+    const childIds = children.map((c) => c._id);
+    const subRows = childIds.length
+      ? await this.taskModel.aggregate<{
+          _id: Types.ObjectId;
+          points: number;
+          donePoints: number;
+        }>([
+          {
+            $match: {
+              parentTask: { $in: childIds },
+              archivedAt: null,
+              storyPoints: { $ne: null },
+            },
+          },
+          {
+            $group: {
+              _id: '$parentTask',
+              points: { $sum: '$storyPoints' },
+              donePoints: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', TaskStatus.Feito] }, '$storyPoints', 0],
+                },
+              },
+            },
+          },
+        ])
+      : [];
+    const subMap = new Map(subRows.map((r) => [r._id.toString(), r]));
+
+    const points = (c: TaskDocument) => {
+      const s = subMap.get(c._id.toString());
+      return s ? s.points : (c.storyPoints ?? 0);
+    };
+    const donePointsOf = (c: TaskDocument) => {
+      const s = subMap.get(c._id.toString());
+      if (s) return s.donePoints;
+      return isDone(c.status) ? (c.storyPoints ?? 0) : 0;
+    };
 
     const totalTasks = children.length;
     const doneTasks = children.filter((c) => isDone(c.status)).length;
     const totalPoints = children.reduce((sum, c) => sum + points(c), 0);
-    const donePoints = children
-      .filter((c) => isDone(c.status))
-      .reduce((sum, c) => sum + points(c), 0);
+    const donePoints = children.reduce((sum, c) => sum + donePointsOf(c), 0);
 
     const progressPct =
       totalPoints > 0
@@ -296,7 +345,7 @@ export class TasksService {
       };
       entry.count += 1;
       entry.points += points(c);
-      if (isDone(c.status)) entry.donePoints += points(c);
+      entry.donePoints += donePointsOf(c);
       sprintMap.set(key, entry);
     }
     const bySprint = [...sprintMap.entries()].map(([key, value]) => ({

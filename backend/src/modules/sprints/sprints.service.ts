@@ -96,6 +96,26 @@ export class SprintsService {
     return sprint;
   }
 
+  /**
+   * Ids of tasks that have at least one non-archived subtask carrying story
+   * points. Such "rolled-up parents" are excluded from point sums so a parent's
+   * own estimate never double-counts with its subtasks (story-point Option A).
+   */
+  private async rolledUpParentIds(spaceId: string): Promise<Set<string>> {
+    const rows = await this.taskModel.aggregate<{ _id: Types.ObjectId }>([
+      {
+        $match: {
+          spaceId: new Types.ObjectId(spaceId),
+          archivedAt: null,
+          parentTask: { $ne: null },
+          storyPoints: { $ne: null },
+        },
+      },
+      { $group: { _id: '$parentTask' } },
+    ]);
+    return new Set(rows.map((r) => r._id.toString()));
+  }
+
   async getStats(spaceId: string, sprintId: string): Promise<SprintStats> {
     const sprint = await this.sprintModel
       .findOne({
@@ -119,13 +139,20 @@ export class SprintsService {
       .populate('assignees', 'displayName avatarUrl')
       .exec()) as unknown as PopulatedTask[];
 
+    // Story-point rollup (Option A): a task whose subtasks carry points is a
+    // rolled-up parent — its own points are ignored so each unit of work counts
+    // once. Effective points come only from "leaves" (tasks with no pointed child).
+    const rolledUp = await this.rolledUpParentIds(spaceId);
+    const pts = (t: PopulatedTask) =>
+      rolledUp.has(t._id.toString()) ? 0 : (t.storyPoints ?? 0);
+
     // Totals
     const totalTasks = tasks.length;
     const doneTasks = tasks.filter((t) => t.status === TaskStatus.Feito).length;
-    const totalPoints = tasks.reduce((s, t) => s + (t.storyPoints ?? 0), 0);
+    const totalPoints = tasks.reduce((s, t) => s + pts(t), 0);
     const donePoints = tasks
       .filter((t) => t.status === TaskStatus.Feito)
-      .reduce((s, t) => s + (t.storyPoints ?? 0), 0);
+      .reduce((s, t) => s + pts(t), 0);
 
     // By status
     const allStatuses: TaskStatus[] = [
@@ -140,7 +167,7 @@ export class SprintsService {
       const group = tasks.filter((t) => t.status === s);
       tasksByStatus[s] = {
         count: group.length,
-        points: group.reduce((acc, t) => acc + (t.storyPoints ?? 0), 0),
+        points: group.reduce((acc, t) => acc + pts(t), 0),
       };
     }
 
@@ -163,7 +190,7 @@ export class SprintsService {
         }
         const entry = assigneeMap.get(id)!;
         entry.count += 1;
-        entry.points += task.storyPoints ?? 0;
+        entry.points += pts(task);
       }
     }
     const tasksByAssignee = Array.from(assigneeMap.values());
@@ -188,7 +215,7 @@ export class SprintsService {
       const dateStr = cursor.toISOString().slice(0, 10);
       const completedByDay = doneTasks2
         .filter((t) => t.updatedAt <= cursor)
-        .reduce((s, t) => s + (t.storyPoints ?? 0), 0);
+        .reduce((s, t) => s + pts(t), 0);
       const ideal = Math.round(totalPoints * (1 - day / totalDays));
       burndown.push({
         date: dateStr,
@@ -215,7 +242,11 @@ export class SprintsService {
         .exec();
       previousSprintPoints = prevTasks
         .filter((t) => t.status === TaskStatus.Feito)
-        .reduce((s, t) => s + (t.storyPoints ?? 0), 0);
+        .reduce(
+          (s, t) =>
+            s + (rolledUp.has(t._id.toString()) ? 0 : (t.storyPoints ?? 0)),
+          0,
+        );
     }
 
     return {

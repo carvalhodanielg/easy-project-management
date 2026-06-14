@@ -70,6 +70,8 @@ describe('TasksService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Default: no subtask rollup rows unless a test overrides it.
+    mockTaskModel.aggregate.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TasksService,
@@ -194,9 +196,9 @@ describe('TasksService', () => {
       );
       mockTaskModel.find.mockReturnValue(
         execMock([
-          { status: TaskStatus.Feito, storyPoints: 5, sprintId: sprintA },
-          { status: TaskStatus.Pendente, storyPoints: 3, sprintId: sprintA },
-          { status: TaskStatus.Pendente, storyPoints: 2, sprintId: null },
+          { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 5, sprintId: sprintA },
+          { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 3, sprintId: sprintA },
+          { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 2, sprintId: null },
         ]),
       );
 
@@ -225,6 +227,27 @@ describe('TasksService', () => {
       await expect(service.getEpicRollup(spaceId, epicId)).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('uses a child rolled-up points when the child has pointed subtasks', async () => {
+      const childId = new Types.ObjectId();
+      mockTaskModel.findOne.mockReturnValue(
+        execMock({ _id: new Types.ObjectId(epicId), isEpic: true }),
+      );
+      mockTaskModel.find.mockReturnValue(
+        execMock([
+          { _id: childId, status: TaskStatus.Pendente, storyPoints: 3, sprintId: null },
+        ]),
+      );
+      // The child's own subtasks roll up to 13 points, 8 of them done.
+      mockTaskModel.aggregate.mockResolvedValue([
+        { _id: childId, points: 13, donePoints: 8 },
+      ]);
+
+      const rollup = await service.getEpicRollup(spaceId, epicId);
+
+      expect(rollup.totalPoints).toBe(13);
+      expect(rollup.donePoints).toBe(8);
     });
   });
 

@@ -37,6 +37,7 @@ const mockTaskModel = {
   find: jest.fn(),
   updateMany: jest.fn(),
   deleteMany: jest.fn(),
+  aggregate: jest.fn(),
 };
 
 describe('SprintsService', () => {
@@ -44,6 +45,8 @@ describe('SprintsService', () => {
 
   beforeEach(async () => {
     jest.resetAllMocks();
+    // Default: no rolled-up parents unless a test overrides it.
+    mockTaskModel.aggregate.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -165,9 +168,9 @@ describe('SprintsService', () => {
       status: SprintStatus.Completed,
     };
     const prevTasks = [
-      { status: TaskStatus.Feito, storyPoints: 8 },
-      { status: TaskStatus.Feito, storyPoints: 5 },
-      { status: TaskStatus.Pendente, storyPoints: 3 },
+      { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 8 },
+      { _id: new Types.ObjectId(), status: TaskStatus.Feito, storyPoints: 5 },
+      { _id: new Types.ObjectId(), status: TaskStatus.Pendente, storyPoints: 3 },
     ];
 
     function populateChain<T>(value: T) {

@@ -95,6 +95,11 @@ export class Task {
   @Prop({ type: Number, default: 0 })
   subtaskCount: number;
 
+  // Computed on read: sum of story points of this task's subtasks. When > 0 the
+  // task is a "rolled-up parent" and its own storyPoints are ignored in totals.
+  @Prop({ type: Number, default: 0 })
+  subtaskPoints: number;
+
   /**
    * Marks this task as an Epic: a big planning task that lives in a list
    * (outside any sprint) and groups child tasks via their `epicId`. An epic's

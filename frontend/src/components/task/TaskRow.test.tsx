@@ -12,6 +12,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../api/tasks.api', () => ({
   updateTask: vi.fn().mockResolvedValue({}),
+  getTask: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('../../api/spaces.api', () => ({
@@ -89,6 +90,18 @@ describe('TaskRow', () => {
   it('renders tag', () => {
     renderRow();
     expect(screen.getByText('Backend')).toBeInTheDocument();
+  });
+
+  it('shows epic chip when the task belongs to an epic', async () => {
+    vi.mocked(tasksApi.getTask).mockResolvedValue({ _id: 'e1', name: 'Onboarding' } as never);
+    renderRow({ ...TASK, epicId: 'e1' });
+    await waitFor(() => expect(screen.getByText('Onboarding')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /épico: onboarding/i })).toBeInTheDocument();
+  });
+
+  it('does not show an epic chip when the task has no epic', () => {
+    renderRow();
+    expect(screen.queryByRole('button', { name: /épico:/i })).not.toBeInTheDocument();
   });
 
   it('renders story points', () => {

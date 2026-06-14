@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ChevronDown, Pencil, Check, Plus, Layers } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
-import { updateTask } from '../../api/tasks.api';
+import { updateTask, getTask } from '../../api/tasks.api';
 import { TaskActionMenu } from './TaskActionMenu';
 import { getSpaceMembers } from '../../api/spaces.api';
 import { PriorityIcon } from '../ui/PriorityIcon';
@@ -59,6 +59,15 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
   const kind: 'main' | 'subtask' = task.parentTask ? 'subtask' : 'main';
   const selectionMode = !!onSelect;
+
+  // Resolve the parent epic's name for the membership chip. Keyed by epic id so
+  // many children of the same epic share a single (cached) request.
+  const { data: epic } = useQuery({
+    queryKey: ['task', task.epicId],
+    queryFn: () => getTask(spaceId!, task.epicId!),
+    enabled: !!spaceId && !!task.epicId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // ── Status ────────────────────────────────────────────────────────────────
   const [statusOpen, setStatusOpen] = useState(false);
@@ -403,6 +412,19 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
               <Pencil size={11} />
             </button>
           </>
+        )}
+
+        {!editingName && task.epicId && epic && (
+          <Tooltip content={`Pertence ao épico: ${epic.name}`}>
+            <button
+              aria-label={`Épico: ${epic.name}`}
+              onClick={(e) => { e.stopPropagation(); navigate(`/spaces/${spaceId}/tasks/${epic._id}`); }}
+              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-brand/10 text-brand/90 hover:bg-brand/20 transition-colors max-w-[140px]"
+            >
+              <Layers size={10} className="shrink-0" />
+              <span className="truncate">{epic.name}</span>
+            </button>
+          </Tooltip>
         )}
 
         {!editingName && task.tags.slice(0, 2).map((tag) => (

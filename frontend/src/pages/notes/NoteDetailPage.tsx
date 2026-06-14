@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import MDEditor from '@uiw/react-md-editor';
 import {
-  ArrowLeft, Check, Loader2, AlertCircle, Tag, X, Send, Paperclip,
-  Pencil, Trash2, MessageSquare, ChevronDown, ChevronUp, Eye, BookOpen, Save,
+  ArrowLeft, Check, Loader2, AlertCircle, Tag, X, Send,
+  Pencil, Trash2, MessageSquare, ChevronDown, ChevronUp, BookOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import * as notesApi from '../../api/notes.api';
-import { buildMarkdownEmbed, ACCEPT_ATTACHMENTS } from '../../api/attachments.api';
-import { useAttachmentUpload, filesFromPaste, filesFromDrop } from '../../hooks/useAttachmentUpload';
 import type { NoteComment } from '../../types/note.types';
 import { cn } from '../../lib/utils';
 import { MentionTextarea } from '../../components/ui/MentionTextarea';
 import { renderMentions } from '../../components/ui/renderMentions';
+import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 
 const LABEL_COLORS: Record<string, string> = {
   ideia:      'bg-p-normal/20 text-p-normal border-p-normal/30',
@@ -148,11 +146,9 @@ export function NoteDetailPage() {
   const [title,        setTitle]        = useState('');
   const [content,      setContent]      = useState('');
   const [label,        setLabel]        = useState<string | null>(null);
-  const [isDirty,      setIsDirty]      = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingLabel, setEditingLabel] = useState(false);
   const [saveStatus,   setSaveStatus]   = useState<'saved' | 'saving' | 'error'>('saved');
-  const [editorMode,   setEditorMode]   = useState<'edit' | 'preview'>('edit');
   const [showComments,        setShowComments]        = useState(true);
   const [newComment,          setNewComment]          = useState('');
   const [newCommentMentionIds, setNewCommentMentionIds] = useState<string[]>([]);
@@ -176,7 +172,6 @@ export function NoteDetailPage() {
       setContent(note.content);
       setLabel(note.label);
       contentRef.current = note.content;
-      setIsDirty(false);
       setSaveStatus('saved');
     }
   }, [note]);
@@ -187,69 +182,22 @@ export function NoteDetailPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['note', noteId] });
       setSaveStatus('saved');
-      setIsDirty(false);
     },
     onError: () => setSaveStatus('error'),
   });
 
-  // ── Save content ────────────────────────────────────────────────────────────
+  // ── Save content on blur, matching the task-description editor ────────────────
 
-  const saveNow = useCallback(() => {
-    if (!isDirty) return;
+  const saveContent = useCallback(() => {
+    if (contentRef.current === note?.content) return;
     setSaveStatus('saving');
     updateMutation.mutate({ content: contentRef.current });
-  }, [isDirty, updateMutation]);
+  }, [note?.content, updateMutation]);
 
-  const handleContentChange = (val: string | undefined) => {
-    const v = val ?? '';
-    setContent(v);
-    contentRef.current = v;
-    setIsDirty(true);
-    setSaveStatus('saved'); // will flip to error only on explicit save
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    contentRef.current = value;
   };
-
-  // ── Attachments ─────────────────────────────────────────────────────────────
-  const editorWrapRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const { uploading, error: uploadError, uploadFiles } = useAttachmentUpload();
-
-  const insertAtCursor = useCallback((snippet: string) => {
-    const ta = editorWrapRef.current?.querySelector('textarea');
-    const cur = contentRef.current;
-    if (ta) {
-      const start = ta.selectionStart ?? cur.length;
-      const end = ta.selectionEnd ?? start;
-      handleContentChange(cur.slice(0, start) + snippet + cur.slice(end));
-      setTimeout(() => {
-        ta.focus();
-        const pos = start + snippet.length;
-        ta.setSelectionRange(pos, pos);
-      }, 0);
-    } else {
-      handleContentChange(cur ? `${cur}\n${snippet}` : snippet);
-    }
-  }, []);
-
-  const handleNoteFiles = useCallback(
-    async (files: File[] | FileList) => {
-      const uploaded = await uploadFiles(files);
-      if (uploaded.length > 0) insertAtCursor(uploaded.map(buildMarkdownEmbed).join('\n'));
-    },
-    [uploadFiles, insertAtCursor],
-  );
-
-  // Ctrl+S / Cmd+S
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        saveNow();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [saveNow]);
 
   // ── Title ───────────────────────────────────────────────────────────────────
 
@@ -335,49 +283,7 @@ export function NoteDetailPage() {
           )}
         </div>
 
-        {/* Edit / Preview toggle */}
-        <div className="flex items-center gap-0.5 bg-lift rounded-lg p-0.5 shrink-0">
-          <button
-            onClick={() => setEditorMode('edit')}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-              editorMode === 'edit' ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            <Pencil size={11} /> Editar
-          </button>
-          <button
-            onClick={() => setEditorMode('preview')}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-              editorMode === 'preview' ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink',
-            )}
-          >
-            <Eye size={11} /> Preview
-          </button>
-        </div>
-
-        {/* Attach file */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={ACCEPT_ATTACHMENTS}
-          className="hidden"
-          onChange={(e) => { if (e.target.files) void handleNoteFiles(e.target.files); e.target.value = ''; }}
-        />
-        <button
-          type="button"
-          aria-label="Anexar arquivo"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink-muted hover:text-ink hover:bg-lift transition-colors shrink-0 disabled:opacity-50"
-          title="Anexar imagem, PDF ou Markdown"
-        >
-          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
-        </button>
-
-        {/* Save button */}
+        {/* Save status */}
         {saveStatus === 'error' ? (
           <div className="flex items-center gap-1.5 text-xs text-danger shrink-0">
             <AlertCircle size={13} />
@@ -388,27 +294,12 @@ export function NoteDetailPage() {
             <Loader2 size={13} className="animate-spin" />
             <span>Salvando…</span>
           </div>
-        ) : !isDirty ? (
+        ) : (
           <div className="flex items-center gap-1.5 text-xs text-s-done shrink-0">
             <Check size={13} />
             <span>Salvo</span>
           </div>
-        ) : null}
-
-        <button
-          onClick={saveNow}
-          disabled={!isDirty || updateMutation.isPending}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0',
-            isDirty
-              ? 'bg-brand hover:bg-brand-hi text-white shadow-sm shadow-brand/20'
-              : 'bg-lift text-ink-muted cursor-default',
-          )}
-          title="Salvar (Ctrl+S)"
-        >
-          <Save size={12} />
-          Salvar
-        </button>
+        )}
       </header>
 
       {/* ── Main ── */}
@@ -472,36 +363,14 @@ export function NoteDetailPage() {
           )}
 
           {/* ── Editor ── */}
-          <div
-            ref={editorWrapRef}
-            data-color-mode="dark"
-            className={cn('obsidian-editor rounded-lg transition-shadow', dragging && 'ring-2 ring-brand')}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); void handleNoteFiles(filesFromDrop(e)); }}
-            onPaste={(e) => {
-              const files = filesFromPaste(e);
-              if (files.length > 0) { e.preventDefault(); void handleNoteFiles(files); }
-            }}
-          >
-            {editorMode === 'edit' ? (
-              <MDEditor
-                value={content}
-                onChange={handleContentChange}
-                preview="edit"
-                height={520}
-                style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
-              />
-            ) : (
-              <div className="min-h-52">
-                <MDEditor.Markdown
-                  source={content || '*Sem conteúdo — clique em Editar para começar.*'}
-                  style={{ background: 'transparent', color: 'var(--color-ink)' }}
-                />
-              </div>
-            )}
-            {uploadError && <p className="text-xs text-danger mt-2">{uploadError}</p>}
-          </div>
+          <MarkdownEditor
+            spaceId={spaceId!}
+            value={content}
+            onChange={handleContentChange}
+            onBlur={saveContent}
+            placeholder="Comece a escrever…"
+            minHeight={480}
+          />
 
           {/* ── Comments ── */}
           <div className="mt-12 border-t border-line pt-6">

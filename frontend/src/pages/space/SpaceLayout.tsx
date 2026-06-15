@@ -43,6 +43,7 @@ import { Tooltip } from '../../components/ui/tooltip';
 import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useMoveTaskWithUndo } from '../../hooks/useMoveTaskWithUndo';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import { TaskDragProvider } from '../../contexts/TaskDragProvider';
 import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import type { ReorderHandler } from '../../contexts/TaskDragContext';
@@ -398,6 +399,7 @@ function CreateSprintFolderModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
   const isEdit = !!folder;
   const [name, setName] = useState(folder?.name ?? '');
   const [startDay, setStartDay] = useState<DayOfWeek>(folder?.startDayOfWeek ?? 1);
@@ -437,8 +439,13 @@ function CreateSprintFolderModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? 'Editar pasta de sprints' : 'Nova pasta de sprints'}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-md p-6"
+        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-md p-6 focus:outline-none"
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">

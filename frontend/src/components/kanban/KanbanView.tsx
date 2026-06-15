@@ -1,4 +1,4 @@
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { Task, TaskStatus } from '../../types/task.types';
 import { KanbanColumn } from './KanbanColumn';
@@ -16,6 +16,8 @@ export function KanbanView({ spaceId, tasks }: Props) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Lets a focused card's drag handle be picked up and moved with the keyboard.
+    useSensor(KeyboardSensor),
   );
 
   const tasksByStatus = STATUSES.reduce<Record<TaskStatus, Task[]>>(
@@ -41,6 +43,9 @@ export function KanbanView({ spaceId, tasks }: Props) {
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div
+        role="list"
+        aria-label="Quadro Kanban"
+        className="snap-x snap-mandatory sm:snap-none"
         style={{
           display: 'flex',
           gap: '1rem',

@@ -18,7 +18,6 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
 import type { UserDocument } from '../users/schemas/user.schema';
-import { Types } from 'mongoose';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -45,7 +44,10 @@ export class AttachmentsController {
 
   @Delete(':attachmentId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('attachmentId', ObjectIdValidationPipe) attachmentId: string) {
-    return this.attachmentsService.remove(attachmentId);
+  remove(
+    @Param('attachmentId', ObjectIdValidationPipe) attachmentId: string,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.attachmentsService.remove(user._id.toString(), attachmentId);
   }
 }

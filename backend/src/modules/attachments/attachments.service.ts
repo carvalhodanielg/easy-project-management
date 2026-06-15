@@ -41,9 +41,15 @@ export class AttachmentsService {
     });
   }
 
-  async remove(attachmentId: string): Promise<void> {
+  async remove(userId: string, attachmentId: string): Promise<void> {
+    // Owner-scoping: only the uploader can delete their attachment. Scoping the
+    // delete (instead of fetch-then-check) means a non-owner gets a 404 and the
+    // file on disk is never unlinked.
     const attachment = await this.attachmentModel
-      .findByIdAndDelete(attachmentId)
+      .findOneAndDelete({
+        _id: new Types.ObjectId(attachmentId),
+        uploadedBy: new Types.ObjectId(userId),
+      })
       .exec();
 
     if (!attachment) throw new NotFoundException('Attachment not found');

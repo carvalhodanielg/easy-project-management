@@ -19,6 +19,7 @@ import { SpaceRoleGuard } from '../../common/guards/space-role.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ObjectIdValidationPipe } from '../../common/pipes/object-id-validation.pipe';
+import { SpaceRole } from '../spaces/schemas/space-member.schema';
 import type { UserDocument } from '../users/schemas/user.schema';
 
 @UseGuards(JwtAuthGuard, SpaceRoleGuard)
@@ -28,13 +29,13 @@ export class WikiController {
 
   // ─── Folders ────────────────────────────────────────────────────────────────
 
-  @Roles('editor', 'viewer')
+  @Roles(SpaceRole.Viewer)
   @Get('folders')
   getFolders(@Param('spaceId', ObjectIdValidationPipe) spaceId: string) {
     return this.wikiService.getFolders(spaceId);
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Post('folders')
   createFolder(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -43,7 +44,7 @@ export class WikiController {
     return this.wikiService.createFolder(spaceId, dto);
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Patch('folders/:folderId')
   updateFolder(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -53,7 +54,7 @@ export class WikiController {
     return this.wikiService.updateFolder(folderId, spaceId, dto);
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Delete('folders/:folderId')
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteFolder(
@@ -65,7 +66,7 @@ export class WikiController {
 
   // ─── Documents ──────────────────────────────────────────────────────────────
 
-  @Roles('editor', 'viewer')
+  @Roles(SpaceRole.Viewer)
   @Get('folders/:folderId/documents')
   getDocuments(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -74,7 +75,7 @@ export class WikiController {
     return this.wikiService.getDocumentsByFolder(spaceId, folderId);
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Post('folders/:folderId/documents')
   createDocument(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -90,7 +91,7 @@ export class WikiController {
     );
   }
 
-  @Roles('editor', 'viewer')
+  @Roles(SpaceRole.Viewer)
   @Get('documents/:documentId')
   getDocument(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -99,7 +100,7 @@ export class WikiController {
     return this.wikiService.getDocument(spaceId, documentId);
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Patch('documents/:documentId')
   updateDocument(
     @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
@@ -115,7 +116,7 @@ export class WikiController {
     );
   }
 
-  @Roles('editor')
+  @Roles(SpaceRole.Editor)
   @Delete('documents/:documentId')
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteDocument(

@@ -117,37 +117,56 @@ describe('TasksService', () => {
 
   describe('findById', () => {
     it('returns populated task when found', async () => {
-      mockTaskModel.findById.mockReturnValue(populateMock(mockTask));
-      const result = await service.findById(taskId);
+      mockTaskModel.findOne.mockReturnValue(populateMock(mockTask));
+      const result = await service.findById(spaceId, taskId);
       expect(result).toEqual(mockTask);
     });
 
-    it('throws NotFoundException when task not found', async () => {
-      mockTaskModel.findById.mockReturnValue(populateMock(null));
-      await expect(service.findById(taskId)).rejects.toThrow(NotFoundException);
+    it('scopes the query to the spaceId (cross-space IDOR guard)', async () => {
+      mockTaskModel.findOne.mockReturnValue(populateMock(mockTask));
+      await service.findById(spaceId, taskId);
+      expect(mockTaskModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ spaceId: expect.anything() }),
+      );
+    });
+
+    it('throws NotFoundException when task is not in the space', async () => {
+      mockTaskModel.findOne.mockReturnValue(populateMock(null));
+      await expect(service.findById(spaceId, taskId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('update', () => {
     it('returns updated task', async () => {
       const updated = { ...mockTask, name: 'Updated' };
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
       const result = await service.update(spaceId, taskId, { name: 'Updated' });
       expect(result.name).toBe('Updated');
     });
 
     it('throws NotFoundException when task not found', async () => {
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(null));
       await expect(
         service.update(spaceId, taskId, { name: 'X' }),
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('loads the existing task scoped to the spaceId (cross-space guard)', async () => {
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
+      await service.update(spaceId, taskId, { name: 'X' });
+      expect(mockTaskModel.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ spaceId: expect.anything() }),
+      );
+    });
+
     it('logs status_changed event when status changes', async () => {
       const updatedTask = { ...mockTask, status: TaskStatus.EmProgresso };
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
       mockTaskEventsService.create.mockResolvedValue({});
 
@@ -170,7 +189,7 @@ describe('TasksService', () => {
     });
 
     it('does not log event when status is unchanged', async () => {
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
 
       await service.update(
@@ -191,7 +210,7 @@ describe('TasksService', () => {
         name: 'Test Task',
         assignees: [newUserId],
       };
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
       mockNotificationsService.create.mockResolvedValue({});
 
@@ -482,8 +501,16 @@ describe('TasksService', () => {
   describe('findSubtasks', () => {
     it('returns tasks by parentTask id', async () => {
       mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
-      const result = await service.findSubtasks(taskId);
+      const result = await service.findSubtasks(spaceId, taskId);
       expect(result).toHaveLength(1);
+    });
+
+    it('scopes the query to the spaceId (cross-space IDOR guard)', async () => {
+      mockTaskModel.find.mockReturnValue(populateMock([mockTask]));
+      await service.findSubtasks(spaceId, taskId);
+      expect(mockTaskModel.find).toHaveBeenCalledWith(
+        expect.objectContaining({ spaceId: expect.anything() }),
+      );
     });
   });
 
@@ -544,7 +571,7 @@ describe('TasksService', () => {
     };
 
     it('throws BadRequestException when completing a task blocked by unfinished tasks', async () => {
-      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(blockedTask));
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
@@ -562,7 +589,7 @@ describe('TasksService', () => {
     });
 
     it('throws BadRequestException when closing a task blocked by unfinished tasks', async () => {
-      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(blockedTask));
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
@@ -581,7 +608,7 @@ describe('TasksService', () => {
 
     it('allows completing a task when all blockers are finished', async () => {
       const updatedTask = { ...blockedTask, status: TaskStatus.Feito };
-      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(blockedTask));
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
@@ -601,7 +628,7 @@ describe('TasksService', () => {
 
     it('allows completing a task when all blockers are closed', async () => {
       const updatedTask = { ...blockedTask, status: TaskStatus.Feito };
-      mockTaskModel.findById.mockReturnValue(execMock(blockedTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(blockedTask));
       mockTaskModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([
@@ -621,7 +648,7 @@ describe('TasksService', () => {
 
     it('allows completing a task with no blockers', async () => {
       const updatedTask = { ...mockTask, status: TaskStatus.Feito };
-      mockTaskModel.findById.mockReturnValue(execMock(mockTask));
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updatedTask));
 
       await expect(
@@ -633,6 +660,7 @@ describe('TasksService', () => {
   describe('update — field mapping', () => {
     it('maps assignees and tags arrays', async () => {
       const updated = { ...mockTask, assignees: [userId] };
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(updated));
       await service.update(spaceId, taskId, {
         assignees: [userId],
@@ -649,6 +677,7 @@ describe('TasksService', () => {
     });
 
     it('maps null dates', async () => {
+      mockTaskModel.findOne.mockReturnValue(execMock(mockTask));
       mockTaskModel.findOneAndUpdate.mockReturnValue(populateMock(mockTask));
       await service.update(spaceId, taskId, { startDate: null, dueDate: null });
       expect(mockTaskModel.findOneAndUpdate).toHaveBeenCalledWith(
@@ -677,6 +706,21 @@ describe('TasksService', () => {
       await expect(service.move(spaceId, taskId, { listId })).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('throws BadRequestException when neither listId nor sprintId given (domain XOR rule)', async () => {
+      await expect(service.move(spaceId, taskId, {})).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws BadRequestException when both listId and sprintId given (domain XOR rule)', async () => {
+      await expect(
+        service.move(spaceId, taskId, {
+          listId,
+          sprintId: new Types.ObjectId().toString(),
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

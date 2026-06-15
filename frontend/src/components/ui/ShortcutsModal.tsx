@@ -1,4 +1,5 @@
 import { Keyboard, X } from 'lucide-react';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface ShortcutRow {
   keys: string[];
@@ -13,6 +14,7 @@ const SHORTCUTS: ShortcutRow[] = [
 ];
 
 export function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
   return (
     <div
       data-testid="shortcuts-modal-backdrop"
@@ -20,8 +22,13 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Atalhos de teclado"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6 focus:outline-none"
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">

@@ -1,8 +1,8 @@
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { Task, TaskStatus } from '../../types/task.types';
 import { KanbanColumn } from './KanbanColumn';
-import * as tasksApi from '../../api/tasks.api';
+import { moveTaskStatus } from './moveTaskStatus';
 
 const STATUSES: TaskStatus[] = ['pendente', 'em_progresso', 'em_review', 'feito', 'fechado'];
 
@@ -16,6 +16,8 @@ export function KanbanView({ spaceId, tasks }: Props) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Lets a focused card's drag handle be picked up and moved with the keyboard.
+    useSensor(KeyboardSensor),
   );
 
   const tasksByStatus = STATUSES.reduce<Record<TaskStatus, Task[]>>(
@@ -35,22 +37,15 @@ export function KanbanView({ spaceId, tasks }: Props) {
     const task = tasks.find((t) => t._id === taskId);
     if (!task || task.status === newStatus) return;
 
-    // Optimistic update
-    const queryKey = ['tasks', spaceId];
-    queryClient.setQueriesData<Task[]>({ queryKey }, (old) =>
-      old ? old.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t)) : old,
-    );
-
-    // Persist
-    tasksApi.updateTask(spaceId, taskId, { status: newStatus }).catch(() => {
-      // Revert on failure
-      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
-    });
+    moveTaskStatus(queryClient, spaceId, taskId, newStatus);
   }
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div
+        role="list"
+        aria-label="Quadro Kanban"
+        className="snap-x snap-mandatory sm:snap-none"
         style={{
           display: 'flex',
           gap: '1rem',

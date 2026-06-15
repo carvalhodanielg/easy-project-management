@@ -6,6 +6,7 @@ import * as sprintsApi from '../../api/sprints.api';
 import * as sprintFoldersApi from '../../api/sprint-folders.api';
 import type { Sprint } from '../../api/sprints.api';
 import { sprintDisplayStatus } from '../../lib/sprintStatus';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 export interface Destination {
   listId?: string;
@@ -59,6 +60,7 @@ export function DestinationPickerModal({ spaceId, title, onConfirm, onClose }: P
   const [tab, setTab] = useState<'sprint' | 'list'>('sprint');
   const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
 
   const { data: sprints = [] } = useQuery({
     queryKey: ['sprints', spaceId],
@@ -92,12 +94,17 @@ export function DestinationPickerModal({ spaceId, title, onConfirm, onClose }: P
   return (
     <div
       data-testid="destination-picker-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-line rounded-xl shadow-2xl w-[400px] max-h-[520px] flex flex-col"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-[400px] max-h-[520px] flex flex-col focus:outline-none"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">

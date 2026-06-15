@@ -12,6 +12,7 @@ import * as tasksApi from '../../api/tasks.api';
 import * as notesApi from '../../api/notes.api';
 import * as savedFiltersApi from '../../api/saved-filters.api';
 import * as spacesApi from '../../api/spaces.api';
+import { notifyError } from '../../lib/toast';
 import { SortableTaskRow } from '../../components/task/SortableTaskRow';
 import { TaskRowWithSubtasks } from '../../components/task/TaskRowWithSubtasks';
 import { SelectionBar } from '../../components/task/SelectionBar';
@@ -127,7 +128,7 @@ export function SprintPage() {
       setNewTaskName('');
       setShowCreate(false);
     },
-    onError: () => alert('Falha ao criar tarefa. Tente novamente.'),
+    onError: (err) => notifyError(err, 'Falha ao criar tarefa. Tente novamente.'),
   });
 
   const createNoteMutation = useMutation({

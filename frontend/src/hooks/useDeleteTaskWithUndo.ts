@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { notifyError } from '../lib/toast';
 
 export interface DeleteWithUndoParams {
   /** Performs the (soft) deletion. */
@@ -31,6 +32,7 @@ export function useDeleteTaskWithUndo(spaceId: string) {
   const restoreMutation = useMutation({
     mutationFn: (restoreFn: () => Promise<unknown>) => restoreFn(),
     onSuccess: invalidate,
+    onError: (err) => notifyError(err, 'Não foi possível desfazer a exclusão.'),
   });
 
   const deleteMutation = useMutation({
@@ -46,6 +48,7 @@ export function useDeleteTaskWithUndo(spaceId: string) {
         duration: 6000,
       });
     },
+    onError: (err) => notifyError(err, 'Falha ao excluir. Tente novamente.'),
   });
 
   return {

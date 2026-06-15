@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Search } from 'lucide-react';
 import type { Task } from '../../types/task.types';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface Props {
   title: string;
@@ -13,6 +14,7 @@ interface Props {
 export function ParentTaskPickerModal({ title, tasks, excludeIds = [], onConfirm, onClose }: Props) {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
 
   const filtered = tasks.filter(
     (t) =>
@@ -23,12 +25,17 @@ export function ParentTaskPickerModal({ title, tasks, excludeIds = [], onConfirm
   return (
     <div
       data-testid="parent-task-picker-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface border border-line rounded-xl shadow-2xl w-[420px] max-h-[520px] flex flex-col"
+        className="bg-surface border border-line rounded-xl shadow-2xl w-full max-w-[420px] max-h-[520px] flex flex-col focus:outline-none"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-line shrink-0">

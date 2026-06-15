@@ -14,7 +14,11 @@ export function KanbanColumn({ status, tasks }: Props) {
   const totalPoints = tasks.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0);
 
   return (
-    <div className="flex flex-col w-64 shrink-0">
+    <div
+      role="listitem"
+      aria-label={`${STATUS_LABELS[status]}: ${tasks.length} tarefas`}
+      className="flex flex-col w-[80vw] max-w-72 sm:w-64 shrink-0 snap-start"
+    >
       {/* Column header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <span

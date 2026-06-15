@@ -18,24 +18,36 @@ export function KanbanCard({ task }: Props) {
 
   const isOverdue = !!task.dueDate && new Date(task.dueDate) < new Date();
 
+  const open = () => navigate(`/spaces/${spaceId}/tasks/${task._id}`);
+
   return (
     <div
       ref={setNodeRef}
+      role="button"
+      tabIndex={0}
+      aria-label={task.name}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={`group mb-2 rounded-xl border select-none transition-all ${
+      className={`group mb-2 rounded-xl border select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
         isDragging
           ? 'opacity-40 shadow-2xl border-brand/30 bg-lift'
           : 'border-line bg-surface hover:border-brand/30 hover:shadow-md cursor-pointer'
       }`}
       onClick={(e) => {
-        if (!isDragging) { e.stopPropagation(); navigate(`/spaces/${spaceId}/tasks/${task._id}`); }
+        if (!isDragging) { e.stopPropagation(); open(); }
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault();
+          open();
+        }
       }}
     >
       <div className="p-3.5">
         {/* Drag + title */}
         <div className="flex items-start gap-2 mb-3">
           <button
-            className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 text-ink-muted hover:text-ink"
+            aria-label={`Arrastar ${task.name}`}
+            className="mt-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 text-ink-muted hover:text-ink"
             {...listeners}
             {...attributes}
             onClick={(e) => e.stopPropagation()}

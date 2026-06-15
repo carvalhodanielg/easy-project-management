@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { notifyError } from '../lib/toast';
 
 export interface MoveWithUndoParams {
   /** Performs the move (e.g. send the task to another sprint). */
@@ -32,6 +33,7 @@ export function useMoveTaskWithUndo(spaceId: string) {
   const undoMutation = useMutation({
     mutationFn: (undoFn: () => Promise<unknown>) => undoFn(),
     onSuccess: invalidate,
+    onError: (err) => notifyError(err, 'Não foi possível desfazer a movimentação.'),
   });
 
   const moveMutation = useMutation({
@@ -47,6 +49,7 @@ export function useMoveTaskWithUndo(spaceId: string) {
         duration: 6000,
       });
     },
+    onError: (err) => notifyError(err, 'Falha ao mover a tarefa. Tente novamente.'),
     onSettled: (_data, _error, params) => params.onSettled?.(),
   });
 

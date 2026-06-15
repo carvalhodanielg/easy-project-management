@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { TaskRow } from './TaskRow';
 import { SortableSubtaskRow } from './SortableSubtaskRow';
 
@@ -60,6 +61,7 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, selection
       void queryClient.invalidateQueries({ queryKey: ['subtasks', taskId] });
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao criar subtarefa. Tente novamente.'),
   });
 
   function cancel() {

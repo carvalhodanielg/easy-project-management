@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/auth.store';
 import * as notesApi from '../../api/notes.api';
 import type { NoteComment } from '../../types/note.types';
 import { cn } from '../../lib/utils';
+import { notifyError } from '../../lib/toast';
 import { MentionTextarea } from '../../components/ui/MentionTextarea';
 import { renderMentions } from '../../components/ui/renderMentions';
 import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
@@ -228,6 +229,7 @@ export function NoteDetailPage() {
       setNewComment('');
       setNewCommentMentionIds([]);
     },
+    onError: (err) => notifyError(err, 'Falha ao adicionar comentário. Tente novamente.'),
   });
 
   if (!note) {

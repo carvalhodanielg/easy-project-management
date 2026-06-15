@@ -5,7 +5,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { useMoveTaskWithUndo } from './useMoveTaskWithUndo';
 
-vi.mock('sonner', () => ({ toast: vi.fn() }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 const mockToast = vi.mocked(toast);
 
@@ -140,7 +140,7 @@ describe('useMoveTaskWithUndo', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
-  it('does not show a toast when the move fails', async () => {
+  it('shows an error toast (and no undo toast) when the move fails', async () => {
     const qc = newClient();
     const { result } = renderHook(() => useMoveTaskWithUndo('sp1'), {
       wrapper: wrapperWith(qc),
@@ -154,7 +154,7 @@ describe('useMoveTaskWithUndo', () => {
       });
     });
 
-    await waitFor(() => expect(result.current.isPending).toBe(false));
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalled());
     expect(mockToast).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { useDeleteTaskWithUndo } from './useDeleteTaskWithUndo';
 
-vi.mock('sonner', () => ({ toast: vi.fn() }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 const mockToast = vi.mocked(toast);
 
@@ -102,7 +102,7 @@ describe('useDeleteTaskWithUndo', () => {
     await waitFor(() => expect(restoreFn).toHaveBeenCalled());
   });
 
-  it('does not show a toast when the delete fails', async () => {
+  it('shows an error toast (and no undo toast) when the delete fails', async () => {
     const qc = newClient();
     const { result } = renderHook(() => useDeleteTaskWithUndo('sp1'), {
       wrapper: wrapperWith(qc),
@@ -116,7 +116,7 @@ describe('useDeleteTaskWithUndo', () => {
       });
     });
 
-    await waitFor(() => expect(result.current.isPending).toBe(false));
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalled());
     expect(mockToast).not.toHaveBeenCalled();
   });
 });

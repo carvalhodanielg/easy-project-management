@@ -2,7 +2,7 @@ import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '
 import { useQueryClient } from '@tanstack/react-query';
 import { Task, TaskStatus } from '../../types/task.types';
 import { KanbanColumn } from './KanbanColumn';
-import * as tasksApi from '../../api/tasks.api';
+import { moveTaskStatus } from './moveTaskStatus';
 
 const STATUSES: TaskStatus[] = ['pendente', 'em_progresso', 'em_review', 'feito', 'fechado'];
 
@@ -35,17 +35,7 @@ export function KanbanView({ spaceId, tasks }: Props) {
     const task = tasks.find((t) => t._id === taskId);
     if (!task || task.status === newStatus) return;
 
-    // Optimistic update
-    const queryKey = ['tasks', spaceId];
-    queryClient.setQueriesData<Task[]>({ queryKey }, (old) =>
-      old ? old.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t)) : old,
-    );
-
-    // Persist
-    tasksApi.updateTask(spaceId, taskId, { status: newStatus }).catch(() => {
-      // Revert on failure
-      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
-    });
+    moveTaskStatus(queryClient, spaceId, taskId, newStatus);
   }
 
   return (

@@ -169,8 +169,11 @@ export class TasksController {
   }
 
   @Get(':taskId')
-  findOne(@Param('taskId', ObjectIdValidationPipe) taskId: string) {
-    return this.tasksService.findById(taskId);
+  findOne(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.findById(spaceId, taskId);
   }
 
   @Patch(':taskId')
@@ -224,8 +227,11 @@ export class TasksController {
   }
 
   @Get(':taskId/subtasks')
-  getSubtasks(@Param('taskId', ObjectIdValidationPipe) taskId: string) {
-    return this.tasksService.findSubtasks(taskId);
+  getSubtasks(
+    @Param('spaceId', ObjectIdValidationPipe) spaceId: string,
+    @Param('taskId', ObjectIdValidationPipe) taskId: string,
+  ) {
+    return this.tasksService.findSubtasks(spaceId, taskId);
   }
 
   @Post(':taskId/dependencies')

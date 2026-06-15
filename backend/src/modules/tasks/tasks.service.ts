@@ -102,9 +102,12 @@ export class TasksService {
     return task;
   }
 
-  async findById(taskId: string): Promise<TaskDocument> {
+  async findById(spaceId: string, taskId: string): Promise<TaskDocument> {
     const task = await this.taskModel
-      .findById(taskId)
+      .findOne({
+        _id: new Types.ObjectId(taskId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
       .populate('assignees', 'email displayName avatarUrl')
       .populate('tags')
       .populate('blockedBy', 'name status')
@@ -158,9 +161,16 @@ export class TasksService {
     }
   }
 
-  async findSubtasks(parentTaskId: string): Promise<TaskDocument[]> {
+  async findSubtasks(
+    spaceId: string,
+    parentTaskId: string,
+  ): Promise<TaskDocument[]> {
     return this.taskModel
-      .find({ parentTask: new Types.ObjectId(parentTaskId), archivedAt: null })
+      .find({
+        parentTask: new Types.ObjectId(parentTaskId),
+        spaceId: new Types.ObjectId(spaceId),
+        archivedAt: null,
+      })
       .populate('assignees', 'email displayName avatarUrl')
       .sort({ position: 1, createdAt: 1 })
       .exec();
@@ -174,7 +184,14 @@ export class TasksService {
   ): Promise<TaskDocument> {
     const updates: Record<string, unknown> = { ...dto };
 
-    const existing = await this.taskModel.findById(taskId).exec();
+    // Scope the lookup to the space so business logic (e.g. the blockedBy check
+    // below) never runs against — nor leaks data from — a task in another space.
+    const existing = await this.taskModel
+      .findOne({
+        _id: new Types.ObjectId(taskId),
+        spaceId: new Types.ObjectId(spaceId),
+      })
+      .exec();
     const previousAssignees = (existing?.assignees ?? []).map((id) =>
       id.toString(),
     );
@@ -388,6 +405,19 @@ export class TasksService {
     taskId: string,
     dto: MoveTaskDto,
   ): Promise<TaskDocument> {
+    // Domain rule: a task belongs to either a list OR a sprint, never both and
+    // never neither. `create()` enforces this; `move()` must too.
+    if (!dto.listId && !dto.sprintId) {
+      throw new BadRequestException(
+        'Move requires either a listId or a sprintId',
+      );
+    }
+    if (dto.listId && dto.sprintId) {
+      throw new BadRequestException(
+        'Move accepts only one of listId or sprintId, not both',
+      );
+    }
+
     const updates: Record<string, unknown> = {
       listId: dto.listId ? new Types.ObjectId(dto.listId) : null,
       sprintId: dto.sprintId ? new Types.ObjectId(dto.sprintId) : null,

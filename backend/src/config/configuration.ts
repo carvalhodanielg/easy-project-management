@@ -1,8 +1,22 @@
+/**
+ * Resolve the JWT signing secret. A weak default is fine for local/dev, but in
+ * production a missing secret must fail fast rather than silently sign tokens
+ * with a publicly-known string.
+ */
+function resolveJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set in production');
+  }
+  return 'changeme-in-production';
+}
+
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/atkplan',
   jwt: {
-    secret: process.env.JWT_SECRET ?? 'changeme-in-production',
+    secret: resolveJwtSecret(),
     // Short-lived access token; sessions are kept alive by the refresh token.
     expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
   },

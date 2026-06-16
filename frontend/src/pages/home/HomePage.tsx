@@ -11,6 +11,7 @@ import { UserAvatar } from '../../components/ui/UserAvatar';
 import { cn } from '../../lib/utils';
 import { notifyError } from '../../lib/toast';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 const PRESET_COLORS = [
   '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',

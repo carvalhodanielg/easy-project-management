@@ -5,6 +5,7 @@ import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as tasksApi from '../../api/tasks.api';
 import { notifyError } from '../../lib/toast';
+import { useConfirm } from '../../hooks/useConfirm';
 
 type ItemKind = 'list' | 'sprint' | 'task';
 
@@ -48,6 +49,7 @@ function TrashRow({ icon: Icon, name, meta, onRestore, onDelete, busy }: TrashRo
 export function TrashPage() {
   const { spaceId } = useParams<{ spaceId: string }>();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const listsQuery = useQuery({
     queryKey: ['trash', 'lists', spaceId],
@@ -102,21 +104,25 @@ export function TrashPage() {
 
   const busy = restore.isPending || purge.isPending || emptyTrash.isPending;
 
-  function handleEmptyTaskTrash() {
+  async function handleEmptyTaskTrash() {
     if (
-      window.confirm(
-        'Esvaziar a lixeira de tarefas? Esta ação não pode ser desfeita.',
-      )
+      await confirm({
+        title: 'Esvaziar a lixeira de tarefas?',
+        message: 'Esta ação não pode ser desfeita.',
+        confirmLabel: 'Esvaziar',
+      })
     ) {
       emptyTrash.mutate();
     }
   }
 
-  function handleDelete(kind: ItemKind, id: string, name: string) {
+  async function handleDelete(kind: ItemKind, id: string, name: string) {
     if (
-      window.confirm(
-        `Excluir "${name}" definitivamente? Esta ação não pode ser desfeita.`,
-      )
+      await confirm({
+        title: `Excluir "${name}" definitivamente?`,
+        message: 'Esta ação não pode ser desfeita.',
+        confirmLabel: 'Excluir',
+      })
     ) {
       purge.mutate({ kind, id });
     }

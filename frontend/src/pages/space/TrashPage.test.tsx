@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TrashPage } from './TrashPage';
+import { ConfirmProvider } from '../../components/ui/ConfirmProvider';
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as tasksApi from '../../api/tasks.api';
@@ -15,11 +16,13 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/spaces/sp1/trash']}>
-        <Routes>
-          <Route path="/spaces/:spaceId/trash" element={<TrashPage />} />
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={['/spaces/sp1/trash']}>
+          <Routes>
+            <Route path="/spaces/:spaceId/trash" element={<TrashPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }
@@ -68,12 +71,13 @@ describe('TrashPage', () => {
   });
 
   it('permanently deletes a list after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(listsApi.permanentDeleteList).mockResolvedValue(undefined);
     renderPage();
     await waitFor(() => screen.getByText('Old List'));
 
     fireEvent.click(screen.getByRole('button', { name: /excluir/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /excluir/i }));
 
     await waitFor(() => {
       expect(listsApi.permanentDeleteList).toHaveBeenCalledWith('sp1', 'l1');
@@ -81,12 +85,13 @@ describe('TrashPage', () => {
   });
 
   it('does not delete when confirmation is cancelled', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     vi.mocked(listsApi.permanentDeleteList).mockResolvedValue(undefined);
     renderPage();
     await waitFor(() => screen.getByText('Old List'));
 
     fireEvent.click(screen.getByRole('button', { name: /excluir/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /cancelar/i }));
 
     expect(listsApi.permanentDeleteList).not.toHaveBeenCalled();
   });
@@ -129,7 +134,6 @@ describe('TrashPage', () => {
   });
 
   it('empties the task trash after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(tasksApi.getArchivedTasks).mockResolvedValue([
       {
         _id: 't1',
@@ -144,6 +148,8 @@ describe('TrashPage', () => {
     await waitFor(() => screen.getByText('Deleted Task'));
 
     fireEvent.click(screen.getByRole('button', { name: /esvaziar lixeira/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /esvaziar/i }));
 
     await waitFor(() => {
       expect(tasksApi.emptyTaskTrash).toHaveBeenCalledWith('sp1');

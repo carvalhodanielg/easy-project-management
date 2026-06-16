@@ -10,6 +10,7 @@ import type { Space } from '../../types/space.types';
 import { UserAvatar } from '../../components/ui/UserAvatar';
 import { cn } from '../../lib/utils';
 import { notifyError } from '../../lib/toast';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const PRESET_COLORS = [
   '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
@@ -22,6 +23,7 @@ export function HomePage() {
   const logout      = useLogout();
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
+  const confirm     = useConfirm();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar    = useUiStore((s) => s.toggleSidebar);
 
@@ -313,11 +315,13 @@ export function HomePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          window.confirm(
-                            `Excluir "${space.name}" definitivamente? Esta ação não pode ser desfeita.`,
-                          )
+                          await confirm({
+                            title: `Excluir "${space.name}" definitivamente?`,
+                            message: 'Esta ação não pode ser desfeita.',
+                            confirmLabel: 'Excluir',
+                          })
                         ) {
                           purgeMutation.mutate(space._id);
                         }

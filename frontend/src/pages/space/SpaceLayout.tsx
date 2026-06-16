@@ -45,6 +45,7 @@ import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useMoveTaskWithUndo } from '../../hooks/useMoveTaskWithUndo';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import { useConfirm } from '../../hooks/useConfirm';
 import { TaskDragProvider } from '../../contexts/TaskDragProvider';
 import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import type { ReorderHandler } from '../../contexts/TaskDragContext';
@@ -190,6 +191,7 @@ function SprintFolderItem({
   onEditSettings: (folder: sprintFoldersApi.SprintFolder) => void;
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(folder.name);
@@ -275,8 +277,12 @@ function SprintFolderItem({
               label: 'Excluir pasta',
               icon: Trash2,
               danger: true,
-              onClick: () => {
-                if (window.confirm(`Excluir a pasta "${folder.name}" e suas sprints?`)) deleteMutation.mutate();
+              onClick: async () => {
+                if (await confirm({
+                  title: `Excluir a pasta "${folder.name}"?`,
+                  message: 'A pasta e suas sprints serão excluídas.',
+                  confirmLabel: 'Excluir',
+                })) deleteMutation.mutate();
               },
             },
           ]}
@@ -306,6 +312,7 @@ function DocFolderItem({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(folder.name);
 
@@ -383,8 +390,12 @@ function DocFolderItem({
             label: 'Excluir pasta',
             icon: Trash2,
             danger: true,
-            onClick: () => {
-              if (window.confirm(`Excluir a pasta "${folder.name}" e seus documentos?`)) deleteMutation.mutate();
+            onClick: async () => {
+              if (await confirm({
+                title: `Excluir a pasta "${folder.name}"?`,
+                message: 'A pasta e seus documentos serão excluídos.',
+                confirmLabel: 'Excluir',
+              })) deleteMutation.mutate();
             },
           },
         ]}

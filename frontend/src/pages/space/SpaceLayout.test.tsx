@@ -1,8 +1,9 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SpaceLayout, SprintNavItem } from './SpaceLayout';
+import { ConfirmProvider } from '../../components/ui/ConfirmProvider';
 import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import { useUiStore } from '../../store/ui.store';
 import * as spacesApi from '../../api/spaces.api';
@@ -41,11 +42,13 @@ function renderLayout(sprints: sprintsApi.Sprint[] = []) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/spaces/sp1']}>
-        <Routes>
-          <Route path="/spaces/:spaceId" element={<SpaceLayout />} />
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId" element={<SpaceLayout />} />
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }
@@ -201,11 +204,13 @@ function renderSidebar(docFolders: wikiApi.WikiFolder[] = DOC_FOLDERS) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/spaces/sp1']}>
-        <Routes>
-          <Route path="/spaces/:spaceId" element={<SpaceLayout />} />
-        </Routes>
-      </MemoryRouter>
+      <ConfirmProvider>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId" element={<SpaceLayout />} />
+          </Routes>
+        </MemoryRouter>
+      </ConfirmProvider>
     </QueryClientProvider>,
   );
 }
@@ -257,12 +262,13 @@ describe('SpaceLayout – sprint folder options menu', () => {
   });
 
   it('deletes the folder via "Excluir pasta"', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(sprintFoldersApi.deleteSprintFolder).mockResolvedValue(undefined);
     renderSidebar();
     await waitFor(() => screen.getByLabelText('Opções da pasta de sprints'));
     fireEvent.click(screen.getByLabelText('Opções da pasta de sprints'));
     fireEvent.click(screen.getByRole('menuitem', { name: /excluir pasta/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /excluir/i }));
     await waitFor(() =>
       expect(sprintFoldersApi.deleteSprintFolder).toHaveBeenCalledWith('sp1', 'f1'),
     );

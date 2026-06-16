@@ -89,6 +89,9 @@ export function CommentThread({ spaceId, taskId }: Props) {
 
       {/* Comments list */}
       <div className="space-y-4 mb-5">
+        {comments.length === 0 && (
+          <p className="text-xs text-ink-muted py-2">Nenhum comentário ainda. Seja o primeiro a comentar.</p>
+        )}
         {comments.map((comment) => (
           <div key={comment._id} className="flex gap-3">
             <UserAvatar user={comment.author} size="xs" />

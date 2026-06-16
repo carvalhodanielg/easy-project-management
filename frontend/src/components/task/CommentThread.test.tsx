@@ -58,6 +58,18 @@ describe('CommentThread', () => {
     expect(screen.getByPlaceholderText(/escreva um comentário/i)).toBeInTheDocument();
   });
 
+  it('shows an empty state when there are no comments', async () => {
+    vi.mocked(commentsApi.getComments).mockResolvedValue([] as never);
+    vi.mocked(useAuthStore).mockReturnValue({ _id: 'u1', displayName: 'Alice', email: '', avatarUrl: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CommentThread spaceId="sp1" taskId="t1" />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(/nenhum comentário ainda/i)).toBeInTheDocument();
+  });
+
   it('shows edit and delete buttons for own comments', async () => {
     renderComponent();
     await waitFor(() => screen.getByText('Primeiro comentário'));

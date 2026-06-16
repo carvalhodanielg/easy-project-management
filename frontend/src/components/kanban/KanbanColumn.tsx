@@ -48,9 +48,13 @@ export function KanbanColumn({ status, tasks }: Props) {
           borderColor: isOver ? accent + '40' : 'var(--color-line-dim)',
         }}
       >
-        {tasks.map((task) => (
-          <KanbanCard key={task._id} task={task} />
-        ))}
+        {tasks.length === 0 ? (
+          <p className="text-[11px] text-ink-muted text-center py-6 select-none">
+            Sem tarefas
+          </p>
+        ) : (
+          tasks.map((task) => <KanbanCard key={task._id} task={task} />)
+        )}
       </div>
     </div>
   );

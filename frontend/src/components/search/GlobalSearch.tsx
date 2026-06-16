@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, CheckSquare, FileText, BookOpen, ArrowRight, Command } from 'lucide-react';
 import { globalSearch, type SearchResultItem } from '../../api/search.api';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 const TYPE_ICON = {
   task: CheckSquare,
@@ -36,6 +37,7 @@ export function GlobalSearch({ spaceId, onClose }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -107,7 +109,12 @@ export function GlobalSearch({ spaceId, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-surface border border-line rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Busca global"
+        tabIndex={-1}
+        className="w-full max-w-xl bg-surface border border-line rounded-2xl shadow-2xl shadow-black/50 overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Input */}

@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { updateMe, uploadAvatar } from '../../api/users.api';
 import { UserAvatar } from '../../components/ui/UserAvatar';
 import { useTheme } from '../../hooks/useTheme';
+import { useModalA11y } from '../../hooks/useModalA11y';
 import type { ThemeMode } from '../../types/user.types';
 
 export function ProfilePage() {
@@ -173,60 +174,87 @@ export function ProfilePage() {
 
       {/* Avatar preview modal */}
       {previewUrl && (
-        <div
-          role="dialog"
-          aria-label="Preview de avatar"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={closeModal}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-surface border border-line rounded-2xl p-6 w-80 flex flex-col items-center gap-4 shadow-xl"
-          >
-            <div className="flex items-center justify-between w-full">
-              <h2 className="text-sm font-semibold text-ink">Confirmar foto</h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                aria-label="Fechar modal"
-                className="text-ink-muted hover:text-ink transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <img
-              src={previewUrl}
-              alt="Preview de avatar"
-              className="w-32 h-32 rounded-full object-cover border-2 border-line"
-            />
-
-            {avatarError && (
-              <p className="text-xs text-danger text-center">{avatarError}</p>
-            )}
-
-            <div className="flex gap-3 w-full">
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={avatarPending}
-                className="flex-1 px-4 py-2 rounded-lg border border-line text-sm text-ink hover:bg-base transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAvatar}
-                disabled={avatarPending}
-                aria-label="Salvar foto"
-                className="flex-1 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hi transition-colors disabled:opacity-50"
-              >
-                {avatarPending ? 'Enviando...' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AvatarPreviewModal
+          previewUrl={previewUrl}
+          error={avatarError}
+          pending={avatarPending}
+          onClose={closeModal}
+          onSave={handleSaveAvatar}
+        />
       )}
+    </div>
+  );
+}
+
+interface AvatarPreviewModalProps {
+  previewUrl: string;
+  error?: string;
+  pending: boolean;
+  onClose: () => void;
+  onSave: () => void;
+}
+
+function AvatarPreviewModal({ previewUrl, error, pending, onClose, onSave }: AvatarPreviewModalProps) {
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
+
+  return (
+    <div
+      data-testid="avatar-modal-backdrop"
+      role="presentation"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Preview de avatar"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface border border-line rounded-2xl p-6 w-full max-w-80 flex flex-col items-center gap-4 shadow-xl focus:outline-none"
+      >
+        <div className="flex items-center justify-between w-full">
+          <h2 className="text-sm font-semibold text-ink">Confirmar foto</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar modal"
+            className="text-ink-muted hover:text-ink transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <img
+          src={previewUrl}
+          alt="Preview de avatar"
+          className="w-32 h-32 rounded-full object-cover border-2 border-line"
+        />
+
+        {error && (
+          <p className="text-xs text-danger text-center">{error}</p>
+        )}
+
+        <div className="flex gap-3 w-full">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="flex-1 px-4 py-2 rounded-lg border border-line text-sm text-ink hover:bg-base transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={pending}
+            aria-label="Salvar foto"
+            className="flex-1 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hi transition-colors disabled:opacity-50"
+          >
+            {pending ? 'Enviando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

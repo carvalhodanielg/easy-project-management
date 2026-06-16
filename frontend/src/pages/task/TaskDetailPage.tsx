@@ -10,6 +10,8 @@ import { ActivityLog } from '../../components/task/ActivityLog';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
 import { SubtaskList } from '../../components/task/SubtaskList';
 import { DependenciesSection, isTaskBlocked } from '../../components/task/DependenciesSection';
+import { useModalA11y } from '../../hooks/useModalA11y';
+import type { Task } from '../../types/task.types';
 import {
   type TaskStatus, type TaskPriority,
   FIBONACCI_POINTS, STATUS_LABELS, PRIORITY_LABELS,
@@ -28,13 +30,6 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 export function TaskDetailPage() {
   const { spaceId, taskId } = useParams<{ spaceId: string; taskId: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [description,  setDescription]  = useState('');
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [title,        setTitle]        = useState('');
-  // Mirrors `description` synchronously so onBlur saves the latest value even when
-  // the editor inserts an attachment via onChange + onBlur in the same tick.
-  const descriptionRef = useRef('');
 
   const { data: task, isLoading } = useQuery({
     queryKey: ['task', taskId],
@@ -54,25 +49,6 @@ export function TaskDetailPage() {
     enabled: !!spaceId && !!task?.parentTask,
   });
 
-  useEffect(() => {
-    if (task) {
-      setDescription(task.description);
-      descriptionRef.current = task.description;
-      setTitle(task.name);
-    }
-  }, [task]);
-
-  const updateMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof tasksApi.updateTask>[2]) =>
-      tasksApi.updateTask(spaceId!, taskId!, payload),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
-      void queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
-    },
-    onError: (err) => notifyError(err, 'Falha ao atualizar a tarefa. Tente novamente.'),
-  });
-
   if (isLoading || !task) {
     return (
       <div
@@ -90,16 +66,66 @@ export function TaskDetailPage() {
     );
   }
 
-  const statusColor = STATUS_COLORS[task.status];
-  const blocked = isTaskBlocked(task);
+  return (
+    <TaskDetailModal
+      task={task}
+      parentTask={parentTask}
+      siblings={siblings}
+      spaceId={spaceId!}
+      taskId={taskId!}
+    />
+  );
+}
+
+interface TaskDetailModalProps {
+  task: Task;
+  parentTask?: Task;
+  siblings: Task[];
+  spaceId: string;
+  taskId: string;
+}
+
+// Rendered only once the task is loaded, so useModalA11y binds to the real
+// dialog panel on mount (focus trap, Escape, focus return).
+function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDetailModalProps) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [description,  setDescription]  = useState(task.description);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [title,        setTitle]        = useState(task.name);
+  // Mirrors `description` synchronously so onBlur saves the latest value even when
+  // the editor inserts an attachment via onChange + onBlur in the same tick.
+  const descriptionRef = useRef(task.description);
+
+  useEffect(() => {
+    setDescription(task.description);
+    descriptionRef.current = task.description;
+    setTitle(task.name);
+  }, [task]);
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof tasksApi.updateTask>[2]) =>
+      tasksApi.updateTask(spaceId, taskId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      void queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
+    },
+    onError: (err) => notifyError(err, 'Falha ao atualizar a tarefa. Tente novamente.'),
+  });
 
   function handleClose() {
-    const listId = task?.listId ?? parentTask?.listId ?? null;
-    const sprintId = task?.sprintId ?? parentTask?.sprintId ?? null;
+    const listId = task.listId ?? parentTask?.listId ?? null;
+    const sprintId = task.sprintId ?? parentTask?.sprintId ?? null;
     if (listId) navigate(`/spaces/${spaceId}/lists/${listId}`);
     else if (sprintId) navigate(`/spaces/${spaceId}/sprints/${sprintId}`);
     else navigate(`/spaces/${spaceId}`);
   }
+
+  const dialogRef = useModalA11y<HTMLDivElement>(handleClose);
+
+  const statusColor = STATUS_COLORS[task.status];
+  const blocked = isTaskBlocked(task);
 
   return (
     <div
@@ -109,8 +135,13 @@ export function TaskDetailPage() {
       onClick={handleClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={task.name}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[1280px] h-full bg-modal flex flex-col overflow-hidden"
+        className="w-full max-w-[1280px] h-full bg-modal flex flex-col overflow-hidden focus:outline-none"
         style={{ boxShadow: '0 0 80px rgba(0,0,0,0.6)' }}
       >
         {/* Status accent line */}
@@ -224,7 +255,7 @@ export function TaskDetailPage() {
                   })}
                 </>
               ) : (
-                <SubtaskList spaceId={spaceId!} taskId={taskId!} compact />
+                <SubtaskList spaceId={spaceId} taskId={taskId} compact />
               )}
             </div>
           </div>
@@ -292,7 +323,7 @@ export function TaskDetailPage() {
                 <div>
                   <label className={FIELD_LABEL}>Responsáveis</label>
                   <AssigneeSelector
-                    spaceId={spaceId!}
+                    spaceId={spaceId}
                     assignees={task.assignees}
                     onChange={(ids) => updateMutation.mutate({ assignees: ids })}
                   />
@@ -321,13 +352,13 @@ export function TaskDetailPage() {
                 )}
 
                 {/* Dependencies */}
-                <DependenciesSection spaceId={spaceId!} task={task} />
+                <DependenciesSection spaceId={spaceId} task={task} />
 
                 {/* Description */}
                 <div>
                   <label className={FIELD_LABEL}>Descrição</label>
                   <MarkdownEditor
-                    spaceId={spaceId!}
+                    spaceId={spaceId}
                     value={description}
                     onChange={(v) => { setDescription(v); descriptionRef.current = v; }}
                     onBlur={() => updateMutation.mutate({ description: descriptionRef.current })}
@@ -347,9 +378,9 @@ export function TaskDetailPage() {
           >
             <div className="flex-1 overflow-y-auto">
               <div className="p-4 flex flex-col gap-6">
-                <ActivityLog spaceId={spaceId!} taskId={taskId!} />
+                <ActivityLog spaceId={spaceId} taskId={taskId} />
                 <div className="border-t border-line pt-4">
-                  <CommentThread spaceId={spaceId!} taskId={taskId!} />
+                  <CommentThread spaceId={spaceId} taskId={taskId} />
                 </div>
               </div>
             </div>

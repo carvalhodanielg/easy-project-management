@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, FileText, Trash2, X, BookOpen, Clock } from 'lucide-react';
 import * as wikiApi from '../../api/wiki.api';
+import { notifyError } from '../../lib/toast';
 
 export function WikiFolderPage() {
   const { spaceId, folderId } = useParams<{ spaceId: string; folderId: string }>();
@@ -31,11 +32,13 @@ export function WikiFolderPage() {
       setShowCreate(false);
       navigate(`/spaces/${spaceId}/wiki/documents/${doc._id}`);
     },
+    onError: (err) => notifyError(err, 'Falha ao criar o documento. Tente novamente.'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (docId: string) => wikiApi.deleteDocument(spaceId!, docId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['wiki-documents', folderId] }),
+    onError: (err) => notifyError(err, 'Falha ao excluir o documento. Tente novamente.'),
   });
 
   return (

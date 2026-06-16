@@ -59,11 +59,13 @@ function CommentItem({
       void queryClient.invalidateQueries({ queryKey: ['note-comments', noteId] });
       setEditing(false);
     },
+    onError: (err) => notifyError(err, 'Falha ao editar o comentário. Tente novamente.'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => notesApi.deleteNoteComment(spaceId, noteId, comment._id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['note-comments', noteId] }),
+    onError: (err) => notifyError(err, 'Falha ao excluir o comentário. Tente novamente.'),
   });
 
   const isOwn = comment.author._id === currentUserId;
@@ -184,7 +186,7 @@ export function NoteDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ['note', noteId] });
       setSaveStatus('saved');
     },
-    onError: () => setSaveStatus('error'),
+    onError: (err) => { setSaveStatus('error'); notifyError(err, 'Falha ao salvar a nota. Tente novamente.'); },
   });
 
   // ── Save content on blur, matching the task-description editor ────────────────

@@ -14,6 +14,7 @@ import type { SpaceRole } from '../../types/space.types';
 import type { User } from '../../types/user.types';
 import { cn } from '../../lib/utils';
 import { getApiErrorMessage } from '../../lib/errors';
+import { notifyError } from '../../lib/toast';
 import { UserAvatar } from '../../components/ui/UserAvatar';
 
 /* ── helpers ── */
@@ -85,6 +86,7 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] });
       onClose();
     },
+    onError: (err) => notifyError(err, 'Falha ao adicionar membro.'),
   });
 
   const inviteMutation = useMutation({
@@ -93,6 +95,7 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       setInviteUrl(result.inviteUrl);
       void queryClient.invalidateQueries({ queryKey: ['space-invitations', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao enviar o convite.'),
   });
 
   // Offer an email invite when the query is a valid email that matched no
@@ -264,11 +267,13 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
   const updateMutation = useMutation({
     mutationFn: (role: SpaceRole) => spacesApi.updateMemberRole(spaceId, userId, role),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] }),
+    onError: (err) => notifyError(err, 'Falha ao alterar o papel do membro.'),
   });
 
   const removeMutation = useMutation({
     mutationFn: () => spacesApi.removeMember(spaceId, userId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] }),
+    onError: (err) => notifyError(err, 'Falha ao remover o membro.'),
   });
 
   const transferMutation = useMutation({
@@ -277,6 +282,7 @@ function MemberRow({ member, spaceId, isCurrentUser, canManage }: {
       setConfirmTransfer(false);
       void queryClient.invalidateQueries({ queryKey: ['space-members', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao transferir a propriedade.'),
   });
 
   // Hooks above run unconditionally; bail out only after they are declared.
@@ -402,6 +408,7 @@ function PendingInvitations({ spaceId }: { spaceId: string }) {
   const revokeMutation = useMutation({
     mutationFn: (invitationId: string) => spacesApi.revokeInvitation(spaceId, invitationId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['space-invitations', spaceId] }),
+    onError: (err) => notifyError(err, 'Falha ao revogar o convite.'),
   });
 
   if (invitations.length === 0) return null;

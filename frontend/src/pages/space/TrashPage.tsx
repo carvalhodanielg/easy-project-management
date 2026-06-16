@@ -4,6 +4,7 @@ import { Trash2, RotateCcw, Loader2, List as ListIcon, Zap, CheckSquare } from '
 import * as listsApi from '../../api/lists.api';
 import * as sprintsApi from '../../api/sprints.api';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 
 type ItemKind = 'list' | 'sprint' | 'task';
 
@@ -80,6 +81,7 @@ export function TrashPage() {
       return tasksApi.restoreTask(spaceId!, id);
     },
     onSuccess: invalidateAll,
+    onError: (err) => notifyError(err, 'Falha ao restaurar o item. Tente novamente.'),
   });
 
   const purge = useMutation({
@@ -89,11 +91,13 @@ export function TrashPage() {
       return tasksApi.permanentDeleteTask(spaceId!, id);
     },
     onSuccess: invalidateAll,
+    onError: (err) => notifyError(err, 'Falha ao excluir o item definitivamente. Tente novamente.'),
   });
 
   const emptyTrash = useMutation({
     mutationFn: () => tasksApi.emptyTaskTrash(spaceId!),
     onSuccess: invalidateAll,
+    onError: (err) => notifyError(err, 'Falha ao esvaziar a lixeira. Tente novamente.'),
   });
 
   const busy = restore.isPending || purge.isPending || emptyTrash.isPending;

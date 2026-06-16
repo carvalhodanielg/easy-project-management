@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
 import * as wikiApi from '../../api/wiki.api';
+import { notifyError } from '../../lib/toast';
 import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 
 export function WikiDocumentPage() {
@@ -37,7 +38,7 @@ export function WikiDocumentPage() {
       void queryClient.invalidateQueries({ queryKey: ['wiki-document', documentId] });
       setSaveStatus('saved');
     },
-    onError: () => setSaveStatus('unsaved'),
+    onError: (err) => { setSaveStatus('unsaved'); notifyError(err, 'Falha ao salvar o documento. Tente novamente.'); },
   });
 
   // Save on blur, matching the task-description editor behavior.

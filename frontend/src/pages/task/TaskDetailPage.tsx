@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, Check, Loader2, CornerLeftUp } from 'lucide-react';
 import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
@@ -69,6 +70,7 @@ export function TaskDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao atualizar a tarefa. Tente novamente.'),
   });
 
   if (isLoading || !task) {

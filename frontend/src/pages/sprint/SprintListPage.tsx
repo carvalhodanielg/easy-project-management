@@ -11,6 +11,7 @@ import type { DayOfWeek } from '../../api/sprint-folders.api';
 import { type Sprint } from '../../api/sprints.api';
 import { sprintStatusKey } from '../../lib/sprintStatus';
 import { cn } from '../../lib/utils';
+import { notifyError } from '../../lib/toast';
 
 /* ── helpers ── */
 const STATUS_ORDER: Sprint['status'][] = ['active', 'planning', 'completed'];
@@ -263,7 +264,7 @@ function CreateSprintModal({ spaceId, onClose }: { spaceId: string; onClose: () 
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
       onClose();
     },
-    onError: () => setError('Falha ao criar sprint.'),
+    onError: (err) => { setError('Falha ao criar sprint.'); notifyError(err, 'Falha ao criar sprint.'); },
   });
 
   return (
@@ -370,7 +371,7 @@ function CreateSprintFolderModal({ spaceId, onClose }: { spaceId: string; onClos
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
       onClose();
     },
-    onError: () => setError('Falha ao criar pasta.'),
+    onError: (err) => { setError('Falha ao criar pasta.'); notifyError(err, 'Falha ao criar pasta.'); },
   });
 
   return (
@@ -533,7 +534,7 @@ function RenameFolderModal({
       void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
       onClose();
     },
-    onError: () => setError('Falha ao renomear pasta.'),
+    onError: (err) => { setError('Falha ao renomear pasta.'); notifyError(err, 'Falha ao renomear pasta.'); },
   });
 
   return (
@@ -616,6 +617,7 @@ export function SprintListPage() {
       void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao excluir a pasta. Tente novamente.'),
   });
 
   const deleteSprintMutation = useMutation({
@@ -623,6 +625,7 @@ export function SprintListPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao excluir a sprint. Tente novamente.'),
   });
 
   const isLoading = loadingSprints || loadingFolders;

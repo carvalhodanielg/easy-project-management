@@ -11,6 +11,7 @@ import {
 } from '../../api/attachments.api';
 import { useAttachmentUpload, filesFromPaste, filesFromDrop } from '../../hooks/useAttachmentUpload';
 import { useAuthStore } from '../../store/auth.store';
+import { notifyError } from '../../lib/toast';
 import { MentionTextarea } from '../ui/MentionTextarea';
 import { renderMentions } from '../ui/renderMentions';
 import { UserAvatar } from '../ui/UserAvatar';
@@ -44,6 +45,7 @@ export function CommentThread({ spaceId, taskId }: Props) {
       setMentionIds([]);
       setPending([]);
     },
+    onError: (err) => notifyError(err, 'Falha ao publicar o comentário. Tente novamente.'),
   });
 
   const canSubmit = (content.trim().length > 0 || pending.length > 0) && !createMutation.isPending && !uploading;
@@ -65,11 +67,13 @@ export function CommentThread({ spaceId, taskId }: Props) {
       void queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
       setEditingId(null);
     },
+    onError: (err) => notifyError(err, 'Falha ao editar o comentário. Tente novamente.'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => commentsApi.deleteComment(spaceId, taskId, commentId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['comments', taskId] }),
+    onError: (err) => notifyError(err, 'Falha ao excluir o comentário. Tente novamente.'),
   });
 
   const textareaClass = 'w-full px-3.5 py-2.5 bg-input border border-line rounded-xl text-sm text-ink placeholder:text-ink-muted resize-y focus:outline-none focus:border-brand transition-colors';

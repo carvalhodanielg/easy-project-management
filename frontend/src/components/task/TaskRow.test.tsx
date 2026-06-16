@@ -21,7 +21,10 @@ vi.mock('../../api/spaces.api', () => ({
   ]),
 }));
 
+vi.mock('../../lib/toast', () => ({ notifyError: vi.fn() }));
+
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 
 const TASK: Task = {
   _id: 't1',
@@ -369,6 +372,43 @@ describe('TaskRow', () => {
       await waitFor(() => {
         expect(tasksApi.updateTask).toHaveBeenCalledWith('sp1', 't1', { assignees: [] });
       });
+    });
+  });
+
+  describe('error feedback on inline edits', () => {
+    it('shows an error toast when a status change fails', async () => {
+      vi.mocked(tasksApi.updateTask).mockRejectedValue(new Error('boom'));
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /status/i }));
+      fireEvent.click(screen.getByText('Feito'));
+      await waitFor(() => expect(notifyError).toHaveBeenCalled());
+    });
+
+    it('shows an error toast when a name edit fails', async () => {
+      vi.mocked(tasksApi.updateTask).mockRejectedValue(new Error('boom'));
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /editar nome/i }));
+      const input = screen.getByRole('textbox', { name: /nome da tarefa/i });
+      fireEvent.change(input, { target: { value: 'Novo nome' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(notifyError).toHaveBeenCalled());
+    });
+
+    it('shows an error toast when a story-points edit fails', async () => {
+      vi.mocked(tasksApi.updateTask).mockRejectedValue(new Error('boom'));
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /pontos: 5/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^8 pts$/i }));
+      await waitFor(() => expect(notifyError).toHaveBeenCalled());
+    });
+
+    it('shows an error toast when an assignee change fails', async () => {
+      vi.mocked(tasksApi.updateTask).mockRejectedValue(new Error('boom'));
+      renderRow();
+      fireEvent.click(screen.getByRole('button', { name: /adicionar responsável/i }));
+      await waitFor(() => screen.getByText('Bob'));
+      fireEvent.click(screen.getByRole('button', { name: /^Bob$/i }));
+      await waitFor(() => expect(notifyError).toHaveBeenCalled());
     });
   });
 });

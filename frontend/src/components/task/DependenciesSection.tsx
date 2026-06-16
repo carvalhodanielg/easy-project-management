@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Plus, Link2, AlertTriangle } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { StatusBadge } from '../ui/StatusBadge';
 import { type Task, type TaskStatus, STATUS_LABELS } from '../../types/task.types';
 
@@ -51,6 +52,7 @@ export function DependenciesSection({ spaceId, task }: Props) {
       void queryClient.invalidateQueries({ queryKey: ['task', task._id] });
       setAdding(false);
     },
+    onError: (err) => notifyError(err, 'Falha ao adicionar a dependência. Tente novamente.'),
   });
 
   const removeMutation = useMutation({
@@ -59,6 +61,7 @@ export function DependenciesSection({ spaceId, task }: Props) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['task', task._id] });
     },
+    onError: (err) => notifyError(err, 'Falha ao remover a dependência. Tente novamente.'),
   });
 
   const hasUnresolvedBlockers = task.blockedBy.some(

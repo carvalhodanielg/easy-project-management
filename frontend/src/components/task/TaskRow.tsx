@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, Pencil, Check, Plus } from 'lucide-react';
 import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
 import { updateTask } from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { TaskActionMenu } from './TaskActionMenu';
 import { getSpaceMembers } from '../../api/spaces.api';
 import { PriorityIcon } from '../ui/PriorityIcon';
@@ -220,14 +221,14 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       setStatusOpen(false);
       applyOptimistic({ status: newStatus });
     },
-    onError: () => { setLocalStatus(task.status); invalidate(); },
+    onError: (err) => { setLocalStatus(task.status); invalidate(); notifyError(err, 'Falha ao alterar o status. Tente novamente.'); },
     onSuccess: () => invalidate(),
   });
 
   const { mutate: changeName } = useMutation({
     mutationFn: (name: string) => updateTask(spaceId!, task._id, { name }),
     onMutate: (name) => { applyOptimistic({ name }); },
-    onError: () => invalidate(),
+    onError: (err) => { invalidate(); notifyError(err, 'Falha ao renomear a tarefa. Tente novamente.'); },
     onSuccess: () => invalidate(),
   });
 
@@ -238,7 +239,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       setPointsOpen(false);
       applyOptimistic({ storyPoints });
     },
-    onError: () => { setLocalPoints(task.storyPoints); invalidate(); },
+    onError: (err) => { setLocalPoints(task.storyPoints); invalidate(); notifyError(err, 'Falha ao alterar os pontos. Tente novamente.'); },
     onSuccess: () => invalidate(),
   });
 
@@ -251,7 +252,7 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
       setLocalAssignees(next);
       applyOptimistic({ assignees: next });
     },
-    onError: () => { setLocalAssignees(task.assignees); invalidate(); },
+    onError: (err) => { setLocalAssignees(task.assignees); invalidate(); notifyError(err, 'Falha ao alterar os responsáveis. Tente novamente.'); },
     onSuccess: () => invalidate(),
   });
 

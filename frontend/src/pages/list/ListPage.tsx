@@ -76,11 +76,13 @@ export function ListPage() {
     mutationFn: (name: string) =>
       savedFiltersApi.createSavedFilter(spaceId!, { name, filters: taskFilter.filters }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
+    onError: (err) => notifyError(err, 'Falha ao salvar o filtro. Tente novamente.'),
   });
 
   const deleteSavedFilter = useMutation({
     mutationFn: (id: string) => savedFiltersApi.deleteSavedFilter(spaceId!, id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-filters', spaceId] }),
+    onError: (err) => notifyError(err, 'Falha ao excluir o filtro. Tente novamente.'),
   });
 
 
@@ -115,6 +117,10 @@ export function ListPage() {
     mutationFn: ({ taskId, position }: { taskId: string; position: number }) =>
       tasksApi.updateTask(spaceId!, taskId, { position }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] }),
+    onError: (err) => {
+      void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
+      notifyError(err, 'Falha ao reordenar. Tente novamente.');
+    },
   });
 
   const moveSubtaskMutation = useMutation({
@@ -125,6 +131,7 @@ export function ListPage() {
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['task', spaceId, newParentTaskId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao mover a subtarefa. Tente novamente.'),
   });
 
   function handleDragEnd(event: DragEndEvent) {

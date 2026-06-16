@@ -198,15 +198,15 @@ function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDe
           </button>
         </div>
 
-        {/* Three-column body */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Three-column body — stacks vertically on small screens */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden min-h-0">
 
           {/* Left column — context tree */}
           <div
             data-testid="task-detail-col-subtasks"
-            className="w-[280px] shrink-0 border-r border-line flex flex-col overflow-hidden"
+            className="w-full lg:w-[280px] shrink-0 border-b lg:border-b-0 lg:border-r border-line flex flex-col lg:overflow-hidden"
           >
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 lg:overflow-y-auto">
               {task.parentTask ? (
                 <>
                   {parentTask && (
@@ -263,9 +263,9 @@ function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDe
           {/* Center column — Fields + Description */}
           <div
             data-testid="task-detail-col-main"
-            className="flex-1 flex flex-col overflow-hidden min-w-0"
+            className="flex-1 flex flex-col lg:overflow-hidden min-w-0"
           >
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 lg:overflow-y-auto">
               <div className="p-6 flex flex-col gap-6">
 
                 {/* Quick-edit chips */}
@@ -374,9 +374,9 @@ function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDe
           {/* Right column — Activity + Comments */}
           <div
             data-testid="task-detail-col-activity"
-            className="w-[340px] shrink-0 border-l border-line flex flex-col overflow-hidden"
+            className="w-full lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-line flex flex-col lg:overflow-hidden"
           >
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 lg:overflow-y-auto">
               <div className="p-4 flex flex-col gap-6">
                 <ActivityLog spaceId={spaceId} taskId={taskId} />
                 <div className="border-t border-line pt-4">

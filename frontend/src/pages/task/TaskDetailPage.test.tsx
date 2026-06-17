@@ -341,7 +341,9 @@ describe('TaskDetailPage — subtask navigation', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    await waitFor(() => screen.getByTestId('close-button'));
+    // Wait until the parent task has loaded (breadcrumb appears) so the close
+    // fallback can read its listId.
+    await waitFor(() => screen.getByTestId('parent-task-breadcrumb'));
     fireEvent.click(screen.getByTestId('close-button'));
     await waitFor(() => {
       expect(screen.getByTestId('list-page')).toBeInTheDocument();

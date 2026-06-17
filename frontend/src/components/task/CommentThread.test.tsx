@@ -5,9 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CommentThread } from './CommentThread';
 import * as commentsApi from '../../api/comments.api';
 import { useAuthStore } from '../../store/auth.store';
+import { notifyError } from '../../lib/toast';
 
 vi.mock('../../api/comments.api');
 vi.mock('../../store/auth.store');
+vi.mock('../../lib/toast', () => ({ notifyError: vi.fn() }));
 vi.mock('../../api/attachments.api', async () => {
   const actual = await vi.importActual<typeof import('../../api/attachments.api')>('../../api/attachments.api');
   return {
@@ -56,6 +58,18 @@ describe('CommentThread', () => {
     expect(screen.getByPlaceholderText(/escreva um comentário/i)).toBeInTheDocument();
   });
 
+  it('shows an empty state when there are no comments', async () => {
+    vi.mocked(commentsApi.getComments).mockResolvedValue([] as never);
+    vi.mocked(useAuthStore).mockReturnValue({ _id: 'u1', displayName: 'Alice', email: '', avatarUrl: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CommentThread spaceId="sp1" taskId="t1" />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(/nenhum comentário ainda/i)).toBeInTheDocument();
+  });
+
   it('shows edit and delete buttons for own comments', async () => {
     renderComponent();
     await waitFor(() => screen.getByText('Primeiro comentário'));
@@ -70,6 +84,24 @@ describe('CommentThread', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('Primeiro comentário')).toBeInTheDocument();
     });
+  });
+
+  it('shows an error toast when deleting a comment fails', async () => {
+    vi.mocked(commentsApi.deleteComment).mockRejectedValue(new Error('boom'));
+    renderComponent();
+    await waitFor(() => screen.getByText('Primeiro comentário'));
+    fireEvent.click(screen.getByLabelText('Excluir'));
+    await waitFor(() => expect(notifyError).toHaveBeenCalled());
+  });
+
+  it('shows an error toast when posting a comment fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(commentsApi.createComment).mockRejectedValue(new Error('boom'));
+    renderComponent();
+    const textarea = screen.getByPlaceholderText(/escreva um comentário/i);
+    await user.type(textarea, 'Olá');
+    await user.click(screen.getByRole('button', { name: /comentar/i }));
+    await waitFor(() => expect(notifyError).toHaveBeenCalled());
   });
 
   it('uploads a selected file and submits the comment with its attachment id', async () => {

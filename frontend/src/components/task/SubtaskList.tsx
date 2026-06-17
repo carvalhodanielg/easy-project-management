@@ -132,6 +132,10 @@ export function SubtaskList({ spaceId, taskId, onSelect, isSelectedFn, selection
     <div>
       {compact ? compactRows : subtaskRows}
 
+      {subtasks.length === 0 && !showInput && (
+        <p className="px-4 py-2.5 text-xs text-ink-muted">Nenhuma subtarefa ainda.</p>
+      )}
+
       {showInput ? (
         <div className="flex items-center gap-2 px-3 py-2.5 border-t border-line-dim bg-lift/30">
           <input

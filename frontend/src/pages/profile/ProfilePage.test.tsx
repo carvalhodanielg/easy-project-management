@@ -187,7 +187,7 @@ describe('ProfilePage', () => {
   it('closes modal without uploading when clicking the backdrop', () => {
     renderPage();
     selectFile();
-    fireEvent.click(screen.getByRole('dialog', { name: /preview/i }));
+    fireEvent.click(screen.getByTestId('avatar-modal-backdrop'));
 
     expect(usersApi.uploadAvatar).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog', { name: /preview/i })).not.toBeInTheDocument();

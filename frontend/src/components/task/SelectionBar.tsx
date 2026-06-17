@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Trash2, MoveRight, Copy, ArrowUpFromLine, MoveUpRight, CornerDownRight, ChevronDown } from 'lucide-react';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { useBulkPatchTasks } from '../../hooks/useBulkPatchTasks';
 import { useDeleteTaskWithUndo } from '../../hooks/useDeleteTaskWithUndo';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
@@ -110,30 +111,35 @@ export function SelectionBar({
         sprintId: dest.sprintId,
       }),
     onSuccess: () => { onClear(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao mover as tarefas. Tente novamente.'),
   });
 
   const duplicateMutation = useMutation({
     mutationFn: (dest: Destination) =>
       tasksApi.bulkDuplicateTasks(spaceId, mainTaskIds, dest),
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao duplicar as tarefas. Tente novamente.'),
   });
 
   const convertMutation = useMutation({
     mutationFn: (parentTaskId: string) =>
       tasksApi.convertToSubtask(spaceId, mainTaskIds, parentTaskId),
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao converter em subtarefa. Tente novamente.'),
   });
 
   const promoteMutation = useMutation({
     mutationFn: (dest: Destination) =>
       tasksApi.promoteToMainTask(spaceId, subtaskIds, dest),
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao promover as subtarefas. Tente novamente.'),
   });
 
   const moveSubtaskMutation = useMutation({
     mutationFn: (newParentTaskId: string) =>
       tasksApi.moveSubtask(spaceId, subtaskIds, newParentTaskId),
     onSuccess: () => { invalidate(); onClear(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao mover as subtarefas. Tente novamente.'),
   });
 
   const bulkPatchAction = (
@@ -144,7 +150,10 @@ export function SelectionBar({
   ) =>
     bulkPatch.mutate(
       { taskIds: [...mainTaskIds, ...subtaskIds], ...payload },
-      { onSuccess: () => setPicker(null) },
+      {
+        onSuccess: () => setPicker(null),
+        onError: (err) => notifyError(err, 'Falha ao atualizar as tarefas. Tente novamente.'),
+      },
     );
 
   const isPending =

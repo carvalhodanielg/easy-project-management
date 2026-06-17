@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { MoreHorizontal, Trash2, MoveRight, Copy, ChevronRight, ArrowUpFromLine, MoveUpRight, CheckSquare } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as tasksApi from '../../api/tasks.api';
+import { notifyError } from '../../lib/toast';
 import { useDeleteTaskWithUndo } from '../../hooks/useDeleteTaskWithUndo';
 import { DestinationPickerModal, type Destination } from './DestinationPickerModal';
 import { ParentTaskPickerModal } from './ParentTaskPickerModal';
@@ -51,26 +52,31 @@ export function TaskActionMenu({ task, spaceId, onDone, onSelect }: Props) {
   const moveMutation = useMutation({
     mutationFn: (dest: Destination) => tasksApi.bulkMoveTasks(spaceId, [task._id], dest),
     onSuccess: () => { invalidate(); onDone(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao mover a tarefa. Tente novamente.'),
   });
 
   const duplicateMutation = useMutation({
     mutationFn: (dest: Destination) => tasksApi.bulkDuplicateTasks(spaceId, [task._id], dest),
     onSuccess: () => { invalidate(); onDone(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao duplicar a tarefa. Tente novamente.'),
   });
 
   const moveSubtaskMutation = useMutation({
     mutationFn: (newParentTaskId: string) => tasksApi.moveSubtask(spaceId, [task._id], newParentTaskId),
     onSuccess: () => { invalidate(); onDone(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao mover a subtarefa. Tente novamente.'),
   });
 
   const promoteMutation = useMutation({
     mutationFn: (dest: Destination) => tasksApi.promoteToMainTask(spaceId, [task._id], dest),
     onSuccess: () => { invalidate(); onDone(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao promover a subtarefa. Tente novamente.'),
   });
 
   const duplicateSubtaskMutation = useMutation({
     mutationFn: (newParentTaskId: string) => tasksApi.duplicateSubtask(spaceId, task._id, newParentTaskId),
     onSuccess: () => { invalidate(); onDone(); setModal(null); },
+    onError: (err) => notifyError(err, 'Falha ao duplicar a subtarefa. Tente novamente.'),
   });
 
   function openDropdown() {

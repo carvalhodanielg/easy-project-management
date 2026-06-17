@@ -38,12 +38,14 @@ import { NotificationBell } from '../../components/notifications/NotificationBel
 import { UserAvatar } from '../../components/ui/UserAvatar';
 import { ShortcutsModal } from '../../components/ui/ShortcutsModal';
 import { cn } from '../../lib/utils';
+import { notifyError } from '../../lib/toast';
 import { sprintDisplayStatus } from '../../lib/sprintStatus';
 import { Tooltip } from '../../components/ui/tooltip';
 import { FolderMenu } from '../../components/ui/FolderMenu';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useMoveTaskWithUndo } from '../../hooks/useMoveTaskWithUndo';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import { useConfirm } from '../../hooks/useConfirm';
 import { TaskDragProvider } from '../../contexts/TaskDragProvider';
 import { MovingSprintContext } from '../../contexts/MovingSprintContext';
 import type { ReorderHandler } from '../../contexts/TaskDragContext';
@@ -189,6 +191,7 @@ function SprintFolderItem({
   onEditSettings: (folder: sprintFoldersApi.SprintFolder) => void;
 }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(folder.name);
@@ -201,6 +204,7 @@ function SprintFolderItem({
       void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
       setRenaming(false);
     },
+    onError: (err) => notifyError(err, 'Falha ao renomear a pasta. Tente novamente.'),
   });
 
   const createSprintMutation = useMutation({
@@ -209,7 +213,7 @@ function SprintFolderItem({
       setOpen(true);
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
     },
-    onError: () => setError('Não foi possível criar a sprint.'),
+    onError: (err) => { setError('Não foi possível criar a sprint.'); notifyError(err, 'Não foi possível criar a sprint.'); },
   });
 
   const deleteMutation = useMutation({
@@ -218,6 +222,7 @@ function SprintFolderItem({
       void queryClient.invalidateQueries({ queryKey: ['sprint-folders', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao excluir a pasta. Tente novamente.'),
   });
 
   function commitRename() {
@@ -272,8 +277,12 @@ function SprintFolderItem({
               label: 'Excluir pasta',
               icon: Trash2,
               danger: true,
-              onClick: () => {
-                if (window.confirm(`Excluir a pasta "${folder.name}" e suas sprints?`)) deleteMutation.mutate();
+              onClick: async () => {
+                if (await confirm({
+                  title: `Excluir a pasta "${folder.name}"?`,
+                  message: 'A pasta e suas sprints serão excluídas.',
+                  confirmLabel: 'Excluir',
+                })) deleteMutation.mutate();
               },
             },
           ]}
@@ -303,6 +312,7 @@ function DocFolderItem({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(folder.name);
 
@@ -312,6 +322,7 @@ function DocFolderItem({
       void queryClient.invalidateQueries({ queryKey: ['wiki-folders', spaceId] });
       setRenaming(false);
     },
+    onError: (err) => notifyError(err, 'Falha ao renomear a pasta. Tente novamente.'),
   });
 
   const createDocMutation = useMutation({
@@ -320,6 +331,7 @@ function DocFolderItem({
       void queryClient.invalidateQueries({ queryKey: ['wiki-documents', spaceId, folder._id] });
       navigate(`/spaces/${spaceId}/wiki/documents/${doc._id}`);
     },
+    onError: (err) => notifyError(err, 'Falha ao criar o documento. Tente novamente.'),
   });
 
   const deleteMutation = useMutation({
@@ -327,6 +339,7 @@ function DocFolderItem({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['wiki-folders', spaceId] });
     },
+    onError: (err) => notifyError(err, 'Falha ao excluir a pasta. Tente novamente.'),
   });
 
   function commitRename() {
@@ -377,8 +390,12 @@ function DocFolderItem({
             label: 'Excluir pasta',
             icon: Trash2,
             danger: true,
-            onClick: () => {
-              if (window.confirm(`Excluir a pasta "${folder.name}" e seus documentos?`)) deleteMutation.mutate();
+            onClick: async () => {
+              if (await confirm({
+                title: `Excluir a pasta "${folder.name}"?`,
+                message: 'A pasta e seus documentos serão excluídos.',
+                confirmLabel: 'Excluir',
+              })) deleteMutation.mutate();
             },
           },
         ]}
@@ -430,7 +447,11 @@ function CreateSprintFolderModal({
       void queryClient.invalidateQueries({ queryKey: ['sprints', spaceId] });
       onClose();
     },
-    onError: () => setError(isEdit ? 'Falha ao salvar pasta.' : 'Falha ao criar pasta.'),
+    onError: (err) => {
+      const msg = isEdit ? 'Falha ao salvar pasta.' : 'Falha ao criar pasta.';
+      setError(msg);
+      notifyError(err, msg);
+    },
   });
 
   return (
@@ -649,7 +670,7 @@ export function SpaceLayout() {
       setShowCreateSprint(false);
       setSprintName(''); setSprintStart(''); setSprintEnd('');
     },
-    onError: () => setSprintError('Falha ao criar sprint.'),
+    onError: (err) => { setSprintError('Falha ao criar sprint.'); notifyError(err, 'Falha ao criar sprint.'); },
   });
 
   const createDocFolderMutation = useMutation({
@@ -660,6 +681,7 @@ export function SpaceLayout() {
       setCreatingDocFolder(false);
       setDocFolderName('');
     },
+    onError: (err) => notifyError(err, 'Falha ao criar a pasta. Tente novamente.'),
   });
 
   function submitDocFolder() {

@@ -48,6 +48,21 @@ describe('SubtaskList', () => {
     });
   });
 
+  it('shows an empty state when there are no subtasks', async () => {
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue([] as never);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId" element={<SubtaskList spaceId="sp1" taskId="t1" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(/nenhuma subtarefa ainda/i)).toBeInTheDocument();
+  });
+
   it('shows input when add button clicked', async () => {
     renderComponent();
     await waitFor(() => screen.getByText(/adicionar subtarefa/i));

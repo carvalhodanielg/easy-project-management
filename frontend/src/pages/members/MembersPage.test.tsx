@@ -10,6 +10,9 @@ import { useAuthStore } from '../../store/auth.store';
 vi.mock('../../api/spaces.api');
 vi.mock('../../api/users.api');
 vi.mock('../../store/auth.store');
+vi.mock('../../lib/toast', () => ({ notifyError: vi.fn() }));
+
+import { notifyError } from '../../lib/toast';
 
 const CURRENT_USER = { _id: 'u1', email: 'alice@test.com', displayName: 'Alice', avatarUrl: null };
 
@@ -190,6 +193,17 @@ describe('MembersPage', () => {
     await waitFor(() => {
       expect(spacesApi.transferOwnership).toHaveBeenCalledWith('sp1', 'u2');
     });
+  });
+
+  it('shows an error toast when removing a member fails', async () => {
+    vi.mocked(spacesApi.removeMember).mockRejectedValue(new Error('boom'));
+    renderPage();
+    await waitForLoaded();
+
+    fireEvent.click(screen.getByRole('button', { name: /remover/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalled());
   });
 
   it('hides management controls from a non-owner editor', async () => {

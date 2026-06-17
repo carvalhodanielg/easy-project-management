@@ -9,6 +9,9 @@ import * as spacesApi from '../../api/spaces.api';
 import type { Space } from '../../types/space.types';
 import { UserAvatar } from '../../components/ui/UserAvatar';
 import { cn } from '../../lib/utils';
+import { notifyError } from '../../lib/toast';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 const PRESET_COLORS = [
   '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
@@ -21,6 +24,7 @@ export function HomePage() {
   const logout      = useLogout();
   const navigate    = useNavigate();
   const queryClient = useQueryClient();
+  const confirm     = useConfirm();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar    = useUiStore((s) => s.toggleSidebar);
 
@@ -46,11 +50,13 @@ export function HomePage() {
   const restoreMutation = useMutation({
     mutationFn: (spaceId: string) => spacesApi.restoreSpace(spaceId),
     onSuccess: invalidateSpaces,
+    onError: (err) => notifyError(err, 'Falha ao restaurar o espaço. Tente novamente.'),
   });
 
   const purgeMutation = useMutation({
     mutationFn: (spaceId: string) => spacesApi.permanentDeleteSpace(spaceId),
     onSuccess: invalidateSpaces,
+    onError: (err) => notifyError(err, 'Falha ao excluir o espaço. Tente novamente.'),
   });
 
   const createMutation = useMutation({
@@ -310,11 +316,13 @@ export function HomePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          window.confirm(
-                            `Excluir "${space.name}" definitivamente? Esta ação não pode ser desfeita.`,
-                          )
+                          await confirm({
+                            title: `Excluir "${space.name}" definitivamente?`,
+                            message: 'Esta ação não pode ser desfeita.',
+                            confirmLabel: 'Excluir',
+                          })
                         ) {
                           purgeMutation.mutate(space._id);
                         }
@@ -334,96 +342,133 @@ export function HomePage() {
 
       {/* ── Create modal ── */}
       {showCreate && (
+        <CreateSpaceModal
+          name={name}
+          color={color}
+          formError={formError}
+          isPending={createMutation.isPending}
+          onNameChange={setName}
+          onColorChange={setColor}
+          onSubmit={() => { setFormError(''); createMutation.mutate(); }}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+interface CreateSpaceModalProps {
+  name: string;
+  color: string;
+  formError: string;
+  isPending: boolean;
+  onNameChange: (v: string) => void;
+  onColorChange: (v: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}
+
+function CreateSpaceModal({
+  name, color, formError, isPending, onNameChange, onColorChange, onSubmit, onClose,
+}: CreateSpaceModalProps) {
+  const dialogRef = useModalA11y<HTMLDivElement>(onClose);
+
+  return (
+    <div
+      role="presentation"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Novo espaço"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6 focus:outline-none"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold text-ink">Novo espaço</h3>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Color preview */}
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowCreate(false)}
+          className="h-16 rounded-xl mb-5 flex items-center justify-center"
+          style={{ background: `linear-gradient(135deg, ${color}44 0%, ${color}11 100%)` }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg"
+            style={{ background: color, boxShadow: `0 4px 14px ${color}55` }}
           >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-ink">Novo espaço</h3>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            {/* Color preview */}
-            <div
-              className="h-16 rounded-xl mb-5 flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${color}44 0%, ${color}11 100%)` }}
-            >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-lg"
-                style={{ background: color, boxShadow: `0 4px 14px ${color}55` }}
-              >
-                {name.charAt(0).toUpperCase() || 'A'}
-              </div>
-            </div>
-
-            <form
-              onSubmit={(e: FormEvent) => { e.preventDefault(); setFormError(''); createMutation.mutate(); }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-xs font-medium text-ink-dim mb-1.5">Nome do espaço</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoFocus
-                  placeholder="Ex: Produto, Marketing, Dev…"
-                  className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-ink-dim mb-2">Cor</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className="w-6 h-6 rounded-full transition-all"
-                      style={{
-                        background: c,
-                        outline: color === c ? `2px solid ${c}` : 'none',
-                        outlineOffset: '2px',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {formError && <p className="text-xs text-danger">{formError}</p>}
-
-              <div className="flex gap-2 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="px-3 py-2 text-sm text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !name.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60"
-                >
-                  {createMutation.isPending && <Loader2 size={13} className="animate-spin" />}
-                  {createMutation.isPending ? 'Criando…' : 'Criar espaço'}
-                </button>
-              </div>
-            </form>
+            {name.charAt(0).toUpperCase() || 'A'}
           </div>
         </div>
-      )}
+
+        <form
+          onSubmit={(e: FormEvent) => { e.preventDefault(); onSubmit(); }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-xs font-medium text-ink-dim mb-1.5">Nome do espaço</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+              required
+              autoFocus
+              placeholder="Ex: Produto, Marketing, Dev…"
+              className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink-dim mb-2">Cor</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => onColorChange(c)}
+                  className="w-6 h-6 rounded-full transition-all"
+                  style={{
+                    background: c,
+                    outline: color === c ? `2px solid ${c}` : 'none',
+                    outlineOffset: '2px',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {formError && <p className="text-xs text-danger">{formError}</p>}
+
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-2 text-sm text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isPending || !name.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60"
+            >
+              {isPending && <Loader2 size={13} className="animate-spin" />}
+              {isPending ? 'Criando…' : 'Criar espaço'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -19,6 +19,10 @@ import {
   RefreshToken,
   RefreshTokenSchema,
 } from './schemas/refresh-token.schema';
+import {
+  SpaceInvitation,
+  SpaceInvitationSchema,
+} from '../spaces/schemas/space-invitation.schema';
 
 @Module({
   imports: [
@@ -28,6 +32,9 @@ import {
       { name: PasswordReset.name, schema: PasswordResetSchema },
       { name: EmailVerification.name, schema: EmailVerificationSchema },
       { name: RefreshToken.name, schema: RefreshTokenSchema },
+      // Read-only here: register() checks for a pending invitation to enforce
+      // invite-only signup.
+      { name: SpaceInvitation.name, schema: SpaceInvitationSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

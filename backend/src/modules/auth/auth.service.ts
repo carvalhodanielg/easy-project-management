@@ -4,6 +4,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
@@ -28,8 +29,20 @@ import {
   RefreshToken,
   RefreshTokenDocument,
 } from './schemas/refresh-token.schema';
+import {
+  InvitationStatus,
+  SpaceInvitation,
+  SpaceInvitationDocument,
+} from '../spaces/schemas/space-invitation.schema';
 
 const SALT_ROUNDS = 10;
+
+// Registration is invite-only. This account is the bootstrap admin (created by
+// the seed) and is the only email allowed to register without an invitation.
+// Kept in sync with the seed via the same env var + default.
+const ADMIN_SEED_EMAIL = (
+  process.env.SEED_ADMIN_EMAIL ?? 'admin@teste.com'
+).toLowerCase();
 
 export interface AuthTokens {
   token: string;
@@ -60,11 +73,15 @@ export class AuthService {
     private readonly emailVerificationModel: Model<EmailVerificationDocument>,
     @InjectModel(RefreshToken.name)
     private readonly refreshTokenModel: Model<RefreshTokenDocument>,
+    @InjectModel(SpaceInvitation.name)
+    private readonly invitationModel: Model<SpaceInvitationDocument>,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthTokens> {
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already in use');
+
+    await this.assertRegistrationAllowed(dto.email);
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.usersService.create({
@@ -73,11 +90,33 @@ export class AuthService {
       displayName: dto.displayName,
     });
 
-    // Soft verification: the account is usable immediately, but we send a
-    // verification link and surface an "unverified" state in the UI.
-    await this.issueEmailVerification(user);
+    // Email verification is opt-in (off by default): an invite link addressed
+    // to the email already proves ownership. When enabled, send the link and
+    // surface an "unverified" state in the UI.
+    if (this.configService.get<boolean>('emailVerification.enabled')) {
+      await this.issueEmailVerification(user);
+    }
 
     return this.issueTokens(user);
+  }
+
+  // Invite-only gate: registration is allowed only for the bootstrap admin or
+  // for an email that has a pending, non-expired space invitation.
+  private async assertRegistrationAllowed(email: string): Promise<void> {
+    const normalized = email.toLowerCase().trim();
+    if (normalized === ADMIN_SEED_EMAIL) return;
+
+    const invitation = await this.invitationModel
+      .findOne({
+        email: normalized,
+        status: InvitationStatus.Pending,
+        expiresAt: { $gt: new Date() },
+      })
+      .exec();
+
+    if (!invitation) {
+      throw new ForbiddenException('Cadastro disponível apenas por convite.');
+    }
   }
 
   async login(dto: LoginDto): Promise<AuthTokens> {

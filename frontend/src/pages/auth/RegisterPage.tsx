@@ -51,6 +51,12 @@ export function RegisterPage() {
 
         {/* Card */}
         <div className="bg-surface border border-line rounded-2xl p-6 shadow-2xl">
+          {!lockedEmail && (
+            <p className="text-xs text-ink-dim bg-lift border border-line rounded-lg px-3 py-2 mb-4">
+              O cadastro é disponível apenas por convite. Use o link de convite que
+              você recebeu para criar sua conta.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div>

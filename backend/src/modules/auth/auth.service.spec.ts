@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { PasswordReset } from './schemas/password-reset.schema';
 import { EmailVerification } from './schemas/email-verification.schema';
 import { RefreshToken } from './schemas/refresh-token.schema';
+import { SpaceInvitation } from '../spaces/schemas/space-invitation.schema';
 
 const mockUser = {
   _id: { toString: () => 'user-id-1' },
@@ -40,10 +42,14 @@ const mockMailService = {
   sendEmailVerification: jest.fn().mockResolvedValue(undefined),
 };
 
+// Toggled per-test; registration only issues a verification email when on.
+let emailVerificationEnabled = false;
+
 const mockConfigService = {
   get: jest.fn((key: string) => {
     if (key === 'passwordReset.expiresInMinutes') return 60;
     if (key === 'emailVerification.expiresInHours') return 24;
+    if (key === 'emailVerification.enabled') return emailVerificationEnabled;
     if (key === 'refreshToken.expiresInDays') return 30;
     if (key === 'frontendUrl') return 'http://localhost:5173';
     return undefined;
@@ -68,6 +74,10 @@ const mockRefreshTokenModel = {
   updateOne: jest.fn(),
 };
 
+const mockSpaceInvitationModel = {
+  findOne: jest.fn(),
+};
+
 function execMock<T>(value: T) {
   return { exec: jest.fn().mockResolvedValue(value) };
 }
@@ -77,10 +87,16 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    emailVerificationEnabled = false;
     // Sensible defaults so register()'s verification email path doesn't throw;
     // individual tests override as needed.
     mockEmailVerificationModel.updateMany.mockReturnValue(execMock({}));
     mockEmailVerificationModel.create.mockResolvedValue({});
+    // Registration is invite-only: default to a valid pending invitation so the
+    // success paths pass; tests that exercise the gate override to null.
+    mockSpaceInvitationModel.findOne.mockReturnValue(
+      execMock({ _id: 'invite-id', status: 'pending' }),
+    );
     // Sensible default so register()/login()'s refresh-token path doesn't throw.
     mockRefreshTokenModel.create.mockResolvedValue({});
     mockRefreshTokenModel.updateOne.mockReturnValue(execMock({}));
@@ -102,6 +118,10 @@ describe('AuthService', () => {
         {
           provide: getModelToken(RefreshToken.name),
           useValue: mockRefreshTokenModel,
+        },
+        {
+          provide: getModelToken(SpaceInvitation.name),
+          useValue: mockSpaceInvitationModel,
         },
       ],
     }).compile();
@@ -158,7 +178,8 @@ describe('AuthService', () => {
       expect(valid).toBe(true);
     });
 
-    it('issues a verification token and emails the verification link', async () => {
+    it('issues a verification token and emails the verification link when verification is enabled', async () => {
+      emailVerificationEnabled = true;
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockResolvedValue(mockUser);
 
@@ -182,6 +203,7 @@ describe('AuthService', () => {
     });
 
     it('still returns a token even if the verification email fails', async () => {
+      emailVerificationEnabled = true;
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockResolvedValue(mockUser);
       mockMailService.sendEmailVerification.mockRejectedValueOnce(
@@ -198,6 +220,71 @@ describe('AuthService', () => {
         token: 'signed-token',
         refreshToken: expect.any(String),
       });
+    });
+
+    it('does not issue a verification email when verification is disabled (default)', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue(mockUser);
+
+      await service.register({
+        email: 'new@example.com',
+        password: 'password123',
+        displayName: 'New User',
+      });
+
+      expect(mockEmailVerificationModel.create).not.toHaveBeenCalled();
+      expect(mockMailService.sendEmailVerification).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when there is no pending invitation and the email is not the admin seed', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockSpaceInvitationModel.findOne.mockReturnValue(execMock(null));
+
+      await expect(
+        service.register({
+          email: 'stranger@example.com',
+          password: 'password123',
+          displayName: 'Stranger',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+    });
+
+    it('allows registration with a pending invitation for the email', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue(mockUser);
+      mockSpaceInvitationModel.findOne.mockReturnValue(
+        execMock({ _id: 'invite-id', status: 'pending' }),
+      );
+
+      const result = await service.register({
+        email: 'invited@example.com',
+        password: 'password123',
+        displayName: 'Invited User',
+      });
+
+      expect(result).toEqual({
+        token: 'signed-token',
+        refreshToken: expect.any(String),
+      });
+    });
+
+    it('allows the admin seed email to register without an invitation', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue(mockUser);
+      mockSpaceInvitationModel.findOne.mockReturnValue(execMock(null));
+
+      const result = await service.register({
+        email: 'admin@teste.com',
+        password: 'password123',
+        displayName: 'Admin',
+      });
+
+      expect(result).toEqual({
+        token: 'signed-token',
+        refreshToken: expect.any(String),
+      });
+      expect(mockUsersService.create).toHaveBeenCalled();
     });
   });
 

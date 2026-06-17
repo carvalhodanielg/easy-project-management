@@ -105,11 +105,11 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
       <div className="bg-lift border border-line rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Mail size={15} className="text-brand" />
-          <p className="text-sm font-semibold text-ink">Convite enviado</p>
+          <p className="text-sm font-semibold text-ink">Convite criado</p>
         </div>
         <p className="text-xs text-ink-dim">
-          Enviamos um convite para <span className="font-medium text-ink">{query.trim()}</span>.
-          Compartilhe o link abaixo se preferir:
+          Convite criado para <span className="font-medium text-ink">{query.trim()}</span>.
+          Copie e envie o link abaixo para a pessoa criar a conta e entrar:
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -190,19 +190,19 @@ function AddMemberPanel({ spaceId, existingIds, onClose }: {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-ink truncate">Convidar {query.trim()}</p>
-              <p className="text-xs text-ink-muted">Enviar convite por e-mail</p>
+              <p className="text-xs text-ink-muted">Gerar link de convite</p>
             </div>
           </button>
         ) : (
           <p className="text-xs text-ink-muted px-1">
-            Nenhum usuário encontrado. Digite um e-mail completo para convidar por e-mail.
+            Nenhum usuário encontrado. Digite um e-mail completo para gerar um link de convite.
           </p>
         )
       )}
 
       {inviteMutation.isError && (
         <p className="text-xs text-danger">
-          {getApiErrorMessage(inviteMutation.error, 'Falha ao enviar o convite.')}
+          {getApiErrorMessage(inviteMutation.error, 'Falha ao criar o convite.')}
         </p>
       )}
 

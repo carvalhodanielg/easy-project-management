@@ -40,6 +40,10 @@ export default () => ({
     ),
   },
   emailVerification: {
+    // Whether to send a verification link on registration and surface the
+    // "unverified" state. Off by default: registration is invite-only, so the
+    // invite link addressed to the email already proves ownership.
+    enabled: process.env.EMAIL_VERIFICATION_ENABLED === 'true',
     // How long an email verification link stays valid, in hours.
     expiresInHours: parseInt(
       process.env.EMAIL_VERIFICATION_EXPIRES_IN_HOURS ?? '24',

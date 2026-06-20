@@ -47,6 +47,16 @@ describe('RegisterPage', () => {
     expect(email).toBeDisabled();
   });
 
+  it('shows an invite-only note for a normal registration', () => {
+    renderPage();
+    expect(screen.getByText(/apenas por convite/i)).toBeInTheDocument();
+  });
+
+  it('hides the invite-only note when arriving from an invite link', () => {
+    renderPage('/register?email=invitee%40test.com');
+    expect(screen.queryByText(/apenas por convite/i)).not.toBeInTheDocument();
+  });
+
   it('shows the backend error message on a failed registration', async () => {
     vi.mocked(authApi.register).mockRejectedValue({
       response: { data: { error: { message: 'Email already in use' } } },

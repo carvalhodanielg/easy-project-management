@@ -34,7 +34,10 @@ describe('AttachmentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttachmentsService,
-        { provide: getModelToken(Attachment.name), useValue: mockAttachmentModel },
+        {
+          provide: getModelToken(Attachment.name),
+          useValue: mockAttachmentModel,
+        },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();

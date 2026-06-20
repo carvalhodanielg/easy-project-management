@@ -42,6 +42,7 @@ export function AssigneeSelector({ assignees, spaceId, onChange }: Props) {
       onChange(assignees.filter((u) => u._id !== user._id).map((u) => u._id));
     else
       onChange([...assignees.map((u) => u._id), user._id]);
+    setOpen(false);
   };
 
   return (

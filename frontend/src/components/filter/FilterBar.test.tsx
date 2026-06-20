@@ -86,4 +86,116 @@ describe('FilterBar', () => {
     );
     expect(screen.getByText(/pendente/i)).toBeInTheDocument();
   });
+
+  // ── Grupo A: seção Responsável no dropdown ──────────────────────────────
+
+  it('does NOT show assignee section when members prop is absent', () => {
+    render(<FilterBar {...DEFAULT_PROPS} />);
+    fireEvent.click(screen.getByText('Filtros'));
+    expect(screen.queryByText('Responsável')).not.toBeInTheDocument();
+  });
+
+  it('shows assignee section in dropdown when members are provided', () => {
+    const members = [
+      { _id: 'u1', displayName: 'Alice' },
+      { _id: 'u2', displayName: 'Bob' },
+    ];
+    render(<FilterBar {...DEFAULT_PROPS} members={members} />);
+    fireEvent.click(screen.getByText('Filtros'));
+    expect(screen.getByText('Responsável')).toBeInTheDocument();
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+  });
+
+  it('calls onToggleAssignee with member id when clicked', () => {
+    const members = [{ _id: 'u1', displayName: 'Alice' }];
+    render(<FilterBar {...DEFAULT_PROPS} members={members} />);
+    fireEvent.click(screen.getByText('Filtros'));
+    fireEvent.click(screen.getByText('Alice'));
+    expect(DEFAULT_PROPS.onToggleAssignee).toHaveBeenCalledWith('u1');
+  });
+
+  it('marks member button as active when id is in filters.assignees', () => {
+    const members = [
+      { _id: 'u1', displayName: 'Alice' },
+      { _id: 'u2', displayName: 'Bob' },
+    ];
+    render(
+      <FilterBar
+        {...DEFAULT_PROPS}
+        members={members}
+        filters={{ ...DEFAULT_FILTERS, assignees: ['u1'] }}
+      />,
+    );
+    fireEvent.click(screen.getByText('Filtros'));
+    // When the dropdown is open AND a chip is also rendered, 'Alice' appears twice.
+    // The dropdown button is always the last match in DOM order (chip comes first in the flex bar).
+    const allAlice = screen.getAllByText('Alice');
+    const allBob = screen.getAllByText('Bob');
+    const aliceDropdownBtn = allAlice[allAlice.length - 1].closest('button')!;
+    const bobDropdownBtn = allBob[allBob.length - 1].closest('button')!;
+    expect(aliceDropdownBtn).toHaveClass('text-brand');
+    expect(bobDropdownBtn).not.toHaveClass('text-brand');
+  });
+
+  // ── Grupo B: chips de responsável ativo ────────────────────────────────
+
+  it('does not show assignee chip when assignees set but members prop absent', () => {
+    render(
+      <FilterBar
+        {...DEFAULT_PROPS}
+        filters={{ ...DEFAULT_FILTERS, assignees: ['u1'] }}
+        isActive={true}
+      />,
+    );
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+  });
+
+  it('shows assignee chip for each selected assignee when members provided', () => {
+    const members = [
+      { _id: 'u1', displayName: 'Alice' },
+      { _id: 'u2', displayName: 'Bob' },
+    ];
+    render(
+      <FilterBar
+        {...DEFAULT_PROPS}
+        members={members}
+        filters={{ ...DEFAULT_FILTERS, assignees: ['u1', 'u2'] }}
+        isActive={true}
+      />,
+    );
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+  });
+
+  it('shows chip only for selected assignees', () => {
+    const members = [
+      { _id: 'u1', displayName: 'Alice' },
+      { _id: 'u2', displayName: 'Bob' },
+    ];
+    render(
+      <FilterBar
+        {...DEFAULT_PROPS}
+        members={members}
+        filters={{ ...DEFAULT_FILTERS, assignees: ['u1'] }}
+        isActive={true}
+      />,
+    );
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument();
+  });
+
+  it('calls onToggleAssignee when assignee chip is clicked', () => {
+    const members = [{ _id: 'u1', displayName: 'Alice' }];
+    render(
+      <FilterBar
+        {...DEFAULT_PROPS}
+        members={members}
+        filters={{ ...DEFAULT_FILTERS, assignees: ['u1'] }}
+        isActive={true}
+      />,
+    );
+    fireEvent.click(screen.getByText('Alice').closest('button')!);
+    expect(DEFAULT_PROPS.onToggleAssignee).toHaveBeenCalledWith('u1');
+  });
 });

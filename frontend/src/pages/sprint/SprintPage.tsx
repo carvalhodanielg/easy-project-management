@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { type DragEndEvent } from '@dnd-kit/core';
@@ -103,6 +103,16 @@ export function SprintPage() {
 
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
+
+  const filterBarMembers = useMemo(
+    () =>
+      members.flatMap((m) =>
+        typeof m.userId === 'object'
+          ? [{ _id: m.userId._id, displayName: m.userId.displayName }]
+          : [],
+      ),
+    [members],
+  );
 
   const { data: tasks = EMPTY_TASKS, isLoading } = useQuery<Task[] | GroupedTaskResult[]>({
     queryKey: ['tasks', spaceId, filterParams],
@@ -309,6 +319,7 @@ export function SprintPage() {
         {tab === 'tarefas' && <div className="px-6 py-2.5 flex items-center gap-3">
           <FilterBar
             filters={taskFilter.filters}
+            members={filterBarMembers}
             onToggleStatus={taskFilter.toggleStatus}
             onTogglePriority={taskFilter.togglePriority}
             onToggleAssignee={taskFilter.toggleAssignee}

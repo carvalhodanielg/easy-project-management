@@ -404,6 +404,19 @@ export function FilterBar({
           {PRIORITY_LABELS[p]} <X size={10} />
         </button>
       ))}
+      {filters.assignees.map((id) => {
+        const member = members.find((m) => m._id === id);
+        if (!member) return null;
+        return (
+          <button
+            key={id}
+            onClick={() => onToggleAssignee(id)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand/15 text-brand border border-brand/30"
+          >
+            {member.displayName} <X size={10} />
+          </button>
+        );
+      })}
       {isActive && (
         <button
           onClick={onReset}

@@ -10,6 +10,7 @@ export interface SavedFilterFields {
   tags?: string[];
   groupBy?: string;
   includeSubtasks?: boolean;
+  subtaskMode?: string;
   q?: string;
 }
 

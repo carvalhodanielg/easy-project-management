@@ -5,7 +5,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsOptional, IsArray, IsBoolean, IsIn } from 'class-validator';
 
 export class SavedFilterFieldsDto {
   @IsOptional()
@@ -31,6 +31,10 @@ export class SavedFilterFieldsDto {
   @IsOptional()
   @IsBoolean()
   includeSubtasks?: boolean;
+
+  @IsOptional()
+  @IsIn(['collapsed', 'expanded', 'separated'])
+  subtaskMode?: string;
 
   @IsOptional()
   @IsString()

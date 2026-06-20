@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LayoutList, Kanban, Plus, X } from 'lucide-react';
@@ -88,6 +88,16 @@ export function ListPage() {
 
   const filterParams = taskFilter.toQueryParams();
   const isGrouped = !!filterParams.groupBy;
+
+  const filterBarMembers = useMemo(
+    () =>
+      members.flatMap((m) =>
+        typeof m.userId === 'object'
+          ? [{ _id: m.userId._id, displayName: m.userId.displayName }]
+          : [],
+      ),
+    [members],
+  );
 
   const { data: tasks = [], isLoading } = useQuery<Task[] | GroupedTaskResult[]>({
     queryKey: ['tasks', spaceId, filterParams],
@@ -229,6 +239,7 @@ export function ListPage() {
         <div className="px-6 py-2.5 flex items-center gap-3">
           <FilterBar
             filters={taskFilter.filters}
+            members={filterBarMembers}
             onToggleStatus={taskFilter.toggleStatus}
             onTogglePriority={taskFilter.togglePriority}
             onToggleAssignee={taskFilter.toggleAssignee}

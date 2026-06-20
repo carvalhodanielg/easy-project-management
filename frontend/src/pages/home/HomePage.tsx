@@ -33,14 +33,18 @@ export function HomePage() {
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [formError, setFormError] = useState('');
 
+  const token = useAuthStore((s) => s.token);
+
   const { data: spaces = [], isLoading } = useQuery({
     queryKey: ['spaces'],
     queryFn: spacesApi.getSpaces,
+    enabled: !!token,
   });
 
   const { data: archivedSpaces = [] } = useQuery({
     queryKey: ['spaces', 'trash'],
     queryFn: spacesApi.getArchivedSpaces,
+    enabled: !!token,
   });
 
   function invalidateSpaces() {

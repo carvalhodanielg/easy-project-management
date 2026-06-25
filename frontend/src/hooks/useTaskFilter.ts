@@ -130,11 +130,29 @@ export function useTaskFilter(baseParams: Pick<TaskFilterParams, 'listId' | 'spr
     [persistPref],
   );
 
-  const reset = useCallback(() => setFilters(INITIAL), []);
+  const reset = useCallback(() => {
+    const prevGroupBy = filtersRef.current.groupBy;
+    const prevSubtaskMode = filtersRef.current.subtaskMode;
+    setFilters(INITIAL);
+    void persistPref(
+      { taskGroupBy: 'none', taskSubtaskMode: INITIAL.subtaskMode },
+      () => setFilters((f) => ({ ...f, groupBy: prevGroupBy, subtaskMode: prevSubtaskMode })),
+    );
+  }, [persistPref]);
 
-  const loadFilter = useCallback((saved: Partial<FilterState>) => {
-    setFilters({ ...INITIAL, ...saved });
-  }, []);
+  const loadFilter = useCallback(
+    (saved: Partial<FilterState>) => {
+      const merged = { ...INITIAL, ...saved };
+      const prevGroupBy = filtersRef.current.groupBy;
+      const prevSubtaskMode = filtersRef.current.subtaskMode;
+      setFilters(merged);
+      void persistPref(
+        { taskGroupBy: merged.groupBy ?? 'none', taskSubtaskMode: merged.subtaskMode },
+        () => setFilters((f) => ({ ...f, groupBy: prevGroupBy, subtaskMode: prevSubtaskMode })),
+      );
+    },
+    [persistPref],
+  );
 
   const isActive =
     filters.status.length > 0 ||

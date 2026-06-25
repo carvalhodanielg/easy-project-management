@@ -58,12 +58,13 @@ describe('taskCompletionSource', () => {
     expect(fetchTasks).not.toHaveBeenCalled();
   });
 
-  it('triggers for @@ even at the start of a line', async () => {
+  it('triggers for @@ immediately without explicit trigger', async () => {
     const fetchTasks = vi.fn(async () => TASKS);
     const src = taskCompletionSource(fetchTasks);
-    const res = (await src(ctx('@@', 2, true))) as CompletionResult;
+    const res = (await src(ctx('@@', 2))) as CompletionResult;
     expect(res).not.toBeNull();
     expect(res.from).toBe(0);
+    expect(fetchTasks).toHaveBeenCalledWith('');
   });
 
   it('fetches tasks for an @@ query and inserts a task link', async () => {

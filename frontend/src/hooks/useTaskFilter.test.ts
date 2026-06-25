@@ -199,6 +199,68 @@ describe('useTaskFilter', () => {
       expect(usersApi.updatePreferences).not.toHaveBeenCalled();
     });
 
+    it('reset() persists groupBy and subtaskMode back to defaults', async () => {
+      setUser({
+        ...baseUser,
+        preferences: { theme: 'dark', taskGroupBy: 'status', taskSubtaskMode: 'expanded' },
+      });
+
+      const { result } = renderHook(() => useTaskFilter());
+      expect(result.current.filters.groupBy).toBe('status');
+
+      act(() => result.current.reset());
+
+      expect(result.current.filters.groupBy).toBeUndefined();
+      expect(result.current.filters.subtaskMode).toBe('collapsed');
+      await waitFor(() =>
+        expect(usersApi.updatePreferences).toHaveBeenCalledWith({
+          taskGroupBy: 'none',
+          taskSubtaskMode: 'collapsed',
+        }),
+      );
+    });
+
+    it('loadFilter() persists groupBy and subtaskMode from the saved filter', async () => {
+      const { result } = renderHook(() => useTaskFilter());
+
+      act(() =>
+        result.current.loadFilter({
+          status: ['pendente'],
+          groupBy: 'assignee',
+          subtaskMode: 'expanded',
+        }),
+      );
+
+      expect(result.current.filters.groupBy).toBe('assignee');
+      expect(result.current.filters.status).toEqual(['pendente']);
+      await waitFor(() =>
+        expect(usersApi.updatePreferences).toHaveBeenCalledWith({
+          taskGroupBy: 'assignee',
+          taskSubtaskMode: 'expanded',
+        }),
+      );
+    });
+
+    it('loadFilter() persists "none" groupBy when saved filter has no groupBy', async () => {
+      setUser({
+        ...baseUser,
+        preferences: { theme: 'dark', taskGroupBy: 'status' },
+      });
+
+      const { result } = renderHook(() => useTaskFilter());
+      expect(result.current.filters.groupBy).toBe('status');
+
+      act(() => result.current.loadFilter({ status: ['pendente'] }));
+
+      expect(result.current.filters.groupBy).toBeUndefined();
+      await waitFor(() =>
+        expect(usersApi.updatePreferences).toHaveBeenCalledWith({
+          taskGroupBy: 'none',
+          taskSubtaskMode: 'collapsed',
+        }),
+      );
+    });
+
     it('reverts grouping locally and in the store when persistence fails', async () => {
       setUser({
         ...baseUser,

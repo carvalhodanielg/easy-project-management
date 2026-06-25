@@ -64,7 +64,6 @@ export function taskCompletionSource(
     if (!match) return null;
 
     const query = match.text.slice(2).trim();
-    if (!query && !context.explicit) return null;
 
     const tasks = await fetchTasks(query);
     if (context.aborted) return null;

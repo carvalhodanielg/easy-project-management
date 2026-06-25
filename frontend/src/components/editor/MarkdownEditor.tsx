@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
-import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view';
+import { EditorView, keymap, placeholder as cmPlaceholder, tooltips } from '@codemirror/view';
 import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -103,6 +103,7 @@ export function MarkdownEditor({
       EditorView.lineWrapping,
       editorTheme,
       editorHighlight,
+      tooltips({ position: 'fixed' }),
       autocompletion({
         icons: false,
         addToOptions: [{ render: renderCompletionBadge, position: 20 }],

@@ -32,7 +32,7 @@ export function DependenciesSection({ spaceId, task }: Props) {
 
   const { data: searchResults } = useQuery({
     queryKey: ['tasks-search', spaceId, query],
-    queryFn: () => tasksApi.getTasks(spaceId, { q: query }),
+    queryFn: () => tasksApi.getTasks(spaceId, { q: query, includeSubtasks: true }),
     enabled: adding && query.trim().length > 0,
     staleTime: 5_000,
   });

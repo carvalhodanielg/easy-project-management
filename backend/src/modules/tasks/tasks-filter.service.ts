@@ -98,10 +98,13 @@ export class TasksFilterService {
 
     const term = dto.q?.trim();
     const contextual = !!(dto.listId || dto.sprintId);
-    const substringSearch = !!term && contextual;
+    // Regex is used for contextual (list/sprint-bounded) OR global searches that
+    // explicitly include subtasks (e.g. the dependency search modal).
+    const useRegex = contextual || (!!term && !!dto.includeSubtasks);
+    const substringSearch = !!term && useRegex;
 
-    // During a contextual substring search, include subtasks so a matching
-    // subtask surfaces regardless of the subtask display mode.
+    // During a contextual or dependency substring search, include subtasks so a
+    // matching subtask surfaces regardless of the subtask display mode.
     if (!dto.includeSubtasks && !substringSearch) match.parentTask = null;
     if (dto.listId) match.listId = new Types.ObjectId(dto.listId);
     if (dto.sprintId) match.sprintId = new Types.ObjectId(dto.sprintId);
@@ -139,15 +142,15 @@ export class TasksFilterService {
     }
 
     if (term) {
-      if (contextual) {
-        // Sprint/list views are bounded by the spaceId+sprintId / spaceId+listId
-        // index, so a substring regex scan is cheap and enables partial matches
-        // ("am" → "amar", "tamanduá", "duplicam"). Escaped to avoid ReDoS.
+      if (useRegex) {
+        // Contextual (list/sprint-bounded) and dependency searches use a
+        // case-insensitive substring regex for partial matches ("tare" → "tarefa").
+        // Escaped to avoid ReDoS.
         match.name = { $regex: escapeRegExp(term), $options: 'i' };
       } else {
-        // Space-wide task filter keeps the indexed $text search (whole-word +
-        // stemming). In aggregation it stays valid because `match` is the first
-        // $match stage of every grouped pipeline.
+        // Space-wide task filter (no list/sprint context, no includeSubtasks) keeps
+        // the indexed $text search (whole-word + stemming). In aggregation it stays
+        // valid because `match` is the first $match stage of every grouped pipeline.
         match.$text = { $search: term };
       }
     }

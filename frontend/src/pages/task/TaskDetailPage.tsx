@@ -110,6 +110,9 @@ function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDe
       void queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       void queryClient.invalidateQueries({ queryKey: ['tasks', spaceId] });
       void queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
+      if (task.parentTask) {
+        void queryClient.invalidateQueries({ queryKey: ['subtasks', task.parentTask] });
+      }
     },
     onError: (err) => notifyError(err, 'Falha ao atualizar a tarefa. Tente novamente.'),
   });

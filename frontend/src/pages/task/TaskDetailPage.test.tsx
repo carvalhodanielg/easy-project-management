@@ -324,6 +324,41 @@ describe('TaskDetailPage — subtask navigation', () => {
     });
   });
 
+  it('invalidates sibling subtasks query when status is updated on a subtask', async () => {
+    vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...SUBTASK, status: 'feito' } as never);
+    vi.mocked(tasksApi.getTask).mockImplementation((_spaceId, taskId) => {
+      if (taskId === 'parent1') return Promise.resolve(PARENT_TASK as never);
+      return Promise.resolve(SUBTASK as never);
+    });
+    vi.mocked(tasksApi.getSubtasks).mockResolvedValue(SIBLINGS as never);
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/spaces/sp1/tasks/t1']}>
+          <Routes>
+            <Route path="/spaces/:spaceId/tasks/:taskId" element={<TaskDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId('parent-task-link'));
+
+    // Status is the first <select> in the quick-edit chips row
+    fireEvent.change(screen.getAllByRole('combobox')[0], {
+      target: { value: 'feito' },
+    });
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['subtasks', 'parent1'] }),
+      );
+    });
+  });
+
   it('close button on subtask with no listId falls back to parent task listId', async () => {
     vi.mocked(tasksApi.getTask).mockImplementation((_spaceId, taskId) => {
       if (taskId === 'parent1') return Promise.resolve(PARENT_TASK as never);

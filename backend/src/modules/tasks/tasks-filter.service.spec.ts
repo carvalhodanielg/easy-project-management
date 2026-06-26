@@ -192,6 +192,20 @@ describe('TasksFilterService', () => {
       >;
       expect(callArg).not.toHaveProperty('parentTask');
     });
+
+    it('uses regex and includes subtasks when q + includeSubtasks=true (dependency search mode)', async () => {
+      mockTaskModel.find.mockReturnValue(makeChain([]));
+      await service.findFiltered(spaceId, { q: 'tare', includeSubtasks: true }, userId);
+      const callArg = mockTaskModel.find.mock.calls[0][0] as {
+        name?: { $regex: string; $options: string };
+        $text?: unknown;
+        parentTask?: null;
+      };
+      expect(callArg.name?.$regex).toBe('tare');
+      expect(callArg.name?.$options).toBe('i');
+      expect(callArg).not.toHaveProperty('$text');
+      expect(callArg).not.toHaveProperty('parentTask');
+    });
   });
 
   describe('findFiltered — with groupBy', () => {

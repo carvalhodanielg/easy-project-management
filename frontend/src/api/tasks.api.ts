@@ -12,7 +12,7 @@ function buildParams(filters: TaskFilterParams): URLSearchParams {
   filters.assignees?.forEach((a) => p.append('assignees', a));
   filters.tags?.forEach((t) => p.append('tags', t));
   if (filters.groupBy) p.set('groupBy', filters.groupBy);
-  if (filters.subtaskMode === 'separated') p.set('includeSubtasks', 'true');
+  if (filters.subtaskMode === 'separated' || filters.includeSubtasks) p.set('includeSubtasks', 'true');
   if (filters.q) p.set('q', filters.q);
   return p;
 }

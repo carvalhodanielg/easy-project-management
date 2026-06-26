@@ -91,6 +91,7 @@ export interface TaskFilterParams {
   tags?: string[];
   groupBy?: 'status' | 'assignee';
   subtaskMode?: SubtaskMode;
+  includeSubtasks?: boolean;
   q?: string;
 }
 

@@ -8,6 +8,7 @@ import { notifyError } from '../../lib/toast';
 import { CommentThread } from '../../components/task/CommentThread';
 import { ActivityLog } from '../../components/task/ActivityLog';
 import { AssigneeSelector } from '../../components/task/AssigneeSelector';
+import { TagSelector } from '../../components/task/TagSelector';
 import { SubtaskList } from '../../components/task/SubtaskList';
 import { DependenciesSection, isTaskBlocked } from '../../components/task/DependenciesSection';
 import { useModalA11y } from '../../hooks/useModalA11y';
@@ -332,27 +333,15 @@ function TaskDetailModal({ task, parentTask, siblings, spaceId, taskId }: TaskDe
                   />
                 </div>
 
-                {/* Tags */}
-                {task.tags.length > 0 && (
-                  <div>
-                    <label className={FIELD_LABEL}>Tags</label>
-                    <div className="flex flex-wrap gap-2">
-                      {task.tags.map((tag) => (
-                        <span
-                          key={tag._id}
-                          style={{
-                            background: tag.color + '18',
-                            color: tag.color,
-                            border: `1px solid ${tag.color}30`,
-                          }}
-                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Labels */}
+                <div>
+                  <label className={FIELD_LABEL}>Labels</label>
+                  <TagSelector
+                    spaceId={spaceId}
+                    tags={task.tags}
+                    onChange={(ids) => updateMutation.mutate({ tags: ids })}
+                  />
+                </div>
 
                 {/* Dependencies */}
                 <DependenciesSection spaceId={spaceId} task={task} />

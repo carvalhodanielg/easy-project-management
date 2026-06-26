@@ -172,6 +172,7 @@ export class TasksService {
         archivedAt: null,
       })
       .populate('assignees', 'email displayName avatarUrl')
+      .populate('tags')
       .sort({ position: 1, createdAt: 1 })
       .exec();
   }

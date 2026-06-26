@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ChevronDown, Pencil, Check, Plus } from 'lucide-react';
-import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint } from '../../types/task.types';
+import type { Task, TaskStatus, GroupedTaskResult, FibonacciPoint, Tag } from '../../types/task.types';
 import { STATUS_LABELS, FIBONACCI_POINTS } from '../../types/task.types';
+import { TagSelector } from './TagSelector';
 import { updateTask } from '../../api/tasks.api';
 import { notifyError } from '../../lib/toast';
 import { TaskActionMenu } from './TaskActionMenu';
@@ -264,6 +265,22 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
 
   const assigneeIds = new Set(localAssignees.map((u) => u._id));
 
+  // ── Tags ──────────────────────────────────────────────────────────────────
+  const [localTags, setLocalTags] = useState<Tag[]>(task.tags);
+  useEffect(() => { setLocalTags(task.tags); }, [task.tags]);
+
+  const { mutate: changeTags } = useMutation({
+    mutationFn: (tagIds: string[]) => updateTask(spaceId!, task._id, { tags: tagIds }),
+    onMutate: (tagIds) => {
+      const allTags = queryClient.getQueryData<Tag[]>(['tags', spaceId]) ?? [];
+      const next = allTags.filter((t) => tagIds.includes(t._id));
+      setLocalTags(next);
+      applyOptimistic({ tags: next });
+    },
+    onError: (err) => { setLocalTags(task.tags); invalidate(); notifyError(err, 'Falha ao alterar as labels. Tente novamente.'); },
+    onSuccess: () => invalidate(),
+  });
+
   return (
     <div
       role="row"
@@ -399,15 +416,16 @@ export function TaskRow({ task, depth = 0, onToggleExpand, isExpanded, isSelecte
           </>
         )}
 
-        {!editingName && task.tags.slice(0, 2).map((tag) => (
-          <span
-            key={tag._id}
-            className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
-            style={{ background: tag.color + '22', color: tag.color }}
-          >
-            {tag.name}
-          </span>
-        ))}
+        {!editingName && spaceId && (
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <TagSelector
+              spaceId={spaceId}
+              tags={localTags}
+              onChange={changeTags}
+              compact
+            />
+          </div>
+        )}
       </div>
 
       {/* Col 3 — assignees */}

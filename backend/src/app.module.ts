@@ -24,6 +24,7 @@ import { SeedModule } from './modules/seed/seed.module';
 import { TaskEventsModule } from './modules/task-events/task-events.module';
 import { SavedFiltersModule } from './modules/saved-filters/saved-filters.module';
 import { SprintFoldersModule } from './modules/sprint-folders/sprint-folders.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { SprintFoldersModule } from './modules/sprint-folders/sprint-folders.mod
     TaskEventsModule,
     SavedFiltersModule,
     SprintFoldersModule,
+    HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
@@ -8,7 +9,12 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Behind the Nginx reverse proxy in production, trust the first hop so
+  // ThrottlerGuard (and anything else reading the client IP) sees the real
+  // client address from X-Forwarded-For instead of Nginx's own IP.
+  app.set('trust proxy', 1);
 
   app.use(helmet(helmetOptions));
 

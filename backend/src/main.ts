@@ -35,7 +35,7 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
   const port = config.get<number>('port') ?? 3000;
-
+  console.log("up")
   await app.listen(port);
   console.log(`AtkPlan API running on port ${port}`);
 }

@@ -3,12 +3,12 @@ WORKDIR /app
 COPY package*.json ./
 
 FROM base AS development
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 CMD ["npm", "run", "start:dev"]
 
 FROM base AS builder
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 

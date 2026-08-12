@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-      - 'docker-compose.prod.yml'
 
 jobs:
   test:
@@ -35,19 +34,17 @@ jobs:
         run: npm run test
 
   deploy:
-    name: Deploy to VPS
+    name: Trigger Coolify deploy
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            cd /opt/claudio
-            git pull origin main
-            docker compose -f docker-compose.prod.yml up -d --build backend
-            docker image prune -f
+      # Coolify builds and deploys the Application resource itself (it pulls
+      # the repo, builds backend/Dockerfile with target `production`, runs
+      # the /health check, and swaps traffic) — this just tells it to start.
+      # COOLIFY_WEBHOOK_URL comes from the Application's Webhooks tab in the
+      # Coolify panel; COOLIFY_API_TOKEN from Keys & Tokens.
+      - name: Trigger deploy
+        run: |
+          curl --fail --silent --show-error -X POST \
+            "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}"

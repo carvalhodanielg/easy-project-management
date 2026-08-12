@@ -1,85 +1,68 @@
 # Deploy do Claudio em produção
 
-Frontend na **Vercel**, backend + **MongoDB** auto-hospedados numa **VPS** (Docker Compose), TLS via **Nginx + Certbot**, uploads no **Cloudflare R2** e deploy contínuo do backend via **GitHub Actions**.
+Frontend na **Vercel**. Backend + **MongoDB** numa **VPS própria gerenciada pelo Coolify**
+(reverse proxy Traefik + HTTPS automático via Let's Encrypt, sem Nginx/Certbot manual).
+Uploads no **Cloudflare R2**. CI/CD: **GitHub Actions** roda os testes e, se passarem,
+dispara o webhook de deploy do Coolify.
 
 ## Contexto
 
 O código já está preparado para produção:
 
-- **Backend**: `backend/Dockerfile` é multi-stage com target `production` (`CMD ["node", "dist/main"]`); `main.ts` escuta em `0.0.0.0:PORT`, aplica Helmet, CORS (`origin: FRONTEND_URL`), `ValidationPipe`, `TransformInterceptor` e rate limiting (100 req/60s). Tudo configurável via env (`backend/src/config/configuration.ts`).
-- **Frontend**: Vite SPA; `src/api/client.ts` lê `VITE_API_URL` (fallback `http://localhost:3000`); usa `createBrowserRouter` (precisa de fallback SPA no host).
+- **Backend**: `backend/Dockerfile` é multi-stage com target `production` (`CMD ["node", "dist/main"]`); `main.ts` escuta em `0.0.0.0:PORT`, aplica `app.set('trust proxy', 1)` (necessário atrás do Traefik do Coolify), Helmet, CORS (`origin: FRONTEND_URL`), `ValidationPipe`, `TransformInterceptor` e rate limiting (100 req/60s). Tudo configurável via env (`backend/src/config/configuration.ts`).
+- **`/health`**: endpoint público (`backend/src/modules/health/`) que faz ping no Mongo e retorna `200 {status:'ok', database:'up'}` ou `503` se o banco estiver fora — é o que o Coolify usa como Health Check para saber se um deploy foi bem-sucedido antes de trocar o tráfego (zero-downtime).
+- **Frontend**: Vite SPA; `src/api/client.ts` lê `VITE_API_URL` (fallback `http://localhost:3000`); `frontend/vercel.json` já tem o rewrite de SPA para o React Router.
 - **Seed de admin**: `seed.service.ts` cria o admin único no boot — em produção **exige** `SEED_ADMIN_PASSWORD`, senão pula (registro é invite-only).
 - **Storage**: avatares/anexos já suportam Cloudflare R2 via env `R2_*` (com `R2_ENDPOINT` vazio usa o R2 real).
 
 ## Arquitetura alvo
 
 ```
-Usuário ──HTTPS──> Vercel (app.SEUDOMINIO.com)  [frontend Vite estático]
+Usuário ──HTTPS──> Vercel (app.SEUDOMINIO.com ou *.vercel.app)  [frontend Vite estático]
    │
-   └──HTTPS──> Nginx na VPS (api.SEUDOMINIO.com:443, TLS via Certbot)
-                   │ proxy_pass
+   └──HTTPS──> Traefik do Coolify (api.SEUDOMINIO.com, TLS automático)
+                   │ proxy interno
                    ▼
-              backend (container, 127.0.0.1:3000) ──> MongoDB (container, rede interna, sem porta pública)
+              backend (Application resource do Coolify) ──> MongoDB (Database resource do Coolify, rede interna)
                    │
                    └──> Cloudflare R2 (uploads/avatares)
 ```
 
----
-
-## Parte 1 — Backend + MongoDB na VPS (Docker Compose de produção)
-
-**Criar `docker-compose.prod.yml`** na raiz, sem MinIO/bind-mounts de dev:
-
-- **mongo** (`mongo:7`): root user/pass via env (`MONGO_INITDB_ROOT_USERNAME/PASSWORD`), volume nomeado `mongo_data`, healthcheck. **Não publicar porta** (sem `ports:`) — acessível só pela rede interna do compose.
-- **backend**: `build: { context: ./backend, target: production }`, `env_file: .env.prod`, `restart: unless-stopped`, `depends_on: mongo (healthy)`. Publicar **apenas em loopback**: `ports: ["127.0.0.1:3000:3000"]` — quem expõe ao mundo é o Nginx do host.
-- Volume: só `mongo_data` (uploads vão para R2).
-
-**Criar `.env.prod.example`** (template versionado; o `.env.prod` real fica só na VPS, fora do git):
-
-```env
-NODE_ENV=production
-PORT=3000
-JWT_SECRET=<gerar: openssl rand -base64 48>
-JWT_EXPIRES_IN=15m
-REFRESH_TOKEN_EXPIRES_IN_DAYS=30
-MONGO_INITDB_ROOT_USERNAME=atkplan
-MONGO_INITDB_ROOT_PASSWORD=<forte>
-MONGODB_URI=mongodb://atkplan:<forte>@mongo:27017/atkplan?authSource=admin
-FRONTEND_URL=https://app.SEUDOMINIO.com
-SEED_ADMIN_EMAIL=<seu-email>
-SEED_ADMIN_PASSWORD=<senha-admin-forte>
-# Cloudflare R2 (R2_ENDPOINT vazio = usa R2 real)
-R2_ENDPOINT=
-R2_ACCOUNT_ID=<account id>
-R2_ACCESS_KEY_ID=<key>
-R2_SECRET_ACCESS_KEY=<secret>
-R2_BUCKET_NAME=claudio-prod
-R2_PUBLIC_URL=https://<bucket-publico>.r2.dev
-```
-
-> `MONGODB_URI` referencia o host `mongo` (nome do serviço na rede do compose) e usa `authSource=admin`.
+Sem domínio próprio? O Certbot/Let's Encrypt não emite certificado para IP puro — use um
+hostname que resolva pro IP da VPS (ex: `<seu-ip>.nip.io`, gratuito e sem cadastro) no lugar
+de `api.SEUDOMINIO.com`. O Coolify também pode ter um domínio wildcard automático configurado
+no servidor; confira nas configurações do servidor no painel.
 
 ---
 
-## Parte 2 — Nginx + Certbot na VPS (TLS)
+## Parte 1 — MongoDB no Coolify (Database resource)
 
-No host (Ubuntu/Debian), via apt — **não** em container:
+1. No painel do Coolify: **New Resource → Database → MongoDB**. Deploy.
+2. Ativar **backup agendado** na aba "Backups" do recurso — resolve o backup do banco sem
+   precisar de cron manual + `mongodump`.
+3. Copiar a **connection string interna** que o Coolify mostra na aba do recurso (ela já
+   inclui usuário, senha e host dentro da rede Docker que o Coolify gerencia) — vai virar o
+   `MONGODB_URI` do backend na Parte 2.
+4. Não expor porta pública do Mongo.
 
-1. DNS: registro **A** `api.SEUDOMINIO.com` → IP da VPS.
-2. `apt install nginx certbot python3-certbot-nginx`.
-3. Server block para `api.SEUDOMINIO.com`:
-   ```nginx
-   location / {
-     proxy_pass http://127.0.0.1:3000;
-     proxy_set_header Host $host;
-     proxy_set_header X-Real-IP $remote_addr;
-     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-     proxy_set_header X-Forwarded-Proto $scheme;
-   }
-   client_max_body_size 25m;   # uploads de anexos
-   ```
-4. `certbot --nginx -d api.SEUDOMINIO.com` (cert + renovação automática).
-5. Firewall (`ufw`): liberar 80, 443, SSH; **bloquear 27017 e 3000** ao público.
+---
+
+## Parte 2 — Backend no Coolify (Application resource)
+
+1. **New Resource → Application** → conectar o repo GitHub, branch `main`, **Base Directory:
+   `backend`**, Build Pack: **Dockerfile**, target de build: `production`.
+2. **Porta exposta**: `3000`.
+3. **Domínio**: atribuir um domínio/subdomínio ao recurso no painel (ou usar o domínio
+   automático, se o servidor tiver wildcard configurado) — o Coolify emite HTTPS via Let's
+   Encrypt sozinho para esse domínio. É esse domínio que vira `VITE_API_URL` no frontend
+   (Parte 4) e `FRONTEND_URL`/CORS no sentido inverso.
+4. **Health Check**: path `/health`, porta `3000`.
+5. **Environment Variables** (aba do recurso): usar `.env.prod.example` (raiz do repo) como
+   checklist e colar os valores reais aqui — inclusive o `MONGODB_URI` copiado da Parte 1.
+   Nada disso vai para arquivo na VPS nem para o git.
+6. **Webhooks**: na aba "Webhooks" do Application, copiar a URL de deploy; gerar um token de
+   API em **Keys & Tokens** (configurações da conta/servidor) — os dois vão para os secrets
+   do GitHub na Parte 5.
 
 ---
 
@@ -88,61 +71,56 @@ No host (Ubuntu/Debian), via apt — **não** em container:
 1. Criar bucket (ex: `claudio-prod`).
 2. Criar API Token R2 (Access Key ID + Secret).
 3. Expor o bucket publicamente (domínio `r2.dev` ou domínio custom) → vira o `R2_PUBLIC_URL`.
-4. Preencher os `R2_*` no `.env.prod`. O código já usa essas envs; com `R2_ENDPOINT` vazio fala com o R2 real.
+4. Preencher os `R2_*` nas Environment Variables do Application no Coolify (Parte 2.5). Com
+   `R2_ENDPOINT` vazio o código fala com o R2 real.
 5. Validar CORS do bucket se o front buscar assets direto do `R2_PUBLIC_URL`.
 
 ---
 
 ## Parte 4 — Frontend na Vercel
 
-1. **Criar `frontend/vercel.json`** (rewrite SPA para o React Router):
-   ```json
-   { "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
-   ```
-2. No painel Vercel: importar o repo, **Root Directory = `frontend`**, framework Vite, Build `npm run build`, Output `dist`.
-3. Env var (Production): `VITE_API_URL=https://api.SEUDOMINIO.com`.
-4. Configurar o domínio `app.SEUDOMINIO.com` na Vercel.
-5. `FRONTEND_URL` no backend deve ser exatamente `https://app.SEUDOMINIO.com` — CORS aceita só essa origin (**previews da Vercel terão URL diferente e serão bloqueadas**; aceitável no início).
+1. No painel Vercel: importar o repo, **Root Directory = `frontend`**, framework Vite, Build
+   `npm run build`, Output `dist`. O rewrite de SPA já está em `frontend/vercel.json`.
+2. Env var (Production): `VITE_API_URL=` domínio atribuído ao backend no Coolify (Parte 2.3).
+3. Domínio próprio opcional — o domínio padrão `*.vercel.app` funciona normalmente, com
+   HTTPS automático.
+4. `FRONTEND_URL` no backend (Coolify, Parte 2.5) deve ser exatamente a URL de produção da
+   Vercel — CORS aceita só essa origin (**previews da Vercel terão URL diferente e serão
+   bloqueadas**; aceitável no início).
 
 ---
 
-## Parte 5 — GitHub Actions: deploy do backend na VPS
+## Parte 5 — GitHub Actions: testes + trigger do deploy
 
-**Criar `.github/workflows/deploy-backend.yml`**, em `push` na `main` com `paths: ['backend/**', 'docker-compose.prod.yml']`:
+`.github/workflows/deploy-backend.yml`, em `push` na `main` com `paths: ['backend/**']`:
 
-- Job com `appleboy/ssh-action` rodando na VPS:
-  ```bash
-  cd /opt/claudio
-  git pull origin main
-  docker compose -f docker-compose.prod.yml up -d --build backend
-  docker image prune -f
-  ```
-- Secrets do repo: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (chave dedicada), opcional `VPS_PORT`.
-- Pré-requisito na VPS: clonar o repo em `/opt/claudio` e colocar lá o `.env.prod`.
+- Job `test`: `npm ci && npm run build && npm run test` no backend.
+- Job `deploy` (`needs: test`, só roda se os testes passarem): `curl -X POST` na URL de
+  webhook do Coolify (Parte 2.6) com `Authorization: Bearer $COOLIFY_API_TOKEN`. O Coolify
+  faz o build (Dockerfile, target `production`) e o deploy zero-downtime sozinho, usando o
+  `/health` como critério de sucesso.
+- Secrets do repo: `COOLIFY_WEBHOOK_URL`, `COOLIFY_API_TOKEN`.
 - O frontend **não** precisa de workflow — a Vercel faz deploy automático a cada push.
 
-> Evolução futura: buildar a imagem no CI, dar push no GHCR e a VPS só fazer `pull` (mais robusto, mais setup).
-
 ---
 
-## Parte 6 — Ajustes no código (com TDD)
+## Parte 6 — Ajustes no código (com TDD) — já feitos
 
-O projeto exige teste antes da implementação.
-
-1. **`trust proxy`** — atrás do Nginx, necessário para o `ThrottlerGuard` enxergar o IP real via `X-Forwarded-For`. Em `backend/src/main.ts`: `app.set('trust proxy', 1);`. Cobrir via e2e ou validação manual (confirmar escopo de teste antes).
-2. **Health endpoint** (opcional, recomendado) — hoje não existe `/health`. Útil para o deploy/monitoramento. TDD: teste do controller primeiro, depois endpoint público retornando `{ status: 'ok' }` (e ping opcional no Mongo). Novo `backend/src/modules/health/` ou rota no `AppController`.
-
-`docker-compose.prod.yml`, `vercel.json` e o workflow são config — não exigem teste unitário.
+1. **`trust proxy`** em `backend/src/main.ts` — necessário atrás do Traefik do Coolify para o
+   `ThrottlerGuard` enxergar o IP real via `X-Forwarded-For`. Feito.
+2. **`/health`** (`backend/src/modules/health/`) — feito, com teste (TDD), faz ping real no
+   Mongo.
 
 ---
 
 ## Parte 7 — Hardening / operação
 
-- **Backup do Mongo**: cron na VPS com `mongodump` → enviar dump para o R2. Sem isso, perda da VPS = perda dos dados.
-- **Segredos**: `JWT_SECRET`, senhas e chaves R2 fortes e únicas; nunca commitar `.env.prod`.
+- **Backup do Mongo**: resolvido pelo backup agendado do recurso Database do Coolify (Parte 1.2).
+- **Segredos**: `JWT_SECRET`, credenciais Mongo (geradas pelo Coolify) e chaves R2 fortes e
+  únicas, guardadas só na UI do Coolify e nos Secrets do GitHub — nunca no repo.
 - **`SEED_ADMIN_PASSWORD`** forte — é a única conta inicial (registro invite-only).
-- **Restart/logs**: `restart: unless-stopped`; futuramente um agregador de logs.
-- Manter `mongo` e `backend` sem portas públicas (só loopback/rede interna).
+- **Logs/observabilidade**: Coolify já centraliza logs de build e runtime por recurso no
+  painel; considerar um agregador externo só se a escala justificar.
 
 ---
 
@@ -150,22 +128,26 @@ O projeto exige teste antes da implementação.
 
 | Arquivo | Ação |
 |---|---|
-| `docker-compose.prod.yml` (raiz) | Criar — mongo + backend de produção |
-| `.env.prod.example` (raiz) | Criar — template das envs de produção |
-| `frontend/vercel.json` | Criar — rewrite SPA |
-| `.github/workflows/deploy-backend.yml` | Criar — deploy SSH na VPS |
-| `backend/src/main.ts` | Modificar — `app.set('trust proxy', 1)` |
-| `backend/src/modules/health/*` | Criar (opcional, com teste) — endpoint `/health` |
-| Nginx server block na VPS (`/etc/nginx/sites-available/api`) | Criar na VPS |
+| `.env.prod.example` (raiz) | Feito — checklist de env vars para colar na UI do Coolify |
+| `frontend/vercel.json` | Feito — rewrite SPA |
+| `.github/workflows/deploy-backend.yml` | Feito — testa e dispara webhook do Coolify |
+| `backend/src/main.ts` | Feito — `app.set('trust proxy', 1)` |
+| `backend/src/modules/health/*` | Feito — endpoint `/health` com teste |
+| Recurso Database (MongoDB) no Coolify | Criar no painel — Parte 1 |
+| Recurso Application (backend) no Coolify | Criar no painel — Parte 2 |
 
 ---
 
 ## Verificação end-to-end
 
-1. **VPS**: `docker compose -f docker-compose.prod.yml up -d --build`; `docker compose ps` (mongo healthy, backend up); logs mostram "AtkPlan API running on port 3000" e "Seed admin created".
-2. **TLS**: `curl https://api.SEUDOMINIO.com/health` (ou rota pública) → 200 com cert válido.
-3. **Mongo isolado**: `nc -zv <ip-vps> 27017` de fora **deve falhar**.
-4. **Frontend**: acessar `https://app.SEUDOMINIO.com`, DevTools → Network, chamadas para `https://api.SEUDOMINIO.com` sem erro de CORS/mixed-content.
-5. **Login admin**: logar com `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`; criar space; upload de avatar/anexo servido a partir do `R2_PUBLIC_URL`.
-6. **CI/CD**: push em `main` alterando `backend/**` → workflow verde → backend redeployado.
-7. **Testes**: `cd backend && npm run test` e `cd frontend && npm run test` verdes antes do deploy.
+1. **Coolify**: recurso Database (Mongo) e Application (backend) com status "Running";
+   `/health` retornando 200 via o domínio HTTPS atribuído ao backend.
+2. **Mongo isolado**: sem porta pública exposta pelo recurso Database.
+3. **Frontend**: acessar a URL da Vercel, DevTools → Network, chamadas para o domínio do
+   backend sem erro de CORS/mixed-content.
+4. **Login admin**: logar com `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`; criar space; upload
+   de avatar/anexo servido a partir do `R2_PUBLIC_URL`.
+5. **CI/CD**: push em `main` alterando `backend/**` → job `test` verde → webhook do Coolify
+   disparado → novo deploy aparece no painel do Coolify.
+6. **Testes**: `cd backend && npm run test` e `cd frontend && npm run test` verdes antes do
+   deploy (garantido pelo `needs: test` do workflow).

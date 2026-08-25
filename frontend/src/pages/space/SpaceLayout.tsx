@@ -624,6 +624,9 @@ export function SpaceLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCreateSprint, setShowCreateSprint] = useState(false);
+  const [showCreateList, setShowCreateList] = useState(false);
+  const [listName, setListName] = useState('');
+  const [listError, setListError] = useState('');
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<sprintFoldersApi.SprintFolder | null>(null);
   const [sprintName,  setSprintName]  = useState('');
@@ -673,6 +676,18 @@ export function SpaceLayout() {
     onError: (err) => { setSprintError('Falha ao criar sprint.'); notifyError(err, 'Falha ao criar sprint.'); },
   });
 
+  const createListMutation = useMutation({
+    mutationFn: () => listsApi.createList(spaceId!, listName),
+    onSuccess: (list) => {
+      void queryClient.invalidateQueries({ queryKey: ['lists', spaceId] });
+      setListsOpen(true);
+      setShowCreateList(false);
+      setListName('');
+      navigate(`/spaces/${spaceId}/lists/${list._id}`);
+    },
+    onError: (err) => { setListError('Falha ao criar lista.'); notifyError(err, 'Falha ao criar lista.'); },
+  });
+
   const createDocFolderMutation = useMutation({
     mutationFn: (name: string) => wikiApi.createFolder(spaceId!, name),
     onSuccess: () => {
@@ -715,6 +730,7 @@ export function SpaceLayout() {
       setShowShortcuts(false);
       setShowSearch(false);
       setShowCreateSprint(false);
+      setShowCreateList(false);
       setShowCreateFolder(false);
       setEditingFolder(null);
       setCreatingDocFolder(false);
@@ -866,14 +882,15 @@ export function SpaceLayout() {
           <NavItem to={`/spaces/${spaceId}/trash`} icon={Trash2}>Lixeira</NavItem>
 
           {/* Lists */}
-          {lists.length > 0 && (
+          <SectionHeader
+            label="Listas"
+            open={listsOpen}
+            onToggle={() => setListsOpen((v) => !v)}
+            onAdd={() => setShowCreateList(true)}
+          />
+          {listsOpen && (
             <>
-              <SectionHeader
-                label="Listas"
-                open={listsOpen}
-                onToggle={() => setListsOpen((v) => !v)}
-              />
-              {listsOpen && lists.map((list) => (
+              {lists.map((list) => (
                 <NavItem
                   key={list._id}
                   to={`/spaces/${spaceId}/lists/${list._id}`}
@@ -882,6 +899,15 @@ export function SpaceLayout() {
                   {list.name}
                 </NavItem>
               ))}
+
+              {lists.length === 0 && (
+                <button
+                  onClick={() => setShowCreateList(true)}
+                  className="flex items-center gap-2 w-full px-2.5 py-[5px] text-sm text-ink-muted hover:text-ink transition-colors rounded-lg hover:bg-lift"
+                >
+                  <Plus size={13} /> Nova lista
+                </button>
+              )}
             </>
           )}
 
@@ -1135,6 +1161,61 @@ export function SpaceLayout() {
                 >
                   {createSprintMutation.isPending && <Loader2 size={13} className="animate-spin" />}
                   {createSprintMutation.isPending ? 'Criando…' : 'Criar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create list modal ── */}
+      {showCreateList && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowCreateList(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-modal border border-line rounded-2xl shadow-2xl w-full max-w-sm p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-semibold text-ink">Nova Lista</h3>
+              <button onClick={() => setShowCreateList(false)} className="p-1 rounded text-ink-muted hover:text-ink hover:bg-lift transition-colors">
+                <X size={15} />
+              </button>
+            </div>
+            <form
+              onSubmit={(e: FormEvent) => { e.preventDefault(); setListError(''); createListMutation.mutate(); }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="block text-xs font-medium text-ink-dim mb-1.5">Nome</label>
+                <input
+                  type="text"
+                  value={listName}
+                  onChange={(e) => setListName(e.target.value)}
+                  required
+                  autoFocus
+                  placeholder="Nome da lista…"
+                  className="w-full px-3 py-2.5 bg-input border border-line rounded-lg text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-brand transition-colors"
+                />
+              </div>
+              {listError && <p className="text-xs text-danger">{listError}</p>}
+              <div className="flex gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateList(false)}
+                  className="px-3 py-2 text-sm text-ink-dim hover:text-ink transition-colors rounded-lg hover:bg-lift"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={createListMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-brand hover:bg-brand-hi text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60"
+                >
+                  {createListMutation.isPending && <Loader2 size={13} className="animate-spin" />}
+                  {createListMutation.isPending ? 'Criando…' : 'Criar'}
                 </button>
               </div>
             </form>
